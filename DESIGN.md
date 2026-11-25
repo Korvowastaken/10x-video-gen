@@ -50,6 +50,43 @@ six-step flow (ARCHITECTURE.md, "Steps, approvals and staleness").
 | Every action shows its price; paid ones ask first | Free actions should feel safe to click. The only money spent is on clips and the score, and it is always a deliberate choice |
 | Allowed modes and a film budget, set once | The person sets the spending once for the whole film |
 
+## How the studio looks
+
+Set on 2026-11-25. The studio used to look like a grey developer tool, and people found it busy and hard to follow. The new look borrows from the tibeb, the woven coloured border on a habesha kemis or netela. Progress is woven like that border, and each approved step adds its band of colour. The tokens live in `studio/src/index.css`.
+
+**Colours.** Each colour has one job, and nothing uses colour for decoration.
+
+| Token | Light | Dark | Job |
+|---|---|---|---|
+| `--background` | `#ffffff` | `#121211` | The cloth: page ground |
+| `--card` | `#fbfaf7` | `#1a1917` | The rail |
+| `--foreground`, `--primary` | `#1d1d1b` | `#f2f0ea` | Ink: text and the one primary button per page |
+| `--free` | `#1f7a4d` | `#45a876` | Approved, free, up to date |
+| `--gold` | `#e0a800` | `#eab51f` | Where you are: the current step, a scene ready to approve |
+| `--warn` | `#b8322a` | `#e5675b` | Needs you: stale, redo, a used-up free limit |
+| `--link`, `--ring` | `#1f4e9e` | `#8db0ee` | Links, selection, focus |
+| `--paid` | `#9a4a12` | `#eb9a5c` | Paid modes and prices |
+| `--thread` | `#cfccc2` | `#4a4740` | Undyed thread: locked steps, empty segments, inputs |
+
+**Type.** Inter for everything, with Noto Sans Ethiopic for Amharic (`lang="am"`). Page titles are 28px semibold, body text 14px, labels 12px. The weights do the ranking, not extra sizes.
+
+**The woven band.** This is the studio's one signature. The `.weave-done`, `.weave-current`, `.weave-stale` and `.weave-locked` classes draw a diamond weave in CSS:
+- A 14px band runs down the rail's right edge, one segment per step.
+- A full-width strip sits under the Scenes header, one segment per scene, with a legend of counts.
+
+The band shows state and nothing else; it is never decoration.
+
+**Layout rules.**
+
+| Area | Rule |
+|---|---|
+| Rail | 288px: the 10 Academy logo and "TenX Heritage Short", the six steps as 60px rows (green, gold, red or outline number), then the free limits, the spending bar and Keys |
+| Page header | Title, then one line that starts with "Step n of 6". No small label above the title |
+| Primary action | One ink button per page: the step's next action |
+| Approve bar | Green when approved, red when changed, gold when ready |
+| Cards | 1px rules, 5 to 6px corners, no shadows. The only shadow is the job bar's soft lift |
+| Modes | Light and dark both follow the system setting |
+
 ## Test 1: the radio cut
 
 `outputs/cuts/radio_cut.mp4` is the narration over placeholder music on a black

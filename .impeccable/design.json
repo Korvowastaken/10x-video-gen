@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-25T20:00:00Z",
+  "title": "Design System: TenX Heritage Short studio",
+  "extensions": {
+    "colorMeta": {
+      "background": { "role": "neutral", "displayName": "Cotton", "canonical": "#ffffff" },
+      "card": { "role": "neutral", "displayName": "Rail", "canonical": "#fbfaf7" },
+      "foreground": { "role": "primary", "displayName": "Ink", "canonical": "#1d1d1b" },
+      "free": { "role": "success", "displayName": "Tibeb green", "canonical": "#1f7a4d" },
+      "gold": { "role": "accent", "displayName": "Tibeb gold", "canonical": "#e0a800" },
+      "warn": { "role": "error", "displayName": "Tibeb red", "canonical": "#b8322a" },
+      "link": { "role": "info", "displayName": "Tibeb blue", "canonical": "#1f4e9e" },
+      "paid": { "role": "accent", "displayName": "Paid", "canonical": "#9a4a12" },
+      "thread": { "role": "neutral", "displayName": "Undyed thread", "canonical": "#cfccc2" }
+    },
+    "typographyMeta": {
+      "title": { "displayName": "Page title", "purpose": "Inter 28px semibold, one per page." },
+      "body": { "displayName": "Body", "purpose": "Inter 14px; Noto Sans Ethiopic for lang=am." },
+      "label": { "displayName": "Label", "purpose": "Inter 12px for notes, counts and limits." }
+    },
+    "shadows": [
+      { "name": "job-bar", "value": "0 8px 24px -8px rgb(29 29 27 / 0.25)", "purpose": "The floating job bar only." }
+    ],
+    "motion": [
+      { "name": "state", "value": "150ms ease-out", "purpose": "Hover and selection colour changes." }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The one next action on a page, in ink.",
+      "html": "<button class=\"ds-btn-primary\">Approve S04</button>",
+      "css": ".ds-btn-primary { background: var(--foreground, #1d1d1b); color: var(--background, #fff); height: 32px; padding: 0 12px; border: 1px solid transparent; border-radius: 6px; font: 500 14px Inter, sans-serif; transition: background .15s; } .ds-btn-primary:hover { background: color-mix(in srgb, var(--foreground, #1d1d1b) 80%, transparent); } .ds-btn-primary:focus-visible { outline: 2px solid var(--ring, #1f4e9e); outline-offset: 2px; }"
+    },
+    {
+      "name": "Step Row",
+      "kind": "nav",
+      "refersTo": "rail-step",
+      "description": "A step in the rail: number in its state colour, name, note, and the woven band segment on the right edge.",
+      "html": "<div class=\"ds-step\"><span class=\"ds-step-n\">5</span><span><b>Scenes</b><small>3 of 11 approved</small></span><i class=\"ds-weave\"></i></div>",
+      "css": ".ds-step { position: relative; display: flex; align-items: center; gap: 12px; height: 60px; width: 288px; padding: 0 40px 0 24px; border-bottom: 1px solid #e6e4de; background: #fbfaf7; font: 14px Inter, sans-serif; color: #1d1d1b; } .ds-step b { display: block; font-weight: 500; } .ds-step small { display: block; font-size: 12px; color: #5f5e58; } .ds-step-n { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: #e0a800; font-size: 12px; font-weight: 600; } .ds-weave { position: absolute; top: 0; bottom: 0; right: 0; width: 14px; background: repeating-linear-gradient(45deg, transparent 0 4px, #1d1d1b 4px 5px), repeating-linear-gradient(-45deg, transparent 0 4px, #fff 4px 5px), linear-gradient(90deg, #e0a800 0 3px, #b8322a 3px 4px, #e0a800 4px 10px, #1f7a4d 10px 11px, #e0a800 11px); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Tibeb border",
+    "overview": "Progress woven like a tibeb border: each approved step adds its band of colour. White cotton ground in light, dark cloth in dark; colour only ever carries state.",
+    "keyCharacteristics": ["One ink action per page", "Woven band as the only signature", "Green approved, gold current, red needs you, blue selection"],
+    "rules": [{ "name": "Colour has a job", "body": "Tibeb colours mark state only; never decoration.", "section": "colors" }],
+    "dos": ["Do put the step's next action in the one ink button", "Do keep Amharic in Noto Sans Ethiopic with lang=am"],
+    "donts": ["Don't add a small label above a page title", "Don't use the weave as ornament"]
+  }
+}

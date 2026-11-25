@@ -29,3 +29,8 @@ references/
 # studio web app build
 studio/node_modules/
 studio/dist/
+
+# Impeccable design scratch (decision sketches, review captures)
+.impeccable/mocks/
+.impeccable/review/
+.impeccable/build/

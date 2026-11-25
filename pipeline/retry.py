@@ -101,7 +101,7 @@ def _retry_after_header(response: httpx.Response) -> float | None:
 
 def http_request(method: str, url: str, *, headers: dict[str, str] | None = None,
                  json_body: Any = None, data: dict[str, Any] | None = None,
-                 files: Any = None, timeout: float = 120.0,
+                 files: Any = None, content: bytes | None = None, timeout: float = 120.0,
                  on_throttle: Callable[[httpx.Response], float | None] | None = None) -> httpx.Response:
     """One HTTP call, translated into the error types above.
 
@@ -110,7 +110,7 @@ def http_request(method: str, url: str, *, headers: dict[str, str] | None = None
     """
     try:
         response = httpx.request(method, url, headers=headers, json=json_body, data=data,
-                                 files=files, timeout=timeout)
+                                 files=files, content=content, timeout=timeout)
     except (httpx.TimeoutException, httpx.TransportError) as exc:
         raise RetryableError(f"network error: {type(exc).__name__}: {exc}") from exc
     status = response.status_code

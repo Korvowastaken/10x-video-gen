@@ -28,12 +28,26 @@ import httpx
 
 from . import config
 
+# In the order the Keys page shows them: the first choices, the fallbacks, then the optional hosts.
 SERVICES: dict[str, dict[str, Any]] = {
+    "anthropic": {
+        "label": "Claude", "fields": ["ANTHROPIC_API_KEY"], "names": {"ANTHROPIC_API_KEY": "API key"}, "paid": True,
+        "url": "https://platform.claude.com/settings/keys",
+        "for": "Writes the storyboard in English (Haiku) and the spoken lines in the film's language (Sonnet).",
+        "limit": "Paid per token, no daily limit. A storyboard and its lines cost a few cents at most.",
+    },
+    "azure": {
+        "label": "Azure Speech", "fields": ["AZURE_SPEECH_KEY", "AZURE_SPEECH_REGION"],
+        "names": {"AZURE_SPEECH_KEY": "Speech key", "AZURE_SPEECH_REGION": "Region (e.g. eastus)"}, "paid": False,
+        "url": "https://portal.azure.com/#create/Microsoft.CognitiveServicesSpeechServices",
+        "for": "Records each line with a neural voice and listens back to check it.",
+        "limit": "Free tier (F0) per month: about 0.5 million characters of speech and 5 hours of listening.",
+    },
     "gemini": {
         "label": "Gemini", "fields": ["GEMINI_API_KEY"], "aliases": {"GEMINI_API_KEY": "GOOGLE_API_KEY"},
         "names": {"GEMINI_API_KEY": "API key"}, "paid": False,
         "url": "https://aistudio.google.com/apikey",
-        "for": "Writes the scenes, revises them from feedback, records the voices and listens back.",
+        "for": "Fallback for writing and voices, and finds the moving part of masked scenes.",
         "limit": "Free, with a small daily limit per Google Cloud project. A key from another project has its own limit.",
     },
     "cloudflare": {
@@ -56,11 +70,30 @@ SERVICES: dict[str, dict[str, Any]] = {
         "for": "Optional free GPU fallback for clips and music.",
         "limit": "Free, 6 GPU hours a week per account. One token: Kaggle reads it directly.",
     },
+    "groq": {
+        "label": "Groq", "fields": ["GROQ_API_KEY"], "names": {"GROQ_API_KEY": "API key"}, "paid": False,
+        "url": "https://console.groq.com/keys",
+        "for": "Optional: writes the English storyboard with a free hosted open model (name it groq/<model>).",
+        "limit": "Free, with per-minute and per-day limits per account; see the account's limits page.",
+    },
+    "cerebras": {
+        "label": "Cerebras", "fields": ["CEREBRAS_API_KEY"], "names": {"CEREBRAS_API_KEY": "API key"}, "paid": False,
+        "url": "https://cloud.cerebras.ai/",
+        "for": "Optional: writes the English storyboard with a free hosted open model (name it cerebras/<model>).",
+        "limit": "Free, with a daily token limit per account.",
+    },
+    "openrouter": {
+        "label": "OpenRouter", "fields": ["OPENROUTER_API_KEY"], "names": {"OPENROUTER_API_KEY": "API key"},
+        "paid": False, "url": "https://openrouter.ai/settings/keys",
+        "for": "Optional: writes the English storyboard with a free model (name it openrouter/<model>).",
+        "limit": "Free models are capped per day; more once the account has bought credit.",
+    },
 }
 
 # What a call is for. The person picks a key per purpose in the studio (each step shows
 # the purposes it uses), so voices can run on one Google project and writing on another.
-PURPOSES = {"writing": "gemini", "voices": "gemini", "pictures": "cloudflare", "clips": "wavespeed",
+# Writing and voices name a chain of providers in storyboard.json; this is the first choice.
+PURPOSES = {"writing": "anthropic", "voices": "azure", "pictures": "cloudflare", "clips": "wavespeed",
             "music": "wavespeed"}
 
 _LOCK = threading.Lock()
@@ -294,6 +327,27 @@ def check(service: str, values: dict[str, str]) -> str | None:
                           headers={"Authorization": f"Bearer {values['CLOUDFLARE_API_TOKEN']}"}, timeout=20)
             if r.status_code in (400, 401, 403, 404):
                 return "Cloudflare did not accept this account ID and token (the token needs Workers AI access)"
+        elif service == "anthropic":
+            import anthropic
+            try:
+                anthropic.Anthropic(api_key=values["ANTHROPIC_API_KEY"], max_retries=0, timeout=20).models.list(limit=1)
+            except (anthropic.AuthenticationError, anthropic.PermissionDeniedError):
+                return "Anthropic did not accept this key"
+            except anthropic.APIError:
+                return None  # offline or busy: save it unchecked
+        elif service == "azure":
+            region = values["AZURE_SPEECH_REGION"].strip().lower().replace(" ", "")
+            r = httpx.post(f"https://{region}.api.cognitive.microsoft.com/sts/v1.0/issueToken", timeout=20,
+                           headers={"Ocp-Apim-Subscription-Key": values["AZURE_SPEECH_KEY"]})
+            if r.status_code in (401, 403, 404):
+                return "Azure did not accept this Speech key for that region"
+        elif service in ("groq", "cerebras", "openrouter"):
+            from .providers.openai_compat import PROVIDERS
+            field = SERVICES[service]["fields"][0]
+            r = httpx.get(f"{PROVIDERS[service]['base']}/models", timeout=20,
+                          headers={"Authorization": f"Bearer {values[field]}"})
+            if r.status_code in (401, 403):
+                return f"{SERVICES[service]['label']} did not accept this key"
     except httpx.HTTPError:
         return None  # offline: save it unchecked rather than refuse it
     return None

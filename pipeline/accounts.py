@@ -23,12 +23,14 @@ from . import keys
 from .engines import MUSIC_ENGINES, VIDEO_ENGINES
 
 LABELS = {"writing": "Writing", "voices": "Voices", "pictures": "Pictures", "clips": "Clips", "music": "Music"}
-DOING = {"writing": "Drafts the script and revises scenes from feedback",
+DOING = {"writing": "Drafts the storyboard in English, writes the spoken lines, revises scenes from feedback",
          "voices": "Records each line and listens back to check it",
          "pictures": "Draws the sheets, places and stills",
          "clips": "Makes the moving clips for paid scenes",
          "music": "Makes the score candidates"}
-PROVIDER_LABEL = {"gemini": "Gemini", "cloudflare": "Cloudflare Workers AI", "wavespeed": "WaveSpeed", "kaggle": "Kaggle"}
+PROVIDER_LABEL = {"gemini": "Gemini", "cloudflare": "Cloudflare Workers AI", "wavespeed": "WaveSpeed", "kaggle": "Kaggle",
+                  "anthropic": "Claude", "azure": "Azure Speech", "groq": "Groq", "cerebras": "Cerebras",
+                  "openrouter": "OpenRouter"}
 CACHE_S = 300
 _CACHE: dict[str, tuple[float, Any]] = {}
 
@@ -127,6 +129,39 @@ def _key_status(purpose: str, service: str, slot: int, limits: dict[str, Any]) -
     return {"used_up": False}
 
 
+def _first_service(purpose: str, models: dict[str, Any], default: str) -> str:
+    """Writing and voices run down a chain of providers: show the first one with a saved key."""
+    from .config import DEFAULT_MODELS
+    from .providers.route import services
+    names = {"writing": ("script", "lines"), "voices": ("tts", "listen")}.get(purpose)
+    if not names:
+        return default
+    chain: list[str] = []
+    for name in names:
+        value = models.get(name) or DEFAULT_MODELS.get(name) or []
+        chain += [value] if isinstance(value, str) else list(value)
+    found = [s for s in services(chain) if s in keys.SERVICES]
+    from . import paused
+    return next((s for s in found if keys.slots(s) and not paused.is_paused(s)), found[0] if found else default)
+
+
+def _chain(purpose: str, models: dict[str, Any], service: str) -> list[dict[str, Any]]:
+    """Every service this work can run on, in the order it tries them, and whether each has a key."""
+    from .config import DEFAULT_MODELS
+    from .providers.route import services
+    names = {"writing": ("script", "lines"), "voices": ("tts", "listen")}.get(purpose)
+    order = [service]
+    if names:
+        chain: list[str] = []
+        for name in names:
+            value = models.get(name) or DEFAULT_MODELS.get(name) or []
+            chain += [value] if isinstance(value, str) else list(value)
+        order = [s for s in services(chain) if s in keys.SERVICES] or order
+    from . import paused
+    return [{"service": s, "provider": PROVIDER_LABEL[s], "connected": bool(keys.slots(s)), "paused": paused.is_paused(s)}
+            for s in order]
+
+
 def overview(sb: dict[str, Any] | None, limits: dict[str, Any]) -> dict[str, Any]:
     """{purpose: {...}} for the studio's "Providers and keys" panel on each step."""
     models = (sb or {}).get("models", {})
@@ -135,12 +170,14 @@ def overview(sb: dict[str, Any] | None, limits: dict[str, Any]) -> dict[str, Any
         choices = engines(purpose) if purpose in ("clips", "music") else []
         engine = models.get("video" if purpose == "clips" else "music") if choices else None
         chosen = next((c for c in choices if c["id"] == engine), None)
-        service = chosen["provider"] if chosen else default_service
+        service = chosen["provider"] if chosen else _first_service(purpose, models, default_service)
         saved = keys.slots(service)
         starts = keys.active(service, purpose)
         out[purpose] = {
             "label": LABELS[purpose], "does": DOING[purpose], "service": service,
             "provider": PROVIDER_LABEL[service], "engine": engine, "engines": choices,
+            "chain": _chain(purpose, models, service) if not chosen else [
+                {"service": service, "provider": PROVIDER_LABEL[service], "connected": bool(saved)}],
             "single": keys.SERVICES[service].get("single", False),
             "chosen": keys.preferred(purpose), "starts": starts,
             "keys": [{"slot": s, "n": i + 1, "masked": keys.mask(keys.value(service, keys.SERVICES[service]["fields"][-1], s)),

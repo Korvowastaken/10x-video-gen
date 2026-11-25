@@ -49,7 +49,12 @@
           "pattern": "^[0-9a-f]{64}$"
         },
         "model": {
-          "type": "string"
+          "type": "string",
+          "description": "The model that wrote the storyboard (in English when the film is in another language)."
+        },
+        "lines_model": {
+          "type": "string",
+          "description": "The model that wrote the spoken lines in the film's language."
         },
         "generated_at": {
           "type": "string"
@@ -121,6 +126,9 @@
       ],
       "properties": {
         "script": {
+          "$ref": "#/$defs/modelList"
+        },
+        "lines": {
           "$ref": "#/$defs/modelList"
         },
         "tts": {

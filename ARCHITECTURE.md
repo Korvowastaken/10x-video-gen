@@ -63,7 +63,7 @@ story.md ──script──► storyboard.json ◄── edited in the studio or
    ┌──────────────┬───────┴────────┬────────────────┐
    ▼              ▼                ▼                ▼
  keyframes     narration         music            shots
- FLUX.2 klein  Gemini TTS        ACE-Step 1.5     per shot, by motion.mode:
+ FLUX.2 klein  Azure Speech      ACE-Step 1.5     per shot, by motion.mode:
  (Cloudflare)  + listen-back     (WaveSpeed)      paid clip (WaveSpeed Wan 2.2 I2V)
    │              │                │              + local: masks, depth (laptop)
    └──────────────┴───────┬────────┴────────────────┘
@@ -77,9 +77,9 @@ story.md ──script──► storyboard.json ◄── edited in the studio or
 
 | Stage | Reads | Writes | Runs on |
 |---|---|---|---|
-| `script` | `story.md` | `storyboard.json` (the previous one backed up to `outputs/script/`) | Gemini 3.8, 3.7 or 3.5 Flash |
+| `script` | `story.md` | `storyboard.json` (the previous one backed up to `outputs/script/`) | storyboard in English: Claude Haiku 5.5; spoken lines in the film's language: Claude Sonnet 5.5; Gemini 3.5 Flash as the fallback for both |
 | `keyframes` | characters, locations, shots | `outputs/refs/` (character sheets, places), `outputs/keyframes/` (each shot's still, plus `<shot>_end` for in-betweens), contact sheets | FLUX.2 klein 4B with reference images on Cloudflare Workers AI; FLUX.1 schnell as fallback |
-| `narration` | lines, voices | `outputs/narration/raw/` (takes), `outputs/narration/` (processed lines), `timing.json` | Gemini 3.8 Flash TTS (then 3.8 Flash Lite TTS); gemini-3.5-transcribe listens back |
+| `narration` | lines, voices | `outputs/narration/raw/` (takes), `outputs/narration/` (processed lines), `timing.json` | Azure Speech neural voices (then Gemini 3.8 Flash TTS and 3.8 Flash Lite TTS); Azure speech-to-text listens back (then gemini-3.5-transcribe) |
 | `music` | `music` block | `outputs/music/candidate_<n>.flac` | ACE-Step 1.5 on WaveSpeed (fallback engine: Kaggle) |
 | `shots` | keyframes, `motion` per shot, `video` limits | `outputs/shots/raw/` (bought clips), `outputs/shots/` (masked composites), `outputs/shots/masks/`, `outputs/depth/` | Wan 2.2 I2V 480p Ultra Fast on WaveSpeed (fallback engine: Wan 2.2 TI2V-5B on Kaggle); masks by Gemini; depth by Depth Anything V2 Small on the laptop |
 | `assemble` | everything above | `outputs/cuts/` (radio, rough), `outputs/final/` (9:16, 16:9, `.srt`, report) | FFmpeg, OpenCV, RIFE on the laptop |
@@ -153,8 +153,37 @@ ID. Code holds only how those are combined:
   the still.
 
 The script stage drafts the creative half and code fills the technical half
-(seeds, models, limits). It regenerates the storyboard only when `story.md`
-changes (`source.story_sha256`), so hand edits survive.
+(seeds, models, limits). It works in two steps. First a cheap model with no
+strict daily limit (`models.script`, Claude Haiku 5.5) writes the whole
+storyboard in English, every spoken line included; the English becomes the
+subtitle. Then only the spoken lines go to the model best at the film's
+language (`models.lines`, Claude Sonnet 5.5), with the story and the cast, to
+be written the way a speaker would say them. Code checks the script and that
+each shot's words fit its length, and sends problems back (3 attempts). Most
+of the tokens are in the first step, so the strong model sees only a few
+hundred words. A film in English skips the second step. `source.model` and
+`source.lines_model` record who wrote what.
+
+It regenerates the storyboard only when `story.md` changes
+(`source.story_sha256`), so hand edits survive.
+
+### Providers and fallback chains
+
+Writing and voices name a chain of models in `storyboard.json`, and
+`pipeline/providers/route.py` tries them in order across providers. The id
+says the provider: `claude-...` is Anthropic, `azure-neural` and `azure-stt`
+are Azure AI Speech, `groq/...`, `cerebras/...` and `openrouter/...` are
+OpenAI-style hosts with free tiers, and anything else is Gemini. A provider
+with no saved key is skipped without a call, so the chain works with whatever
+keys a person has. Gemini's free tier (about 10 requests a day per model) is
+now the fallback rather than the first choice.
+
+Azure has one female and one male neural voice for Amharic. The storyboard's
+voice (a Gemini voice name) picks Azure's voice by pitch and shifts it a few
+percent by its character, so two speakers still sound apart. A line spoken by
+Azure has its own cache key (`azure_voice`), and lines already spoken by
+Gemini keep theirs, so switching an existing film to Azure re-speaks its lines
+once, on purpose.
 
 ### Validation
 
@@ -218,8 +247,8 @@ call in `runs.jsonl`, and the measurements copied into `EXPERIMENTS.md`,
 | What fails | What the pipeline does |
 |---|---|
 | 429 per-minute limit, 5xx, timeout, dropped connection | `retry.with_retries`: exponential backoff with jitter, honouring `retryDelay`; every attempt logged |
-| A model stays overloaded (Gemini 503) | `retry.with_fallback` moves down the storyboard's model chain |
-| A daily quota is used up (Gemini free tier, Cloudflare neurons, WaveSpeed credit) | `QuotaExhausted`: the model is skipped for the rest of the run, the chain moves on or the shot falls back |
+| A model stays overloaded (Gemini 503, Claude 529), refuses, or has no key saved | `route.py` moves down the storyboard's model chain, across providers |
+| A quota is used up (Gemini free tier, Azure's month, Anthropic credit, Cloudflare neurons, WaveSpeed credit) | `QuotaExhausted`: the model is skipped for the rest of the run, the chain moves on or the shot falls back |
 | WaveSpeed submit fails in an unclear way | not retried (no double billing); the shot counts one failed attempt, at most 3 |
 | The voice reads its stage direction, mispronounces, or adds speech | only the bare line is sent; listen-back CER and a length check trigger a retake (up to 3) and the closest take wins |
 | FLUX.2 fails or its allowance is gone | FLUX.1 schnell, without references |
@@ -266,7 +295,7 @@ and rule checks as `make validate`, and every button runs the same stage
 function the CLI runs, one job at a time, with its log streamed back. So a scene
 redone from the browser hits the same cache as `make shots ONLY=S03`.
 
-Scene feedback goes through `pipeline/revise.py`: Gemini proposes a revised shot
+Scene feedback goes through `pipeline/revise.py`: the lines writer (`models.lines`, then `models.script`) proposes a revised shot
 from the note, the studio shows the diff, and nothing changes until you accept
 it. The shot keeps its id and seeds, so only the parts the note touched are
 regenerated. Reference photos are saved in `references/` (git-ignored, since
@@ -283,7 +312,8 @@ schema/                  JSON Schema for the storyboard
 research/                the motion-on-a-budget study behind the motion modes
 pipeline/                one module per stage, plus engines.py, motion.py and the core;
                          flow.py (steps, approvals), steps.py (step actions), sketch.py, grade.py
-pipeline/providers/      gemini.py, cloudflare.py, wavespeed.py, kaggle_runner.py
+pipeline/providers/      route.py (chains across providers), anthropic_api.py, azure_speech.py,
+                         openai_compat.py, gemini.py, cloudflare.py, wavespeed.py, kaggle_runner.py
 pipeline/kaggle/         the scripts the Kaggle fallback engines run
 tests/                   contract, caching, motion and edit tests (`make test`)
 outputs/                 everything generated, kept so a run can be inspected

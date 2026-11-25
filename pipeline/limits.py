@@ -114,12 +114,18 @@ def free_limits(project: Project, models: dict[str, Any], now: datetime | None =
     A purpose is used up only when every saved key for it is; `keys` says it per key fingerprint."""
     now = now or datetime.now(timezone.utc)
     rows = _rows(project)
-    chain = lambda key: [models[key]] if isinstance(models.get(key), str) else list(models.get(key) or [])  # noqa: E731
+    def chain(key: str) -> list[str]:
+        """The Gemini models in a chain: other providers have no daily limit to read back here."""
+        from .providers.route import provider_of
+        value = models.get(key)
+        names = [value] if isinstance(value, str) else list(value or [])
+        return [m for m in names if provider_of(m) == "gemini"]
+
     pacific = _pacific()
     gemini_since, gemini_back = last_reset(now, pacific), next_reset(now, pacific)
     cf_since, cf_back = last_reset(now, timezone.utc), next_reset(now, timezone.utc)
     gemini = _by_key(rows, "gemini")
-    writing = {fp: gemini_used_up(r, chain("script"), gemini_since) for fp, r in gemini.items()}
+    writing = {fp: gemini_used_up(r, chain("script") + chain("lines"), gemini_since) for fp, r in gemini.items()}
     voices = {fp: gemini_used_up(r, chain("tts"), gemini_since) for fp, r in gemini.items()}
     pictures = {fp: int(max(0.0, CLOUDFLARE_NEURONS_A_DAY - cloudflare_used(r, cf_since)) // NEURONS_PER_STILL)
                 for fp, r in _by_key(rows, "cloudflare").items()}

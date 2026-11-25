@@ -1,6 +1,6 @@
 """Revise one scene from a person's feedback.
 
-Gemini gets the story, the film's cast and style, the scene as it stands and
+The writing model gets the story, the film's cast and style, the scene as it stands and
 the feedback, and returns the scene rewritten. The proposal is validated
 against the whole storyboard (schema, script, engines, consent) before anyone
 sees it, and nothing is saved until it is accepted. Ids, speakers' ids and
@@ -14,7 +14,7 @@ from typing import Any
 
 from . import storyboard as sbmod
 from .config import Project
-from .providers import gemini
+from .providers import route
 
 SYSTEM = ("You are the writer and storyboard artist of a tiny animation studio. You revise one scene of a "
           "short film at a time, changing only what the feedback asks for. You answer with JSON only.")
@@ -46,13 +46,19 @@ Rewrite the scene to answer the feedback and change nothing else. Rules:
 - Return the whole scene as one JSON object in exactly the same shape."""
 
 
+def writers(sb: dict[str, Any]) -> list[str]:
+    """A revision rewrites spoken lines too, so it goes to the lines writer first."""
+    return list(dict.fromkeys(sbmod.model_list(sb["models"].get("lines") or []) +
+                              sbmod.model_list(sb["models"]["script"])))
+
+
 def propose(project: Project, shot_id: str, feedback: str) -> dict[str, Any]:
     sb = sbmod.load(project)
     shot = next(s for s in sb["shots"] if s["id"] == shot_id)
     story = project.story.read_text("utf-8") if project.story.exists() else ""
-    text, used = gemini.generate_text(project, stage="studio", item=f"{shot_id}-revise", json_mode=True,
-                                      model=sbmod.model_list(sb["models"]["script"]), temperature=0.5,
-                                      system=SYSTEM, prompt=_prompt(sb, shot, feedback, story))
+    text, used = route.generate_text(project, stage="studio", item=f"{shot_id}-revise", json_mode=True,
+                                     models=writers(sb), temperature=0.5,
+                                     system=SYSTEM, prompt=_prompt(sb, shot, feedback, story))
     proposal = json.loads(text)
     if isinstance(proposal, list):
         proposal = proposal[0]
@@ -124,12 +130,12 @@ Rewrite the script to answer the feedback and change nothing else. Rules:
 
 
 def propose_script(project: Project, feedback: str) -> dict[str, Any]:
-    """Gemini's revision of the whole script, as a full storyboard to review; nothing is saved."""
+    """The writing model's revision of the whole script, as a full storyboard to review; nothing is saved."""
     sb = sbmod.load(project)
     story = project.story.read_text("utf-8") if project.story.exists() else ""
-    text, used = gemini.generate_text(project, stage="studio", item="script-revise", json_mode=True,
-                                      model=sbmod.model_list(sb["models"]["script"]), temperature=0.5,
-                                      system=SYSTEM, prompt=_script_prompt(sb, feedback, story))
+    text, used = route.generate_text(project, stage="studio", item="script-revise", json_mode=True,
+                                     models=writers(sb), temperature=0.5,
+                                     system=SYSTEM, prompt=_script_prompt(sb, feedback, story))
     proposal = merge_script(sb, json.loads(text))
     errors = sbmod.schema_errors(proposal) or sbmod.rule_errors(proposal, project)
     return {"proposal": proposal, "errors": errors, "model": used}

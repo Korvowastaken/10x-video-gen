@@ -36,7 +36,7 @@ from . import tuning
 from .cache import StageCache, key_for
 from .config import ConfigError, Project
 from .media import measure_loudness, probe_duration, run_ffmpeg, write_wav
-from .providers import gemini
+from .providers import azure_speech, route
 from .retry import ProviderError, QuotaExhausted, RetryableError
 
 TARGET_LUFS = -18.0
@@ -97,9 +97,12 @@ def tts_spec(sb: dict[str, Any], line: dict[str, Any]) -> dict[str, Any]:
     take is recorded in the manifest and in runs.jsonl."""
     speaker = sbmod.characters(sb)[line["speaker"]]
     # The delivery note is not sent to the model (gemini.tts_prompt), so it is not in the key.
-    return {"text": line["text"], "voice": speaker["voice"]["name"],
+    spec = {"text": line["text"], "voice": speaker["voice"]["name"],
             "model": sbmod.model_list(sb["models"]["tts"])[0], "language": sb["language"]["code"],
             "prompt_format": PROMPT_FORMAT}
+    if route.provider_of(spec["model"]) == "azure":
+        spec["azure_voice"] = azure_speech.VOICE_VERSION  # Gemini keys stay as they were: no re-speaking
+    return spec
 
 
 def too_long(text: str, seconds: float) -> bool:
@@ -155,8 +158,9 @@ def _take(project: Project, sb: dict[str, Any], item: str, spec: dict[str, Any],
     best: tuple[float, Path, dict[str, Any]] | None = None
     tts_key = key_for(spec)
     for take in range(1, MAX_TAKES + 1):
-        pcm, rate, used = gemini.tts(project, stage="narration", item=item if take == 1 else f"{item}-take{take}",
-                                     model=tts_models(sb), text=spec["text"], voice=spec["voice"])
+        pcm, rate, used = route.tts(project, stage="narration", item=item if take == 1 else f"{item}-take{take}",
+                                    models=tts_models(sb), text=spec["text"], voice=spec["voice"],
+                                    language=sb["language"]["code"])
         raw = raw_cache.dir / f"{item}__{tts_key}.take{take}.wav"
         write_wav(raw, pcm, rate=rate)
         seconds = len(pcm) / 2 / rate
@@ -164,9 +168,9 @@ def _take(project: Project, sb: dict[str, Any], item: str, spec: dict[str, Any],
         cer = None
         if listen_models:
             try:
-                heard, _ = gemini.transcribe(project, stage="narration", item=f"{item}-listen{take}",
-                                             model=listen_models, wav_bytes=raw.read_bytes(),
-                                             language=sb["language"]["name"])
+                heard, _ = route.transcribe(project, stage="narration", item=f"{item}-listen{take}",
+                                            models=listen_models, wav_bytes=raw.read_bytes(),
+                                            language=sb["language"]["code"], language_name=sb["language"]["name"])
                 cer = char_error_rate(spec["text"], heard)
                 meta.update(heard=heard, cer=cer)
             except (ProviderError, QuotaExhausted, RetryableError) as exc:

@@ -6,18 +6,45 @@ original score under the voice, and an end card that says it was made with AI.
 You go through six steps, and each one waits for your approval before the next
 one opens. Every model call is logged in `runs.jsonl`.
 
-## Quick start (one minute, Windows, no make)
+## Setup
 
-```sh
-uv sync                                  # Python 3.12 and every dependency, FFmpeg included
-copy .env.example .env                   # then fill in the keys below
-uv run python -m pipeline studio         # open http://127.0.0.1:8765
-```
+1. Install these once, then **open a new terminal** so it finds them (in VS
+   Code, close every VS Code window and open it again):
 
-`uv` is installed in `%APPDATA%\Python\Python315\Scripts`, which is on the
-user PATH; open a new terminal if `uv` is not found. The first `studio` run
-builds the web app, which needs Node.js with pnpm or npm. After that it starts
-in a few seconds.
+   | Tool | Windows | macOS |
+   |---|---|---|
+   | [Git](https://git-scm.com) | `winget install Git.Git` | `brew install git` |
+   | [uv](https://docs.astral.sh/uv/getting-started/installation/) | `winget install astral-sh.uv` | `brew install uv` |
+   | [Node.js LTS](https://nodejs.org), which includes npm | `winget install OpenJS.NodeJS.LTS` | `brew install node` |
+
+   On Linux, follow the links. You do not need to install Python or FFmpeg:
+   `uv sync` brings both.
+
+2. Get the project and its dependencies:
+
+   ```sh
+   git clone https://github.com/Korvowastaken/10x-video-gen heritage-studio
+   cd heritage-studio
+   uv sync
+   ```
+
+3. Copy `.env.example` to `.env` (`copy` in Command Prompt, `cp` in PowerShell,
+   macOS and Linux) and fill in your own keys, listed under [Keys](#keys).
+
+4. Start the studio and open <http://localhost:8765>:
+
+   ```sh
+   uv run python -m pipeline studio
+   ```
+
+   The first start builds the web app, which takes about a minute. Starting
+   it makes no model calls. Ctrl+C stops it.
+
+| If you see | Do this |
+|---|---|
+| `'uv' is not recognized` or `command not found` | Open a new terminal; in VS Code, restart VS Code fully |
+| `Errno 10048` or `address already in use` | The studio is already running: use that page, or press Ctrl+C in its terminal |
+| `needs Node.js` | Install Node.js (step 1), then open a new terminal |
 
 ## The six steps
 

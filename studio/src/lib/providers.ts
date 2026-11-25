@@ -16,7 +16,7 @@ export type ProviderKey = {
 export type PurposeInfo = {
   label: string
   does: string
-  service: "gemini" | "cloudflare" | "wavespeed" | "kaggle"
+  service: "gemini" | "cloudflare" | "wavespeed" | "kaggle" | "anthropic" | "azure" | "groq" | "cerebras" | "openrouter"
   provider: string
   engine: string | null
   engines: { id: string; label: string; provider: string; price: string; paid: boolean; note: string }[]

@@ -14,13 +14,23 @@ SCHEMA_PATH = ROOT / "schema" / "storyboard.schema.json"
 ASSETS = ROOT / "assets"
 FONTS = ASSETS / "fonts"
 
-# Defaults written into a new storyboard by the script stage. IDs were checked
-# against each provider's model list on 2026-11-25 (see COSTS.md, FAILURES.md).
+# Defaults written into a new storyboard by the script stage. Gemini IDs were
+# checked against its model list on 2026-11-25 (see COSTS.md, FAILURES.md).
 # Gemini 2.5 models are retired on 2026-12-01, so none is a standing fallback.
+#
+# Gemini's free tier allows about 10 requests a day per model, so it is now the
+# fallback, not the first choice (providers/route.py tries each chain in order
+# and skips a provider with no saved key):
+#   script  the storyboard, written in English by a cheap model with no daily cap
+#   lines   only the spoken lines, put into the film's language by the model best at it
+#   tts     Azure neural voices (free per month), then Gemini TTS
+#   listen  Azure speech-to-text, then Gemini
+# 3.5 Flash comes before 3.8 and 3.7 because it is the one that kept answering.
 DEFAULT_MODELS = {
-    "script": ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.5-flash"],
-    "tts": ["gemini-3.8-flash-tts", "gemini-3.8-flash-lite-tts"],
-    "listen": ["gemini-3.5-transcribe", "gemini-3.5-flash"],
+    "script": ["claude-haiku-5-5", "gemini-3.5-flash", "gemini-3.7-flash", "gemini-3.8-flash"],
+    "lines": ["claude-sonnet-5-5", "gemini-3.5-flash", "gemini-3.7-flash", "gemini-3.8-flash"],
+    "tts": ["azure-neural", "gemini-3.8-flash-tts", "gemini-3.8-flash-lite-tts"],
+    "listen": ["azure-stt", "gemini-3.5-transcribe", "gemini-3.5-flash"],
     "image": ["@cf/black-forest-labs/flux-2-klein-4b", "@cf/black-forest-labs/flux-1-schnell"],
     "video": "wavespeed-wan22-480p",     # engine ids: see pipeline/engines.py
     "music": "wavespeed-ace-step-1.5",

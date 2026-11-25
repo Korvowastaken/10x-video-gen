@@ -26,7 +26,7 @@ from . import storyboard as sbmod
 from .cache import StageCache, key_for, sha256_file, write_atomic
 from .config import ROOT, ConfigError, Project
 from .engines import MODES, VIDEO_ENGINES
-from .providers import gemini, wavespeed
+from .providers import route, wavespeed
 from .retry import ProviderError, QuotaExhausted, RetryableError
 
 VIDEO_DEFAULTS = {"max_paid_clips": 7, "budget_usd": 0.6, "interpolation": "rife", "rife_model": motion.RIFE_MODEL}
@@ -81,10 +81,13 @@ def locate(project: Project, sb: dict[str, Any], shot: dict[str, Any], keyframe:
         return json.loads(hit.read_text("utf-8"))["regions"]
     prompt = (f"Find {mask['target']} in this image. Return JSON only: {{\"boxes\": [[ymin, xmin, ymax, xmax], ...]}} "
               "with coordinates from 0 to 1000. Cover everything that should move, using at most 3 boxes.")
-    # Any vision model will do; the Lite ones are busy less often (all three Flash models were out at once).
-    models = list(dict.fromkeys(sbmod.model_list(sb["models"]["script"]) + VISION_FALLBACKS))
-    text, used = gemini.generate_text(project, stage="shots", item=f"{shot['id']}-mask", json_mode=True,
-                                      model=models, temperature=0.0, prompt=prompt, image=keyframe)
+    # Any vision model will do. Gemini first, since it is trained to find boxes; the Lite ones are
+    # busy less often (all three Flash models were out at once). Claude and the rest after that.
+    named = sbmod.model_list(sb["models"]["script"])
+    gemini_first = [m for m in named if route.provider_of(m) == "gemini"] + VISION_FALLBACKS
+    models = list(dict.fromkeys(gemini_first + named))
+    text, used = route.generate_text(project, stage="shots", item=f"{shot['id']}-mask", json_mode=True,
+                                     models=models, temperature=0.0, prompt=prompt, image=keyframe)
     regions = []
     for ymin, xmin, ymax, xmax in parse_boxes(text)[:3]:
         pad_x, pad_y = (xmax - xmin) * 0.12, (ymax - ymin) * 0.12
@@ -94,7 +97,7 @@ def locate(project: Project, sb: dict[str, Any], shot: dict[str, Any], keyframe:
             regions.append({"shape": "ellipse", "x": round(x0, 4), "y": round(y0, 4),
                             "w": round(x1 - x0, 4), "h": round(y1 - y0, 4)})
     if not regions:
-        raise ProviderError(f"{shot['id']}: Gemini found no '{mask['target']}' on the keyframe")
+        raise ProviderError(f"{shot['id']}: the model found no '{mask['target']}' on the keyframe")
     path = cache.path(shot["id"], key, ".json")
     write_atomic(path, json.dumps({"regions": regions, "model": used}, indent=2).encode("utf-8"))
     cache.record(shot["id"], key, path, spec, model=used)

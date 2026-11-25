@@ -79,8 +79,9 @@ def script_errors(sb: dict[str, Any]) -> list[str]:
     return errors
 
 
-def rule_errors(sb: dict[str, Any], project: Project | None = None) -> list[str]:
-    errors: list[str] = script_errors(sb)
+def rule_errors(sb: dict[str, Any], project: Project | None = None, *, check_script: bool = True) -> list[str]:
+    """`check_script=False` while the lines are still English drafts (script stage, step one)."""
+    errors: list[str] = script_errors(sb) if check_script else []
     characters = {c["id"]: c for c in sb.get("characters", [])}
     if len(characters) != len(sb.get("characters", [])):
         errors.append("characters: two characters share an id")

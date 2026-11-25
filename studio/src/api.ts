@@ -89,7 +89,7 @@ export type Limit = {
 }
 /** One service's saved keys, masked: a key itself never reaches the browser. */
 export type KeyService = {
-  id: "gemini" | "cloudflare" | "wavespeed" | "kaggle"
+  id: "gemini" | "cloudflare" | "wavespeed" | "kaggle" | "anthropic" | "azure" | "groq" | "cerebras" | "openrouter"
   label: string
   paid: boolean
   /** Only one key: the service reads it directly, so there is nothing to switch to. */

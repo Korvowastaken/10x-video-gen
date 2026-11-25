@@ -1,57 +1,90 @@
-import { ImagePlus, Trash2 } from "lucide-react"
+import { Check, ImagePlus, Trash2 } from "lucide-react"
 import { useRef, useState } from "react"
 import { toast } from "sonner"
 
-import { api, type Character } from "@/api"
+import { api, type Character, type Place } from "@/api"
 import type { Studio } from "@/App"
+import { RunButton } from "@/components/run-button"
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
+import { FREE } from "@/lib/progress"
 import { cn } from "@/lib/utils"
+import { Page, StatusDot, StepHeader } from "@/views/parts"
 
 export function ReferencesView({ studio }: { studio: Studio }) {
-  const { state, track, busy } = studio
+  const { state, track, busy, go } = studio
   const sb = state.storyboard
-  if (!sb) return <Empty />
+  if (!sb) return <Page>Draft the scenes from your story first.</Page>
   const people = sb.characters.filter((c) => c.visible)
+  const old = Object.values(state.sheets_stale ?? {}).filter(Boolean).length
+  const undrawn = Object.values(state.sheets).filter((u) => u.some((x) => !x)).length
   return (
-    <div className="mx-auto max-w-5xl px-5 py-10 md:px-10">
-      <div className="mb-1 font-mono text-[11px] tracking-widest text-subtle uppercase">Look</div>
-      <h1 className="mb-2 text-3xl font-semibold tracking-tight">References</h1>
-      <p className="mb-8 max-w-2xl text-muted-foreground">
-        Upload a photo to steer a character or place. Every keyframe is drawn from the approved sheet, so fix the look here first.
-      </p>
-      <div className="grid gap-4">
+    <Page>
+      <StepHeader
+        n={2}
+        title="Look"
+        lead="Every scene is drawn from the approved sheet of each person and place. Add a photo or change the look here, then redraw."
+      >
+        <div className="flex items-center gap-3">
+          {(old > 0 || undrawn > 0) && (
+            <StatusDot status="stale">{[undrawn && `${undrawn} not drawn`, old && `${old} out of date`].filter(Boolean).join(" · ")}</StatusDot>
+          )}
+          <RunButton cost={FREE("Cloudflare")} disabled={busy} onRun={() => track(api.run("keyframes"))}>
+            Redraw sheets and stills
+          </RunButton>
+          <Button variant="ghost" onClick={() => go("scenes")}>
+            Go to Scenes
+          </Button>
+        </div>
+      </StepHeader>
+
+      <h2 className="mb-1 text-[13px] font-semibold">People</h2>
+      <div className="divide-y border-y">
         {people.map((c) => (
-          <Owner key={c.id} studio={studio} id={c.id} name={c.name} character={c} />
+          <Owner key={c.id} studio={studio} id={c.id} name={c.name} sub={c.role} character={c} />
         ))}
+      </div>
+      <h2 className="mt-10 mb-1 text-[13px] font-semibold">Places</h2>
+      <div className="divide-y border-y">
         {sb.locations.map((p) => (
-          <Owner key={p.id} studio={studio} id={p.id} name={p.name} look={p.look} />
+          <Owner key={p.id} studio={studio} id={p.id} name={p.name} place={p} />
         ))}
       </div>
-      <div className="mt-8">
-        <Button onClick={() => track(api.run("keyframes"))} disabled={busy}>
-          Draw sheets and keyframes
-        </Button>
-        <span className="ml-3 text-[12px] text-subtle">Free (Cloudflare allowance). Only what changed is redrawn.</span>
-      </div>
-    </div>
+    </Page>
   )
 }
 
-function Owner({ studio, id, name, character, look }: { studio: Studio; id: string; name: string; character?: Character; look?: string }) {
+function Owner({ studio, id, name, sub, character, place }: { studio: Studio; id: string; name: string; sub?: string; character?: Character; place?: Place }) {
   const { state, refresh } = studio
   const input = useRef<HTMLInputElement>(null)
-  const [text, setText] = useState(character?.look ?? look ?? "")
+  const [text, setText] = useState(character?.look ?? place?.look ?? "")
+  const [pending, setPending] = useState<File | null>(null)
+  const [over, setOver] = useState(false)
   const sheets = state.sheets[id] ?? []
   const photo = state.photos[id]
   const chosen = character?.reference?.chosen ?? 0
+  const scenes = state.storyboard!.shots.filter((s) => (character ? s.characters.includes(id) : s.location === id)).map((s) => s.id)
+  const status = sheets.some((u) => !u) ? "missing" : state.sheets_stale?.[id] ? "stale" : "ok"
 
-  async function upload(file?: File) {
+  function pick(file?: File) {
     if (!file) return
-    if (character?.real_person === false && !window.confirm(`Is this a photo of a real person? If so, record their consent in ETHICS.md and mark ${name} as a real person first.`)) return
+    if (character && !character.real_person) setPending(file)
+    else upload(file)
+  }
+
+  async function upload(file: File) {
     try {
       await api.upload(id, file)
-      toast.success("Photo added. Redraw to use it.")
+      toast.success(`Photo added to ${name}. Redraw to use it.`)
       await refresh()
     } catch (err) {
       toast.error((err as Error).message)
@@ -62,7 +95,7 @@ function Owner({ studio, id, name, character, look }: { studio: Studio; id: stri
     if (!character) return
     try {
       await api.saveCharacter({ ...character, look: text })
-      toast.success(`${name}: look saved`)
+      toast.success(`${name}: look saved. Redraw to see it.`)
       await refresh()
     } catch (err) {
       toast.error((err as Error).message)
@@ -70,70 +103,126 @@ function Owner({ studio, id, name, character, look }: { studio: Studio; id: stri
   }
 
   async function choose(i: number) {
-    if (!character?.reference) return
+    if (!character?.reference || i === chosen) return
     await api.saveCharacter({ ...character, reference: { ...character.reference, chosen: i } })
+    toast.success(`Sheet ${i + 1} approved. ${scenes.length} scene${scenes.length === 1 ? "" : "s"} with ${name} now need new stills.`)
     await refresh()
   }
 
   return (
-    <section className="grid gap-4 rounded-xl border bg-card p-4 md:grid-cols-[200px_minmax(0,1fr)]">
+    <section className="grid grid-cols-[132px_minmax(0,1fr)] gap-6 py-6">
       <div>
-        <div className="mb-1 font-medium">{name}</div>
-        <div className="mb-3 font-mono text-[11px] text-subtle">
-          {id}
-          {character?.real_person && <span className="ml-2 text-warn">real person · {character.consent}</span>}
-        </div>
         <div
-          onDragOver={(e) => e.preventDefault()}
-          onDrop={(e) => (e.preventDefault(), upload(e.dataTransfer.files[0]))}
+          onDragOver={(e) => (e.preventDefault(), setOver(true))}
+          onDragLeave={() => setOver(false)}
+          onDrop={(e) => (e.preventDefault(), setOver(false), pick(e.dataTransfer.files[0]))}
           onClick={() => input.current?.click()}
-          className="relative grid aspect-square cursor-pointer place-items-center overflow-hidden rounded-lg border border-dashed bg-muted text-muted-foreground transition-colors hover:border-primary"
+          className={cn(
+            "relative grid aspect-square cursor-pointer place-items-center overflow-hidden rounded-lg border border-dashed bg-muted/60 text-muted-foreground transition-colors hover:border-primary hover:text-foreground",
+            over && "border-primary bg-accent",
+            photo && "border-solid",
+          )}
         >
           {photo ? (
-            <img src={photo} alt={`Reference for ${name}`} className="size-full object-cover" />
+            <img src={photo} alt={`Reference photo for ${name}`} className="size-full object-cover" />
           ) : (
-            <div className="flex flex-col items-center gap-2 text-[12px]">
-              <ImagePlus className="size-5" />
-              Drop or pick a photo
+            <div className="flex flex-col items-center gap-1.5 px-3 text-center text-[12px]">
+              <ImagePlus className="size-4" />
+              Drop a photo
             </div>
           )}
-          <input ref={input} type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={(e) => upload(e.target.files?.[0])} />
+          <input ref={input} type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={(e) => pick(e.target.files?.[0])} />
         </div>
         {photo && (
-          <Button variant="ghost" size="sm" className="mt-2" onClick={async () => (await api.removePhoto(id), refresh())}>
+          <Button variant="ghost" size="xs" className="mt-1.5 text-subtle" onClick={async () => (await api.removePhoto(id), refresh())}>
             <Trash2 /> Remove photo
           </Button>
         )}
       </div>
-      <div className="min-w-0">
-        <Textarea value={text} onChange={(e) => setText(e.target.value)} disabled={!character} className="min-h-20 text-[13px]" />
-        {character && (
-          <Button variant="secondary" size="sm" className="mt-2" onClick={saveLook} disabled={text === character.look}>
-            Save look
-          </Button>
-        )}
-        <div className="mt-4 flex flex-wrap gap-2">
-          {sheets.map((url, i) =>
-            url ? (
-              <button
-                key={i}
-                onClick={() => choose(i)}
-                disabled={!character}
-                className={cn("w-24 overflow-hidden rounded-lg border-2 border-transparent transition-colors", character && i === chosen && "border-primary")}
-                title={character ? (i === chosen ? "Approved sheet" : "Approve this sheet") : undefined}
-              >
-                <img src={url} alt={`${name} sheet ${i + 1}`} className="aspect-[3/4] w-full object-cover" />
-              </button>
-            ) : (
-              <div key={i} className="grid aspect-[3/4] w-24 place-items-center rounded-lg bg-muted text-[11px] text-subtle">not drawn</div>
-            ),
+
+      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-6">
+        <div className="min-w-0">
+          <div className="flex items-center gap-3">
+            <span className="font-medium">{name}</span>
+            {status === "ok" && <StatusDot status="ok">Up to date</StatusDot>}
+            {status === "stale" && <StatusDot status="stale">Out of date, redraw</StatusDot>}
+            {status === "missing" && <StatusDot status="missing">Not drawn yet</StatusDot>}
+          </div>
+          <div className="mt-0.5 mb-3 text-[12px] text-subtle">
+            {sub && <span className="capitalize">{sub} · </span>}
+            In {scenes.length ? scenes.join(", ") : "no scene"}
+            {character?.real_person && <span className="ml-2 text-warn">Real person · consent {character.consent}</span>}
+          </div>
+          <Textarea value={text} onChange={(e) => setText(e.target.value)} disabled={!character} className="min-h-20 text-[13px]" />
+          {character && text !== character.look && (
+            <div className="mt-2 flex gap-2">
+              <Button size="sm" onClick={saveLook}>
+                Save look
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setText(character.look ?? "")}>
+                Discard
+              </Button>
+            </div>
           )}
+          {!character && <p className="mt-1.5 text-[12px] text-subtle">Place looks are edited in storyboard.json.</p>}
+        </div>
+
+        <div>
+          <div className="mb-1.5 text-[12px] text-subtle">{character && sheets.length > 1 ? "Pick the sheet to approve" : "Sheet"}</div>
+          <div className="flex gap-2">
+            {sheets.map((url, i) => {
+              const on = !!character && i === chosen
+              return url ? (
+                <button
+                  key={i}
+                  onClick={() => choose(i)}
+                  disabled={!character}
+                  className={cn(
+                    "relative w-[84px] overflow-hidden rounded-md ring-1 ring-border transition-shadow",
+                    character && "hover:ring-foreground/40",
+                    on && "ring-2 ring-primary hover:ring-primary",
+                  )}
+                  title={character ? (on ? "Approved" : "Approve this sheet") : undefined}
+                >
+                  <img src={url} alt={`${name}, sheet ${i + 1}`} className={cn("w-full object-cover", character ? "aspect-[3/4]" : "aspect-[9/16]")} />
+                  {on && (
+                    <span className="absolute top-1 right-1 grid size-4 place-items-center rounded-full bg-primary text-white">
+                      <Check className="size-2.5" strokeWidth={3} />
+                    </span>
+                  )}
+                </button>
+              ) : (
+                <div key={i} className="grid aspect-[3/4] w-[84px] place-items-center rounded-md border border-dashed text-[11px] text-subtle">
+                  Not drawn
+                </div>
+              )
+            })}
+          </div>
         </div>
       </div>
+
+      <AlertDialog open={!!pending} onOpenChange={(o) => !o && setPending(null)}>
+        <AlertDialogContent className="data-[size=default]:sm:max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Is this a photo of a real person?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {name} is marked as a made-up character. If the photo shows a real person, record their consent in ETHICS.md and mark {name} as a
+              real person first.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <Button
+              onClick={() => {
+                if (pending) upload(pending)
+                setPending(null)
+              }}
+            >
+              Not a real person, add it
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </section>
   )
-}
-
-function Empty() {
-  return <div className="p-10 text-muted-foreground">Draft the storyboard from your story first.</div>
 }

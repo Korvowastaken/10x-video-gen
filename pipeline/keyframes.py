@@ -70,6 +70,51 @@ def _make(project: Project, cache: StageCache, *, item: str, spec: dict[str, Any
     return path
 
 
+def character_ref_prompt(project: Project, sb: dict[str, Any], character: dict[str, Any]) -> tuple[str, Path | None]:
+    prompt = sbmod.reference_prompt(sb, character)
+    photo = _photo(project, character["reference"])
+    if photo:
+        prompt += (" Base the face, hair and build on the reference photo, drawn in the style above, "
+                   "not as a photograph.")
+    return prompt, photo
+
+
+def location_ref_prompt(project: Project, sb: dict[str, Any], location: dict[str, Any]) -> tuple[str, Path | None]:
+    prompt = sbmod.location_prompt(sb, location)
+    photo = _photo(project, location["reference"])
+    if photo:
+        prompt += " Base the layout, landmarks and colours on the reference photo, drawn in the style above."
+    return prompt, photo
+
+
+def ref_spec(prompt: str, seed: int, model: str, size: tuple[int, int], photo: Path | None) -> dict[str, Any]:
+    return {"v": 1, "prompt": prompt, "seed": seed, "model": model, "size": size,
+            "photo": sha256_file(photo) if photo else None}
+
+
+def keyframe_spec(sb: dict[str, Any], shot: dict[str, Any], model: str, refs: list[Path]) -> dict[str, Any]:
+    return {"v": 1, "prompt": sbmod.image_prompt(sb, shot), "seed": shot["keyframe"]["seed"], "model": model,
+            "size": KEYFRAME_SIZE, "refs": [sha256_file(r) for r in refs]}
+
+
+def end_keyframe_spec(sb: dict[str, Any], shot: dict[str, Any], model: str, start: Path,
+                      refs: list[Path], place: Path | None) -> tuple[dict[str, Any], list[Path]]:
+    """The end frame takes the start frame as its first reference, so both share one scene."""
+    end_refs = [start] + [r for r in refs if r != place][:MAX_REFERENCES - 1]
+    spec = {"v": 1, "prompt": sbmod.end_image_prompt(sb, shot), "seed": shot["motion"]["end_keyframe"]["seed"],
+            "model": model, "size": KEYFRAME_SIZE, "refs": [sha256_file(r) for r in end_refs]}
+    return spec, end_refs
+
+
+def shot_refs(shot: dict[str, Any], approved: dict[str, Path]) -> list[Path]:
+    """The approved sheets a keyframe is drawn from: its cast, then its place."""
+    refs = [approved[c] for c in shot["characters"] if c in approved]
+    place = approved.get(f"place:{shot['location']}")
+    if place is not None:
+        refs.append(place)
+    return refs[:MAX_REFERENCES]
+
+
 def references(project: Project, sb: dict[str, Any], *, force: bool = False,
                counts: dict[str, int] | None = None, needed: set[str] | None = None) -> dict[str, Path]:
     """Generate (or reuse) the reference candidates; return the approved one per character/location.
@@ -83,29 +128,21 @@ def references(project: Project, sb: dict[str, Any], *, force: bool = False,
         if not character["visible"] or (needed is not None and character["id"] not in needed):
             continue
         ref = character["reference"]
-        prompt = sbmod.reference_prompt(sb, character)
-        photo = _photo(project, ref)
-        if photo:
-            prompt += (" Base the face, hair and build on the reference photo, drawn in the style above, "
-                       "not as a photograph.")
+        prompt, photo = character_ref_prompt(project, sb, character)
         for i, seed in enumerate(ref["seeds"]):
-            spec = {"v": 1, "prompt": prompt, "seed": seed, "model": models[0], "size": REFERENCE_SIZE,
-                    "photo": sha256_file(photo) if photo else None}
-            path = _make(project, cache, item=f"char_{character['id']}_{i}", spec=spec, models=models, prompt=prompt, seed=seed,
-                         size=REFERENCE_SIZE, references=[photo] if photo else [], force=force, counts=counts)
+            spec = ref_spec(prompt, seed, models[0], REFERENCE_SIZE, photo)
+            path = _make(project, cache, item=f"char_{character['id']}_{i}", spec=spec, models=models, prompt=prompt,
+                         seed=seed, size=REFERENCE_SIZE, references=[photo] if photo else [], force=force,
+                         counts=counts)
             if i == ref.get("chosen", 0):
                 approved[character["id"]] = path
     for location in sb["locations"]:
         ref = location.get("reference")
         if not ref or (needed is not None and location["id"] not in needed):
             continue
-        prompt = sbmod.location_prompt(sb, location)
+        prompt, photo = location_ref_prompt(project, sb, location)
         seed = ref["seeds"][ref.get("chosen", 0)]
-        photo = _photo(project, ref)
-        if photo:
-            prompt += " Base the layout, landmarks and colours on the reference photo, drawn in the style above."
-        spec = {"v": 1, "prompt": prompt, "seed": seed, "model": models[0], "size": KEYFRAME_SIZE,
-                "photo": sha256_file(photo) if photo else None}
+        spec = ref_spec(prompt, seed, models[0], KEYFRAME_SIZE, photo)
         approved[f"place:{location['id']}"] = _make(
             project, cache, item=f"place_{location['id']}", spec=spec, models=models, prompt=prompt, seed=seed,
             size=KEYFRAME_SIZE, references=[photo] if photo else [], force=force, counts=counts)
@@ -138,14 +175,10 @@ def run(project: Project, *, only: set[str] | None = None, force: bool = False) 
     cache = StageCache(project, "keyframes")
     sheet = []
     for shot in sb["shots"]:
-        refs = [approved[c] for c in shot["characters"] if c in approved]
+        refs = shot_refs(shot, approved)
         place = approved.get(f"place:{shot['location']}")
-        if place is not None:
-            refs.append(place)
-        refs = refs[:MAX_REFERENCES]
         prompt = sbmod.image_prompt(sb, shot)
-        spec = {"v": 1, "prompt": prompt, "seed": shot["keyframe"]["seed"], "model": models[0],
-                "size": KEYFRAME_SIZE, "refs": [sha256_file(r) for r in refs]}
+        spec = keyframe_spec(sb, shot, models[0], refs)
         selected = only is None or shot["id"] in only
         if not selected:  # ONLY=... limits generation; show what exists for the others
             for item in (shot["id"], f"{shot['id']}_end"):
@@ -156,12 +189,8 @@ def run(project: Project, *, only: set[str] | None = None, force: bool = False) 
                      size=KEYFRAME_SIZE, references=refs, force=force, counts=counts)
         sheet.append((shot["id"], path))
         if shot["motion"]["mode"] == "flf_inbetween":
-            # The end frame takes the start frame as its first reference, so both share one scene.
-            end_refs = [path] + [r for r in refs if r != place][:MAX_REFERENCES - 1]
-            end_prompt = sbmod.end_image_prompt(sb, shot)
-            end_seed = shot["motion"]["end_keyframe"]["seed"]
-            end_spec = {"v": 1, "prompt": end_prompt, "seed": end_seed, "model": models[0], "size": KEYFRAME_SIZE,
-                        "refs": [sha256_file(r) for r in end_refs]}
+            end_spec, end_refs = end_keyframe_spec(sb, shot, models[0], path, refs, place)
+            end_prompt, end_seed = end_spec["prompt"], end_spec["seed"]
             end = _make(project, cache, item=f"{shot['id']}_end", spec=end_spec, models=models, prompt=end_prompt,
                         seed=end_seed, size=KEYFRAME_SIZE, references=end_refs, force=force, counts=counts)
             sheet.append((f"{shot['id']}_end", end))

@@ -27,7 +27,7 @@ from pydantic import BaseModel
 
 from . import revise
 from . import storyboard as sbmod
-from .cache import StageCache
+from .cache import StageCache, key_for, sha256_bytes
 from .config import ROOT, Project, load_env
 from .costs import summarise
 from .engines import MODES, VIDEO_ENGINES
@@ -94,6 +94,76 @@ def _ref_url(rel: str | None) -> str | None:
         if rel and (PROJECT.root / rel).exists() else None
 
 
+def approved_sheets(sb: dict[str, Any], refs: StageCache) -> dict[str, Path]:
+    """The sheet each keyframe is drawn from now, keyed as keyframes.references() keys them."""
+    approved: dict[str, Path] = {}
+    for c in sb["characters"]:
+        path = refs.current(f"char_{c['id']}_{c['reference'].get('chosen', 0)}") if c["visible"] else None
+        if path:
+            approved[c["id"]] = path
+    for p in sb["locations"]:
+        path = refs.current(f"place_{p['id']}") if p.get("reference") else None
+        if path:
+            approved[f"place:{p['id']}"] = path
+    return approved
+
+
+def stale_sheets(sb: dict[str, Any], refs: StageCache) -> dict[str, bool]:
+    """Sheets drawn from another look or photo than the storyboard holds now."""
+    from .keyframes import (KEYFRAME_SIZE, REFERENCE_SIZE, character_ref_prompt, location_ref_prompt,
+                            ref_spec)
+
+    model = sbmod.model_list(sb["models"]["image"])[0]
+    out: dict[str, bool] = {}
+
+    def differs(item: str, spec: dict[str, Any]) -> bool:
+        return refs.current(item) is not None and (refs.entry(item) or {}).get("key") != key_for(spec)
+
+    for c in sb["characters"]:
+        if c["visible"]:
+            prompt, photo = character_ref_prompt(PROJECT, sb, c)
+            out[c["id"]] = any(differs(f"char_{c['id']}_{i}", ref_spec(prompt, seed, model, REFERENCE_SIZE, photo))
+                               for i, seed in enumerate(c["reference"]["seeds"]))
+    for p in sb["locations"]:
+        if p.get("reference"):
+            prompt, photo = location_ref_prompt(PROJECT, sb, p)
+            seed = p["reference"]["seeds"][p["reference"].get("chosen", 0)]
+            out[p["id"]] = differs(f"place_{p['id']}", ref_spec(prompt, seed, model, KEYFRAME_SIZE, photo))
+    return out
+
+
+def stale(sb: dict[str, Any], shot: dict[str, Any], kf: StageCache, raw: StageCache,
+          narration: StageCache, approved: dict[str, Path]) -> dict[str, Any]:
+    """What a redo of this scene would remake: files that exist but were made from
+    other inputs than the storyboard now holds. Same keys as the stages use, so
+    "stale" means a run would really make something new."""
+    from .keyframes import end_keyframe_spec, keyframe_spec, shot_refs
+    from .narration import line_items, spec_for
+    from .shots import clip_spec
+
+    sid, mode = shot["id"], shot["motion"]["mode"]
+    model = sbmod.model_list(sb["models"]["image"])[0]
+    still, end = kf.current(sid), kf.current(f"{sid}_end") if mode == "flf_inbetween" else None
+    refs = shot_refs(shot, approved)
+    keyframe = bool(still) and (kf.entry(sid) or {}).get("key") != key_for(keyframe_spec(sb, shot, model, refs))
+    if still and end:
+        end_spec, _ = end_keyframe_spec(sb, shot, model, still, refs, approved.get(f"place:{shot['location']}"))
+        keyframe = keyframe or (kf.entry(f"{sid}_end") or {}).get("key") != key_for(end_spec)
+    voice = [narration.current(item) is not None and narration.hit(item, key_for(spec_for(sb, line)), ".wav") is None
+             for item, s, line in line_items(sb) if s["id"] == sid]
+    clip = False
+    if MODES[mode]["paid"] and still and raw.current(sid) and (mode != "flf_inbetween" or end):
+        clip = raw.hit(sid, key_for(clip_spec(sb, shot, still, end)), ".mp4") is None
+    return {"keyframe": keyframe, "voice": voice, "clip": clip}
+
+
+def _stale_or_unknown(sb: dict[str, Any], shot: dict[str, Any], kf: StageCache, raw: StageCache,
+                      narration: StageCache, approved: dict[str, Path] | None) -> dict[str, Any]:
+    if approved is None:  # a broken storyboard cannot build prompts; say nothing rather than guess
+        return {"keyframe": False, "voice": [False] * len(shot.get("lines", [])), "clip": False}
+    return stale(sb, shot, kf, raw, narration, approved)
+
+
 def state() -> dict[str, Any]:
     story = PROJECT.story.read_text("utf-8") if PROJECT.story.exists() else ""
     if not PROJECT.storyboard.exists():
@@ -104,6 +174,7 @@ def state() -> dict[str, Any]:
     narration, refs = StageCache(PROJECT, "narration"), StageCache(PROJECT, "refs")
     report_path = PROJECT.outputs / "final" / "heritage_short.report.json"
     report = json.loads(report_path.read_text("utf-8")) if report_path.exists() else {}
+    approved = None if errors else approved_sheets(sb, refs)
     shots = []
     for shot in sb["shots"]:
         sid, mode = shot["id"], shot["motion"]["mode"]
@@ -119,6 +190,7 @@ def state() -> dict[str, Any]:
             "paid": MODES[mode]["paid"],
             "price": engine.get("usd", {}).get(shot["motion"].get("clip_s", 5), 0) if MODES[mode]["paid"] else 0,
             "lines": lines, "used": (report.get("sources") or {}).get(sid, {}).get("used"),
+            "stale": _stale_or_unknown(sb, shot, kf, raw, narration, approved),
         })
     sheets = {}
     for c in sb["characters"]:
@@ -126,17 +198,35 @@ def state() -> dict[str, Any]:
             sheets[c["id"]] = [_url(refs.current(f"char_{c['id']}_{i}")) for i in range(len(c["reference"]["seeds"]))]
     for p in sb["locations"]:
         sheets[p["id"]] = [_url(refs.current(f"place_{p['id']}"))]
+    try:
+        sheets_stale = {} if errors else stale_sheets(sb, refs)
+    except FileNotFoundError:  # a reference photo was removed by hand
+        sheets_stale = {}
     photos = {x["id"]: _ref_url((x.get("reference") or {}).get("photo"))
               for x in sb["characters"] + sb["locations"]}
     final = PROJECT.outputs / "final"
     film = {"vertical": _url(final / "heritage_short_9x16.mp4"), "wide": _url(final / "heritage_short_16x9.mp4"),
             "radio": _url(PROJECT.outputs / "cuts" / "radio_cut.mp4"),
             "rough": _url(PROJECT.outputs / "cuts" / "rough_cut_9x16.mp4"), "report": report}
+    cuts = [p for p in (final / "heritage_short_9x16.mp4", PROJECT.outputs / "cuts" / "rough_cut_9x16.mp4",
+                        PROJECT.outputs / "cuts" / "radio_cut.mp4") if p.exists()]
+    newest_cut = max((p.stat().st_mtime for p in cuts), default=0)
+    media = [c.current(sh["id"]) for sh in sb["shots"] for c in (kf, raw)] +             [narration.current(item) for item in narration.manifest]
+    film["stale"] = bool(cuts) and any(p and p.stat().st_mtime > newest_cut for p in media)
     music = StageCache(PROJECT, "music")
     candidates = [_url(music.current(f"candidate_{i}")) for i in range(len(sb["music"]["seeds"]))]
+    music_price = 0.0
+    if not errors:
+        from .music import music_engine, spec_for as music_spec
+        engine = music_engine(sb["models"]["music"])
+        for i, seed in enumerate(sb["music"]["seeds"]):
+            spec = music_spec(sb, seed)
+            if not music.hit(f"candidate_{i}", key_for(spec), ".flac"):
+                music_price += engine.get("usd_per_s", 0) * spec["duration"]
     costs = summarise(PROJECT)
-    return {"story": story, "storyboard": sb, "errors": errors, "shots": shots, "sheets": sheets, "photos": photos,
-            "film": film, "music": candidates,
+    story_changed = sha256_bytes(story.encode("utf-8")) != sb.get("source", {}).get("story_sha256")
+    return {"story": story, "story_changed": story_changed, "storyboard": sb, "errors": errors, "shots": shots, "sheets": sheets, "sheets_stale": sheets_stale, "photos": photos,
+            "film": film, "music": candidates, "music_price": round(music_price, 3),
             "spent": round(sum(s["usd_list"] for k, s in costs.items() if k in ("shots", "music")), 4),
             "calls": int(sum(s["calls"] for s in costs.values())), "jobs": list(JOBS.values())[-5:]}
 

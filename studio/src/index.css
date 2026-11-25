@@ -1,6 +1,10 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* shadcn's base-nova classes say data-horizontal: / data-vertical:, Base UI marks orientation as data-orientation. */
+@custom-variant data-horizontal (&[data-orientation="horizontal"]);
+@custom-variant data-vertical (&[data-orientation="vertical"]);
+
 /* Linear's design tokens (read from linear.app's stylesheet, 2026-11-25), mapped onto shadcn's variables
    so every component takes Linear's look instead of shadcn's default. */
 :root {

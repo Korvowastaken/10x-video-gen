@@ -57,18 +57,25 @@ export type ShotState = {
   paid: boolean
   price: number
   used: string | null
+  /** Made from other inputs than the storyboard holds now: a redo would remake it. */
+  stale: { keyframe: boolean; voice: boolean[]; clip: boolean }
   lines: { audio: string | null; cer: number | null; heard: string | null; seconds: number | null }[]
 }
 export type Job = { id: string; kind: string; status: "running" | "done" | "error"; log: string[]; error?: string }
 export type State = {
   story: string
+  /** story.md changed since the storyboard was drafted from it. */
+  story_changed?: boolean
   storyboard: Storyboard | null
   errors: string[]
   shots: ShotState[]
   sheets: Record<string, (string | null)[]>
+  sheets_stale: Record<string, boolean>
   photos: Record<string, string | null>
-  film: { vertical: string | null; wide: string | null; radio: string | null; rough: string | null; report: Record<string, unknown> }
+  film: { vertical: string | null; wide: string | null; radio: string | null; rough: string | null; report: Record<string, unknown>; stale?: boolean }
   music: (string | null)[]
+  /** What a music run would spend now: only candidates not made yet are bought. */
+  music_price: number
   spent: number
   calls: number
   jobs: Job[]

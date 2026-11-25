@@ -31,6 +31,7 @@ import wave
 from pathlib import Path
 from typing import Any
 
+from . import jobs
 from . import storyboard as sbmod
 from . import tuning
 from .cache import StageCache, key_for
@@ -227,6 +228,7 @@ def run(project: Project, *, only: set[str] | None = None, force: bool = False,
     stale: list[str] = []
     spoken = reprocessed = cached = 0
     for item, shot, line in line_items(sb):
+        jobs.check()  # a stopped studio job ends here, between items
         selected = only is None or shot["id"] in only
         tspec = tts_spec(sb, line)
         tts_key = key_for(tspec)

@@ -20,7 +20,7 @@ from typing import Any
 
 import httpx
 
-from .. import runlog
+from .. import jobs, runlog
 from ..config import Project, env
 from .. import keys
 from ..retry import ProviderError, QuotaExhausted, RetryableError, http_request, with_retries
@@ -68,7 +68,7 @@ def upload(path: Path) -> str:
 def submit(model: str, payload: dict[str, Any]) -> str:
     """Create one task. Retried only when WaveSpeed rejected it with 429 (nothing was created)."""
     for wait_s in (0, 15, 30, 60):
-        time.sleep(wait_s)
+        jobs.sleep(wait_s)  # nothing is created (or paid) yet, so a Stop may cut this short
         try:
             response = httpx.post(f"{API}/{model}", headers=_auth(), json=payload, timeout=60)
         except (httpx.TimeoutException, httpx.TransportError) as exc:

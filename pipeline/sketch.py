@@ -28,6 +28,7 @@ from typing import Any
 
 from PIL import Image, ImageDraw, ImageFont
 
+from . import jobs
 from . import storyboard as sbmod
 from .cache import StageCache, key_for, write_atomic
 from .config import FONTS, Project
@@ -336,6 +337,7 @@ def run(project: Project, *, only: set[str] | None = None, force: bool = False) 
     counts = {"drawn": 0, "cached": 0}
     paths: dict[str, Path] = {}
     for shot in sb["shots"]:
+        jobs.check()  # a stopped studio job ends here, between items
         sid, spec = shot["id"], frame_spec(sb, shot)
         key = key_for(spec)
         path = cache.path(sid, key, ".png")

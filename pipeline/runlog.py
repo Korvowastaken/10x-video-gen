@@ -58,7 +58,10 @@ def append(project: Project, call: Call) -> None:
 
 @contextmanager
 def model_call(project: Project, **fields: Any) -> Iterator[Call]:
-    """Time one model call and log it. The body may fill in cost, output, gpu_s."""
+    """Time one model call and log it. The body may fill in cost, output, gpu_s.
+    A stopped studio job stops here, before the call is sent."""
+    from . import jobs
+    jobs.check()
     call = Call(**fields)
     if call.key is None:  # taken now: a key that runs out is swapped before this call is logged
         from .keys import active_fingerprint
@@ -76,6 +79,7 @@ def model_call(project: Project, **fields: Any) -> Iterator[Call]:
         if call.latency_s is None:
             call.latency_s = round(time.perf_counter() - started, 3)
         append(project, call)
+        jobs.call_done(call)
 
 
 def read(project: Project) -> list[dict[str, Any]]:

@@ -25,7 +25,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import accounts, catalog, keys, revise, stories
+from . import accounts, catalog, jobs, keys, revise, stories
 from . import storyboard as sbmod
 from .cache import StageCache, key_for, sha256_bytes
 from .config import ROOT, Project, load_env
@@ -44,18 +44,38 @@ app = FastAPI(title="10x video gen studio")
 # ---------------------------------------------------------------- jobs
 
 class _Tee(io.TextIOBase):
-    def __init__(self, sink: list[str]):
-        self.sink = sink
+    """What the job prints, into its log. (Not a stop point: a stage may print before it saves.)"""
 
     def write(self, text: str) -> int:
         for line in text.splitlines():
             if line.strip():
-                self.sink.append(line.rstrip())
+                jobs.printed(line)
         return len(text)
 
 
 JOBS: dict[str, dict[str, Any]] = {}
+_STOPS: dict[str, threading.Event] = {}  # kept beside JOBS: a job is sent to the page as JSON
+_CONTEXTS: dict[str, jobs.Context] = {}
 _LOCK = threading.Lock()
+
+
+def _took(job: dict[str, Any]) -> str:
+    s = round(time.time() - job["started"])
+    return f"{s // 60} min {s % 60} s" if s >= 60 else f"{s} s"
+
+
+def stop_job(job_id: str) -> dict[str, Any]:
+    """Ask a running job to stop at its next safe point (see jobs.py)."""
+    if job_id not in JOBS:
+        raise HTTPException(404, "no such job")
+    job, stop = JOBS[job_id], _STOPS.get(job_id)
+    if job["status"] == "running" and stop and not stop.is_set():
+        stop.set()
+        job["stopping"] = True
+        ctx = _CONTEXTS.get(job_id)
+        if ctx:
+            ctx.add("warn", "Stopping: what is under way finishes first (a request already sent, a video being rendered), nothing new starts")
+    return job
 
 
 def start_job(kind: str, work: Callable[[], Any]) -> dict[str, Any]:
@@ -64,20 +84,34 @@ def start_job(kind: str, work: Callable[[], Any]) -> dict[str, Any]:
         if busy:
             raise HTTPException(409, f"'{busy[0]['kind']}' is still running")
         job = {"id": uuid.uuid4().hex[:8], "kind": kind, "status": "running", "log": [], "started": time.time(),
-               "project": str(PROJECT.root)}
+               "project": str(PROJECT.root), "totals": {"calls": 0, "failed": 0, "usd": 0.0}}
         keys.new_run()
         JOBS[job["id"]] = job
+        ctx = jobs.Context(job)
+        _STOPS[job["id"]] = ctx.stop
+        _CONTEXTS[job["id"]] = ctx
 
     def target() -> None:
+        jobs.bind(ctx)  # on the job's own thread
+        ctx.add("info", f"Started {kind}")
         try:
-            with contextlib.redirect_stdout(_Tee(job["log"])):
+            with contextlib.redirect_stdout(_Tee()):
                 work()
             job["status"] = "done"
+            ctx.add("done", f"Done in {_took(job)}")
+        except jobs.Cancelled:
+            job["status"] = "cancelled"
+            ctx.add("warn", f"Stopped after {_took(job)}. What finished before the stop is kept.")
         except Exception as exc:  # shown to the person, not swallowed
             job["status"] = "error"
             job["error"] = f"{type(exc).__name__}: {exc}"
-            job["log"].append(job["error"])
-        job["ended"] = time.time()
+            ctx.add("error", job["error"])
+        finally:
+            job.pop("stopping", None)
+            job["ended"] = time.time()
+            jobs.bind(None)
+            _STOPS.pop(job["id"], None)
+            _CONTEXTS.pop(job["id"], None)
         accounts.forget()  # a job may have spent balance or used up a limit
 
     threading.Thread(target=target, daemon=True).start()
@@ -272,6 +306,11 @@ def state() -> dict[str, Any]:
 @app.get("/api/state")
 def get_state() -> dict[str, Any]:
     return state()
+
+
+@app.post("/api/jobs/{job_id}/stop")
+def post_stop(job_id: str) -> dict[str, Any]:
+    return stop_job(job_id)
 
 
 @app.get("/api/jobs/{job_id}")

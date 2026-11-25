@@ -8,10 +8,11 @@ ProviderError    the request itself is wrong (400, safety block): do not retry.
 from __future__ import annotations
 
 import random
-import time
 from typing import Any, Callable, TypeVar
 
 import httpx
+
+from . import jobs
 
 T = TypeVar("T")
 
@@ -56,7 +57,7 @@ def with_retries(fn: Callable[[int], T], *, attempts: int = 4, base: float = 4.0
             delay = min(cap, delay) * random.uniform(0.85, 1.15)
             print(f"    retry {label}: attempt {attempt} failed ({' '.join(str(exc).split())[:110]}); "
                   f"waiting {delay:.0f}s")
-            time.sleep(delay)
+            jobs.sleep(delay)  # a Stop cuts the wait short
             attempt += 1
 
 

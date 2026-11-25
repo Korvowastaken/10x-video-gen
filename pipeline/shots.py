@@ -20,7 +20,7 @@ import shutil
 from pathlib import Path
 from typing import Any
 
-from . import motion
+from . import jobs, motion
 from . import runlog
 from . import catalog
 from . import storyboard as sbmod
@@ -130,6 +130,7 @@ def run(project: Project, *, only: set[str] | None = None, force: bool = False,
     depths = StageCache(project, "depth")
     spent, bought, report = 0.0, 0, {}
     for shot in sb["shots"]:
+        jobs.check()  # a stopped studio job ends here, between items
         sid, mode = shot["id"], shot["motion"]["mode"]
         if only is not None and sid not in only:
             continue

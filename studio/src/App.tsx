@@ -1,8 +1,9 @@
-import { Check, ChevronDown, ChevronsUpDown, KeyRound, Loader2, Monitor, Moon, Pencil, Plus, Sun } from "lucide-react"
+import { Check, ChevronDown, ChevronsUpDown, KeyRound, Monitor, Moon, Pencil, Plus, Sun } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { Toaster, toast } from "sonner"
 
 import { api, type Flow, type Job, type State, type StoryItem } from "@/api"
+import { JobBar } from "@/components/job-bar"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import {
@@ -89,6 +90,7 @@ export default function App() {
           window.clearInterval(poll.current!)
           poll.current = null
           if (current.status === "done") toast.success(`${current.kind}: done`)
+          else if (current.status === "cancelled") toast(`${current.kind}: stopped`, { description: "What finished before the stop is kept." })
           else toast.error(`${current.kind}: ${current.error ?? "failed"}`)
           refresh()
         }
@@ -390,37 +392,6 @@ function Account({ state, flow, active, onKeys }: { state: State; flow: Flow | n
           Connections
         </button>
         <ThemeSwitch />
-      </div>
-    </div>
-  )
-}
-
-function JobBar({ job, onClose }: { job: Job; onClose: () => void }) {
-  const [open, setOpen] = useState(false)
-  const last = job.log[job.log.length - 1] ?? "starting…"
-  return (
-    <div className="fixed right-6 bottom-5 left-[312px] z-20">
-      <div className="mx-auto max-w-3xl rounded-lg border bg-popover shadow-[0_8px_24px_-8px_rgb(29_29_27/0.25)]">
-        <div className="flex items-center gap-3 px-4 py-2.5">
-          {job.status === "running" ? (
-            <Loader2 className="size-4 animate-spin text-primary" />
-          ) : (
-            <span className={cn("size-2 rounded-full", job.status === "done" ? "bg-free" : "bg-destructive")} />
-          )}
-          <span className="font-medium">{job.kind}</span>
-          <span className="min-w-0 flex-1 truncate font-mono text-[12px] text-muted-foreground">{last}</span>
-          <Button variant="ghost" size="xs" onClick={() => setOpen(!open)}>
-            Log <ChevronDown className={cn("transition-transform", open && "rotate-180")} />
-          </Button>
-          {job.status !== "running" && (
-            <Button variant="ghost" size="xs" onClick={onClose}>
-              Dismiss
-            </Button>
-          )}
-        </div>
-        {open && (
-          <pre className="max-h-64 overflow-auto border-t px-4 py-3 font-mono text-[12px] leading-5 text-muted-foreground">{job.log.join("\n") || "…"}</pre>
-        )}
       </div>
     </div>
   )

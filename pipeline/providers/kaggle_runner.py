@@ -17,7 +17,7 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-from .. import runlog
+from .. import jobs, runlog
 from ..config import Project
 from ..retry import ProviderError, QuotaExhausted
 
@@ -80,7 +80,7 @@ def _wait_for_dataset(client, ref: str, timeout_s: int = 900) -> None:
             return
         if "error" in status:
             raise ProviderError(f"Kaggle dataset {ref} failed to process: {status}")
-        time.sleep(10)
+        jobs.sleep(10)  # the upload is still processing: no GPU time used yet
     raise ProviderError(f"Kaggle dataset {ref} not ready after {timeout_s}s")
 
 

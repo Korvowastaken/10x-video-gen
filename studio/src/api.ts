@@ -103,7 +103,25 @@ export type KeyService = {
 export type LimitId = "writing" | "voices" | "pictures"
 /** One story: its own film in its own folder (pipeline/stories.py). */
 export type StoryItem = { id: string; name: string; current: boolean; written: boolean; drafted: boolean }
-export type Job = { id: string; kind: string; status: "running" | "done" | "error"; log: string[]; error?: string }
+/** One model call a job made: which service and model, for what, how it went, how long, what it cost. */
+export type CallInfo = { stage: string; item: string; provider: string; model: string; status: "ok" | "error" | "stopped"; seconds?: number; usd?: number; attempt?: number; error?: string }
+/** One line of a job's log, `at` seconds after it started (pipeline/jobs.py). */
+export type LogEntry = { at: number; level: "info" | "warn" | "error" | "call" | "done"; text: string; call?: CallInfo }
+export type Job = {
+  id: string
+  kind: string
+  status: "running" | "done" | "error" | "cancelled"
+  log: LogEntry[]
+  error?: string
+  /** Seconds since 1970, from the studio's clock. */
+  started: number
+  ended?: number
+  /** Stop was asked for; the job ends at its next safe point. */
+  stopping?: boolean
+  totals?: { calls: number; failed: number; usd: number }
+  /** The stage of the last model call. */
+  step?: string
+}
 export type State = {
   story: string
   /** story.md changed since the storyboard was drafted from it. */
@@ -191,6 +209,7 @@ async function call<T>(method: string, url: string, body?: unknown): Promise<T> 
 export const api = {
   state: () => call<State>("GET", "/api/state"),
   job: (id: string) => call<Job>("GET", `/api/jobs/${id}`),
+  stopJob: (id: string) => call<Job>("POST", `/api/jobs/${id}/stop`),
   saveStory: (text: string) => call("PUT", "/api/story", { text }),
   run: (stage: string, body: Record<string, unknown> = {}) => call<Job>("POST", `/api/run/${stage}`, body),
   saveShot: (shot: Shot) => call("PUT", `/api/shots/${shot.id}`, shot),

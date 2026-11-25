@@ -27,7 +27,7 @@ from typing import Any
 
 from PIL import Image, ImageDraw, ImageFont
 
-from . import grade, motion
+from . import grade, jobs, motion
 from . import storyboard as sbmod
 from .cache import StageCache, key_for, sha256_file
 from .engines import FALLBACK, MODES, stretch_cap
@@ -492,6 +492,7 @@ def run(project: Project, *, mode: str = "final") -> dict[str, Any]:
     rendered = 0
     luts = grade_luts(project, sb, mode)
     for timing, shot in zip(shots, sb["shots"]):
+        jobs.check()  # a stopped studio job ends here, between items
         source = shot_source(project, sb, shot, mode)
         lut = luts.get(shot["id"]) if source["kind"] != "black" else None
         used[shot["id"]] = {k: source.get(k) for k in ("used", "wanted")}

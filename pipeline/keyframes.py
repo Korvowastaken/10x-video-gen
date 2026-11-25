@@ -19,6 +19,7 @@ from typing import Any
 
 from PIL import Image, ImageDraw, ImageFont
 
+from . import jobs
 from . import storyboard as sbmod
 from .cache import StageCache, key_for, sha256_file, write_atomic
 from .config import FONTS, Project
@@ -125,6 +126,7 @@ def references(project: Project, sb: dict[str, Any], *, force: bool = False,
     cache = StageCache(project, "refs")
     approved: dict[str, Path] = {}
     for character in sb["characters"]:
+        jobs.check()  # a stopped studio job ends here, between items
         if not character["visible"] or (needed is not None and character["id"] not in needed):
             continue
         ref = character["reference"]
@@ -137,6 +139,7 @@ def references(project: Project, sb: dict[str, Any], *, force: bool = False,
             if i == ref.get("chosen", 0):
                 approved[character["id"]] = path
     for location in sb["locations"]:
+        jobs.check()  # a stopped studio job ends here, between items
         ref = location.get("reference")
         if not ref or (needed is not None and location["id"] not in needed):
             continue
@@ -175,6 +178,7 @@ def run(project: Project, *, only: set[str] | None = None, force: bool = False) 
     cache = StageCache(project, "keyframes")
     sheet = []
     for shot in sb["shots"]:
+        jobs.check()  # a stopped studio job ends here, between items
         refs = shot_refs(shot, approved)
         place = approved.get(f"place:{shot['location']}")
         prompt = sbmod.image_prompt(sb, shot)

@@ -130,9 +130,11 @@ export default function App() {
     <LimitsContext.Provider value={state?.limits}>
     <div className="grid h-screen grid-cols-[240px_minmax(0,1fr)] overflow-hidden">
       <aside className="flex h-screen flex-col border-r bg-card/40 px-3 py-4">
-        <div className="mb-5 flex items-center gap-2 px-2">
-          <span className="size-4 rounded-[4px] bg-primary" />
-          <span className="text-[13px] font-semibold tracking-tight">{state?.storyboard?.title ?? "10x video gen"}</span>
+        <div className="mb-4 px-2">
+          <div className="text-[11px] font-medium tracking-wide text-subtle uppercase">Your film</div>
+          <div className="mt-0.5 truncate text-[13px] font-semibold tracking-tight" title={state?.storyboard?.title}>
+            {state?.storyboard?.title ?? "Not drafted yet"}
+          </div>
         </div>
         <nav className="flex flex-col gap-0.5">
           {flow &&
@@ -140,23 +142,8 @@ export default function App() {
               <StepLink key={s.id} step={s} n={i + 1} active={view === s.id} onClick={() => s.state !== "locked" && setView(s.id)} />
             ))}
         </nav>
-        <button
-          onClick={() => setView("keys")}
-          className={cn(
-            "mt-4 flex items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-[13px] font-medium text-secondary-foreground transition-colors hover:bg-muted",
-            view === "keys" && "bg-muted text-foreground",
-          )}
-        >
-          <KeyRound className="size-[18px] p-0.5 text-subtle" />
-          Keys
-        </button>
         {studio && <NextStep studio={studio} onGo={setView} />}
-        {state?.limits && <FreeToday limits={state.limits} onKeys={() => setView("keys")} />}
-        {state && (
-          <div className="mt-3 px-2 text-[12px] text-subtle">
-            <span className="text-muted-foreground">{usd(state.spent)}</span> spent at WaveSpeed · {state.calls} calls
-          </div>
-        )}
+        {state && <Account state={state} active={view === "keys"} onKeys={() => setView("keys")} />}
       </aside>
       <main className="relative min-w-0 overflow-y-auto">
         {!studio && <div className="p-10 text-muted-foreground">Loading the project…</div>}
@@ -181,14 +168,17 @@ function StepLink({ step, n, active, onClick }: { step: Step; n: number; active:
     <button
       onClick={onClick}
       disabled={locked}
+      title={locked ? step.note : undefined}
       className={cn(
-        "group flex items-start gap-2.5 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:hover:bg-transparent",
+        "group flex gap-2.5 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:hover:bg-transparent",
+        locked ? "items-center" : "items-start",
         active && "bg-muted",
       )}
     >
       <span
         className={cn(
-          "mt-0.5 grid size-[18px] shrink-0 place-items-center rounded-full border text-[10.5px] font-semibold tabular-nums",
+          !locked && "mt-0.5",
+          "grid size-[18px] shrink-0 place-items-center rounded-full border text-[10.5px] font-semibold tabular-nums",
           step.state === "done" && "border-free/40 bg-free/12 text-free",
           step.state === "stale" && "border-warn/40 bg-warn/12 text-warn",
           step.state === "todo" && "border-primary/50 text-primary",
@@ -199,7 +189,7 @@ function StepLink({ step, n, active, onClick }: { step: Step; n: number; active:
       </span>
       <span className="min-w-0">
         <span className={cn("block text-[13px] font-medium", locked ? "text-subtle" : active ? "text-foreground" : "text-secondary-foreground")}>{step.label}</span>
-        <span className={cn("block truncate text-[12px]", step.state === "stale" ? "text-warn" : "text-subtle")}>{step.note}</span>
+        {!locked && <span className={cn("block truncate text-[12px]", step.state === "stale" ? "text-warn" : "text-subtle")}>{step.note}</span>}
       </span>
     </button>
   )
@@ -246,25 +236,37 @@ function NextStep({ studio, onGo }: { studio: Studio; onGo: (v: View) => void })
   )
 }
 
-/** What is left of each free limit today, and when a used-up one comes back. */
-function FreeToday({ limits, onKeys }: { limits: NonNullable<State["limits"]>; onKeys: () => void }) {
+/** Keys, what is left of each free limit today (and when a used-up one comes back), and what has been spent. */
+function Account({ state, active, onKeys }: { state: State; active: boolean; onKeys: () => void }) {
+  const limits = Object.entries(state.limits ?? {})
   return (
-    <div className="mt-3 space-y-1 px-2">
-      <div className="text-[11px] font-medium tracking-wide text-subtle uppercase">Free today</div>
-      {Object.entries(limits).map(([id, l]) => (
-        <div key={id} className="flex items-center gap-2 text-[12px]" title={l.used_up ? `Back ${back(l).text}` : undefined}>
-          <span className={cn("size-1.5 shrink-0 rounded-full", l.used_up ? "bg-warn" : "bg-free")} />
-          <span className="truncate text-muted-foreground">{l.label}</span>
-          <span className={cn("ml-auto shrink-0 tabular-nums", l.used_up ? "text-warn" : "text-subtle")}>
-            {l.used_up ? `back ${back(l).time}` : l.left != null ? `~${l.left} left` : "available"}
-          </span>
+    <div className="mt-3 border-t pt-3">
+      <button
+        onClick={onKeys}
+        className={cn(
+          "flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-[12px] font-medium text-secondary-foreground transition-colors hover:bg-muted",
+          active && "bg-muted text-foreground",
+        )}
+      >
+        <KeyRound className="size-3.5 text-subtle" />
+        Keys and free limits
+      </button>
+      <div className="mt-1 space-y-0.5 px-2">
+        {limits.map(([id, l]) => (
+          <div key={id} className="flex items-center gap-2 text-[12px]" title={l.used_up ? `Back ${back(l).text}` : undefined}>
+            <span className={cn("size-1.5 shrink-0 rounded-full", l.used_up ? "bg-warn" : "bg-free")} />
+            <span className="truncate text-muted-foreground">{l.label}</span>
+            <span className={cn("ml-auto shrink-0 tabular-nums", l.used_up ? "text-warn" : "text-subtle")}>
+              {l.used_up ? `back ${back(l).time}` : l.left != null ? `~${l.left} left` : "free"}
+            </span>
+          </div>
+        ))}
+        <div className="flex items-center gap-2 text-[12px]" title={`${state.calls} paid calls so far`}>
+          <span className="size-1.5 shrink-0 rounded-full bg-paid" />
+          <span className="text-muted-foreground">Spent at WaveSpeed</span>
+          <span className="ml-auto text-subtle tabular-nums">{usd(state.spent)}</span>
         </div>
-      ))}
-      {Object.values(limits).some((l) => l.used_up) && (
-        <button onClick={onKeys} className="text-[12px] text-primary hover:underline">
-          Add a key to go on today
-        </button>
-      )}
+      </div>
     </div>
   )
 }

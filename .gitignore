@@ -1,0 +1,23 @@
+# secrets: never commit these
+.env
+.env.*
+!.env.example
+kaggle.json
+access_token
+
+# python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# scratch, staging and edit intermediates (deterministic, rebuilt on every run)
+outputs/_tmp/
+outputs/_kaggle/
+outputs/assemble/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

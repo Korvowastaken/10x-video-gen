@@ -1,0 +1,26 @@
+[project]
+name = "heritage-studio"
+version = "0.1.0"
+description = "A small studio in code: turns a family story into a 60-90 s AI short film."
+readme = "README.md"
+requires-python = ">=3.11,<3.14"
+dependencies = [
+    "httpx>=0.27",
+    "jsonschema>=4.22",
+    "python-dotenv>=1.0",
+    "pillow>=10.4",
+    "pyyaml>=6.0",
+    "kaggle>=1.7",
+    "six>=1.16",  # kaggle imports it without declaring it (FAILURES.md F3)
+    "imageio-ffmpeg>=0.5",
+]
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

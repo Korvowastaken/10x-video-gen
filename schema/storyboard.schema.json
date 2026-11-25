@@ -131,6 +131,14 @@
         "lines": {
           "$ref": "#/$defs/modelList"
         },
+        "revise": {
+          "description": "Revisions from feedback; when absent, the lines writers then the script writers.",
+          "$ref": "#/$defs/modelList"
+        },
+        "mask": {
+          "description": "Vision model that finds what moves in a masked scene; when absent, derived from script.",
+          "$ref": "#/$defs/modelList"
+        },
         "tts": {
           "$ref": "#/$defs/modelList"
         },

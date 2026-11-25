@@ -30,14 +30,6 @@ export type PurposeInfo = {
 
 export type Providers = Record<Purpose, PurposeInfo>
 
-/** The work each step runs; steps without provider calls (Story, Sketch) have none. */
-export const STEP_PURPOSES: Record<string, Purpose[]> = {
-  script: ["writing"],
-  references: ["pictures"],
-  scenes: ["writing", "voices", "pictures", "clips"],
-  film: ["voices", "clips", "music"],
-}
-
 async function call<T>(method: string, url: string, body?: unknown): Promise<T> {
   const res = await fetch(url, {
     method,
@@ -52,8 +44,38 @@ async function call<T>(method: string, url: string, body?: unknown): Promise<T> 
   return data as T
 }
 
+/** One model that can do a task (pipeline/catalog.py). */
+export type ModelOption = {
+  id: string
+  label: string
+  service: string
+  provider: string
+  connected: boolean
+  paused: boolean
+  price: string
+  paid: boolean
+  note: string
+}
+
+export type TaskInfo = {
+  label: string
+  purpose: Purpose
+  does: string
+  /** What runs, in order: the first that has a key answers, the rest are fallbacks. */
+  chain: string[]
+  /** The model that answers first now. */
+  model: string
+  options: ModelOption[]
+}
+
+export type Models = { tasks: Record<string, TaskInfo>; steps: Record<string, string[]> }
+
+export const modelsApi = {
+  get: () => call<Models>("GET", "/api/models"),
+  choose: (task: string, model: string) => call("PUT", `/api/models/${task}`, { model }),
+}
+
 export const providersApi = {
   get: () => call<Providers>("GET", "/api/providers"),
   chooseKey: (purpose: Purpose, slot: number | null) => call("PUT", `/api/providers/${purpose}`, { slot, set_slot: true }),
-  chooseEngine: (purpose: Purpose, engine: string) => call("PUT", `/api/providers/${purpose}`, { engine }),
 }

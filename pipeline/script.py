@@ -29,6 +29,7 @@ from typing import Any
 
 import yaml
 
+from . import catalog
 from . import storyboard as sbmod
 from .cache import sha256_bytes
 from .config import DEFAULT_MODELS, ConfigError, Project
@@ -211,8 +212,11 @@ def _seeds(base: int, count: int) -> list[int]:
 
 
 def to_storyboard(draft: dict[str, Any], meta: dict[str, Any], *, story_sha: str, model: str,
-                  attempt: int) -> dict[str, Any]:
-    """Merge the model's creative draft with the technical fields code owns."""
+                  attempt: int, models: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Merge the model's creative draft with the technical fields code owns.
+    `models` is the block the studio's pickers chose (catalog.py); the defaults otherwise."""
+    models = dict(models or {"script": SCRIPT_MODELS, "lines": LINES_MODELS,
+                             **{k: DEFAULT_MODELS[k] for k in ("tts", "listen", "image", "video", "music")}})
     lang = LANGUAGES[meta["language"]]
     style = STYLES[meta["look"]]
     people = {p["id"]: p for p in meta["people"]}
@@ -271,7 +275,7 @@ def to_storyboard(draft: dict[str, Any], meta: dict[str, Any], *, story_sha: str
     dedication = (draft.get("end_card_dedication") or "").strip()
     end_lines = ([dedication] if dedication else []) + [
         "Pictures: FLUX.2 klein   Motion: Wan 2.2",
-        f"Voices: {route.label(DEFAULT_MODELS['tts'][0])}   Music: ACE-Step 1.5",
+        f"Voices: {route.label(sbmod.model_list(models['tts'])[0])}   Music: ACE-Step 1.5",
     ]
     return {
         "$schema": "./schema/storyboard.schema.json",
@@ -284,10 +288,7 @@ def to_storyboard(draft: dict[str, Any], meta: dict[str, Any], *, story_sha: str
                      "where": (draft.get("audience") or {}).get("where") or "On a phone, vertical, in a social feed",
                      "feel": meta.get("feel") or (draft.get("audience") or {}).get("feel", "")},
         "language": {"code": meta["language"], "name": lang["name"], "script": lang["script"], "subtitles": "en"},
-        "models": {"script": SCRIPT_MODELS, "lines": LINES_MODELS, "tts": DEFAULT_MODELS["tts"],
-                   "listen": DEFAULT_MODELS["listen"],
-                   "image": DEFAULT_MODELS["image"], "video": DEFAULT_MODELS["video"],
-                   "music": DEFAULT_MODELS["music"]},
+        "models": models,
         "style": {k: style[k] for k in ("block", "motion", "negative", "palette")},
         "characters": characters,
         "locations": locations,
@@ -390,7 +391,7 @@ def write_lines(project: Project, sb: dict[str, Any], meta: dict[str, Any], body
         if hard or soft:
             feedback = ("\n\nYour previous answer had these problems. Return every line again with them fixed:\n- "
                         + "\n- ".join((hard + soft)[:25]))
-        text, used = route.generate_text(project, stage="script", item=f"lines-{attempt}", models=LINES_MODELS,
+        text, used = route.generate_text(project, stage="script", item=f"lines-{attempt}", models=sb["models"]["lines"],
                                          prompt=prompt + feedback, system=system, json_mode=True,
                                          temperature=0.7 if attempt == 1 else 0.4,
                                          seed=int(meta["seed"]) + attempt - 1)
@@ -422,6 +423,7 @@ def run(project: Project, *, force: bool = False) -> dict[str, Any]:
         raise ScriptError("story.md not found: write the family story there first (see README)")
     story_text = project.story.read_text("utf-8")
     story_sha = sha256_bytes(story_text.encode("utf-8"))
+    current: dict[str, Any] | None = None
     if project.storyboard.exists():
         current = json.loads(project.storyboard.read_text("utf-8"))
         if current.get("source", {}).get("story_sha256") == story_sha and not force:
@@ -432,6 +434,7 @@ def run(project: Project, *, force: bool = False) -> dict[str, Any]:
         print(f"  story.md changed: previous storyboard kept at {backup.relative_to(project.root)}")
 
     meta, body = parse_story(story_text)
+    models = catalog.models_block(project, current)  # the pickers' choices carry into the new draft
     english = meta["language"] == "en"
     prompt = build_prompt(meta, body)
     errors: list[str] = []
@@ -441,7 +444,7 @@ def run(project: Project, *, force: bool = False) -> dict[str, Any]:
         if errors:
             feedback = ("\n\nYour previous answer had these problems. Return the whole JSON again with them fixed:\n- "
                         + "\n- ".join(errors[:25]))
-        text, used = route.generate_text(project, stage="script", item=f"draft-{attempt}", models=SCRIPT_MODELS,
+        text, used = route.generate_text(project, stage="script", item=f"draft-{attempt}", models=models["script"],
                                          prompt=prompt + feedback, system=SYSTEM, json_mode=True,
                                          temperature=0.9 if attempt == 1 else 0.5,
                                          seed=int(meta["seed"]) + attempt - 1)
@@ -450,7 +453,7 @@ def run(project: Project, *, force: bool = False) -> dict[str, Any]:
         except json.JSONDecodeError as exc:
             errors = [f"the answer was not valid JSON ({exc})"]
             continue
-        sb = to_storyboard(draft, meta, story_sha=story_sha, model=used, attempt=attempt)
+        sb = to_storyboard(draft, meta, story_sha=story_sha, model=used, attempt=attempt, models=models)
         # The lines are English until step 2, so the script check waits for it.
         errors = sbmod.schema_errors(sb) or (sbmod.rule_errors(sb, check_script=english) + people_errors(sb, meta))
         if not errors:

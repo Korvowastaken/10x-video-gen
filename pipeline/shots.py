@@ -22,6 +22,7 @@ from typing import Any
 
 from . import motion
 from . import runlog
+from . import catalog
 from . import storyboard as sbmod
 from .cache import StageCache, key_for, sha256_file, write_atomic
 from .config import ROOT, ConfigError, Project
@@ -31,7 +32,6 @@ from .retry import ProviderError, QuotaExhausted, RetryableError
 
 VIDEO_DEFAULTS = {"max_paid_clips": 7, "budget_usd": 0.6, "interpolation": "rife", "rife_model": motion.RIFE_MODEL}
 MAX_ATTEMPTS = 3
-VISION_FALLBACKS = ["gemini-3.5-flash-lite", "gemini-3.1-flash-lite"]
 COMPOSITE_VERSION = 1
 DEPTH_VERSION = 1
 DEPTH_SIZE = (768, 1344)
@@ -81,11 +81,9 @@ def locate(project: Project, sb: dict[str, Any], shot: dict[str, Any], keyframe:
         return json.loads(hit.read_text("utf-8"))["regions"]
     prompt = (f"Find {mask['target']} in this image. Return JSON only: {{\"boxes\": [[ymin, xmin, ymax, xmax], ...]}} "
               "with coordinates from 0 to 1000. Cover everything that should move, using at most 3 boxes.")
-    # Any vision model will do. Gemini first, since it is trained to find boxes; the Lite ones are
-    # busy less often (all three Flash models were out at once). Claude and the rest after that.
-    named = sbmod.model_list(sb["models"]["script"])
-    gemini_first = [m for m in named if route.provider_of(m) == "gemini"] + VISION_FALLBACKS
-    models = list(dict.fromkeys(gemini_first + named))
+    # The "Moving part" picker's chain (catalog.py). Until it is set: Gemini first, since it is
+    # trained to find boxes, then the Lite ones (busy less often), then Claude and the rest.
+    models = sbmod.model_list(catalog.chain(project, "mask", sb))
     text, used = route.generate_text(project, stage="shots", item=f"{shot['id']}-mask", json_mode=True,
                                      models=models, temperature=0.0, prompt=prompt, image=keyframe)
     regions = []

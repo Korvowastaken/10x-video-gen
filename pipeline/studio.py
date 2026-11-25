@@ -473,6 +473,39 @@ def put_provider(purpose: str, body: ProviderChoice) -> dict[str, Any]:
     return {"ok": True}
 
 
+@app.get("/api/models")
+def get_models() -> dict[str, Any]:
+    """Per task (script, lines, tts, listen, image, video, music): its chain, the model that
+    answers first, and every model that fits it from the connected services."""
+    from . import catalog
+    sb = sbmod.load(PROJECT) if PROJECT.storyboard.exists() else None
+    return {"tasks": catalog.overview(PROJECT, sb), "steps": catalog.STEP_TASKS}
+
+
+class ModelChoice(BaseModel):
+    model: str
+
+
+@app.put("/api/models/{task}")
+def put_model(task: str, body: ModelChoice) -> dict[str, Any]:
+    """Make `model` the first choice for `task`; the others stay behind it as fallbacks."""
+    from . import catalog
+    if task not in catalog.TASKS:
+        raise HTTPException(404, "no such task")
+    if body.model not in catalog.candidates(task) and body.model not in sbmod.model_list(
+            catalog.chain(PROJECT, task, sbmod.load(PROJECT) if PROJECT.storyboard.exists() else None)):
+        raise HTTPException(422, f"{body.model} can't do this task")
+    service = catalog.provider_of(body.model)
+    if service in keys.SERVICES and not keys.slots(service):
+        raise HTTPException(409, f"Connect {keys.SERVICES[service]['label']} first, on the Connections page")
+    sb = sbmod.load(PROJECT) if PROJECT.storyboard.exists() else None
+    value = catalog.choose(PROJECT, task, body.model, sb)
+    if sb is not None:
+        _save_or_422(sb)
+    accounts.forget()
+    return {"ok": True, "chain": value}
+
+
 # ---------------------------------------------------------------- stage runs
 
 @app.post("/api/run/{stage}")

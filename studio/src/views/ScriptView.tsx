@@ -4,7 +4,7 @@ import { toast } from "sonner"
 
 import { api, diff, type Shot, type Storyboard } from "@/api"
 import type { Studio } from "@/App"
-import { ProvidersPanel } from "@/components/providers-panel"
+import { ProvidersPanel, TaskPicker, useTaskModel } from "@/components/providers-panel"
 import { RunButton } from "@/components/run-button"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -22,7 +22,7 @@ export function ScriptView({ studio }: { studio: Studio }) {
   const step = flow.steps.find((s) => s.id === "script")!
   return (
     <Page>
-      <StepHeader n={2} title="Script" lead="The film in words: each scene, who speaks, the lines and their English subtitles. Edit lines here, or say what to change and let Gemini revise.">
+      <StepHeader n={2} title="Script" lead="The film in words: each scene, who speaks, the lines and their English subtitles. Edit lines here, or say what to change and let the model you pick revise.">
         <RunButton
           variant={sb ? "secondary" : "default"}
           cost={FREE("Gemini", "writing")}
@@ -67,6 +67,8 @@ function Revise({ studio, sb }: { studio: Studio; sb: Storyboard }) {
   const [text, setText] = useState("")
   const [writing, setWriting] = useState(false)
   const [proposal, setProposal] = useState<{ sb: Storyboard; errors: string[] } | null>(null)
+  const { chosen } = useTaskModel(studio, "revise")
+  const writer = chosen?.provider ?? "Gemini"
 
   async function ask() {
     setWriting(true)
@@ -109,9 +111,10 @@ function Revise({ studio, sb }: { studio: Studio; sb: Storyboard }) {
         className="min-h-16 text-[13px]"
       />
       <div className="mt-2 flex items-center gap-2">
-        <RunButton size="sm" cost={FREE("Gemini", "writing")} disabled={busy || writing || !text.trim()} onRun={ask}>
-          {writing ? "Gemini is writing…" : "Revise the script"}
+        <RunButton size="sm" cost={FREE(writer, !chosen || chosen.service === "gemini" ? "writing" : undefined)} disabled={busy || writing || !text.trim()} onRun={ask}>
+          {writing ? `${writer} is writing…` : "Revise the script"}
         </RunButton>
+        <TaskPicker studio={studio} task="revise" />
         <span className="text-[12px] text-subtle">Nothing changes until you accept it.</span>
       </div>
       {proposal && (

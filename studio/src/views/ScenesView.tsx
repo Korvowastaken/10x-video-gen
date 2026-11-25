@@ -4,7 +4,7 @@ import { toast } from "sonner"
 
 import { ApiError, api, diff, MODES, type Flow, type Shot, type ShotState } from "@/api"
 import type { Studio, View } from "@/App"
-import { ProvidersPanel } from "@/components/providers-panel"
+import { ProvidersPanel, TaskPicker, useTaskModel } from "@/components/providers-panel"
 import { CostTag, RunButton } from "@/components/run-button"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -250,6 +250,7 @@ function SceneWorkspace({
             </TabsList>
             <TabsContent value="feedback" keepMounted>
               <FeedbackPanel
+                studio={studio}
                 shot={shot}
                 hasClip={!!media.clip}
                 dirty={dirty}
@@ -396,6 +397,7 @@ function Preview({ studio, shot, media }: { studio: Studio; shot: Shot; media: S
 }
 
 function FeedbackPanel({
+  studio,
   shot,
   hasClip,
   dirty,
@@ -404,6 +406,7 @@ function FeedbackPanel({
   onKeys,
   onAccept,
 }: {
+  studio: Studio
   shot: Shot
   hasClip: boolean
   dirty: boolean
@@ -419,7 +422,12 @@ function FeedbackPanel({
   const changes = proposal ? diff(shot, proposal.shot) : []
   const parts = proposal ? affected(shot, proposal.shot, hasClip) : []
   const limits = useContext(LimitsContext)
-  const writing = blocked(FREE("Gemini", "writing"), limits)
+  // Gemini's daily writing limit only matters when the Revisions picker starts with a Gemini model.
+  const { chosen } = useTaskModel(studio, "revise")
+  const onGemini = !chosen || chosen.service === "gemini"
+  const writer = chosen?.provider ?? "Gemini"
+  const cost = FREE(writer, onGemini ? "writing" : undefined)
+  const writing = onGemini ? blocked(cost, limits) : null
   const waitsFor = (p: Part) => blocked(FREE(undefined, LIMIT_OF[p]), limits)
   const free = parts.filter((p) => p !== "clip" && !waitsFor(p))
   const waiting = parts.filter((p) => p !== "clip" && waitsFor(p))
@@ -434,7 +442,7 @@ function FeedbackPanel({
       const message = (err as Error).message
       setFailed(
         /quota/i.test(message)
-          ? `Gemini's free writing limit is used up for today.${limits?.writing ? ` It comes back ${back(limits.writing).text}.` : ""} Until then you can edit the scene by hand.`
+          ? `${writer}'s free writing limit is used up for today.${limits?.writing ? ` It comes back ${back(limits.writing).text}.` : ""} Until then you can edit the scene by hand.`
           : message,
       )
     } finally {
@@ -459,11 +467,12 @@ function FeedbackPanel({
           placeholder="What should change? For example: Grandma should be laughing, and the line should mention Sunday."
           className="min-h-24 text-[13px]"
         />
-        <div className="mt-2 flex items-center gap-3">
+        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
           <Button onClick={ask} disabled={!text.trim() || loading || dirty || !!writing}>
-            <Sparkles /> {loading ? "Gemini is revising…" : "Revise with Gemini"}
-            <CostTag cost={FREE("Gemini", "writing")} className={cn("-mr-1", !writing && "bg-background/15 text-background group-disabled/button:bg-free/12 group-disabled/button:text-free")} />
+            <Sparkles /> {loading ? `${writer} is revising…` : `Revise with ${writer}`}
+            <CostTag cost={cost} className={cn("-mr-1", !writing && "bg-background/15 text-background group-disabled/button:bg-free/12 group-disabled/button:text-free")} />
           </Button>
+          <TaskPicker studio={studio} task="revise" />
           {writing ? null : dirty ? (
             <span className="text-[12px] text-subtle">
               You have unsaved hand edits.{" "}
@@ -478,11 +487,11 @@ function FeedbackPanel({
         </div>
         {writing && (
           <p className="mt-2 text-[12px] text-warn">
-            Today's free Gemini writing is used up. It comes back {back(writing).text}.{" "}
+            Today's free Gemini writing is used up. It comes back {back(writing).text}. To go on now, pick another model above,{" "}
             <button className="text-foreground underline-offset-2 hover:underline" onClick={onKeys}>
-              Add a key
+              add a key
             </button>{" "}
-            from another Google project to go on now, or{" "}
+            from another Google project, or{" "}
             <button className="text-foreground underline-offset-2 hover:underline" onClick={onEdit}>
               edit by hand
             </button>

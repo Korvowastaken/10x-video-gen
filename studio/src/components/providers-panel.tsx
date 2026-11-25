@@ -2,9 +2,9 @@ import { useEffect, useState } from "react"
 import { toast } from "sonner"
 
 import type { Studio } from "@/App"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { back, usd } from "@/lib/progress"
-import { providersApi, STEP_PURPOSES, type ProviderKey, type Providers, type Purpose, type PurposeInfo } from "@/lib/providers"
+import { modelsApi, providersApi, type Models, type ProviderKey, type Providers, type Purpose, type PurposeInfo, type TaskInfo } from "@/lib/providers"
 import { cn } from "@/lib/utils"
 
 /** Services billed per use: they have no free limit to report. */
@@ -50,6 +50,7 @@ export function StatusText({ info }: { info: PurposeInfo }) {
 
 function useProviders(studio: Studio) {
   const [data, setData] = useState<Providers | null>(null)
+  const [models, setModels] = useState<Models | null>(null)
   // Look again whenever the studio state changes: after a job, a limit may be used up or a balance spent.
   useEffect(() => {
     let live = true
@@ -57,56 +58,142 @@ function useProviders(studio: Studio) {
       .get()
       .then((d) => live && setData(d))
       .catch(() => live && setData(null))
+    modelsApi
+      .get()
+      .then((m) => live && setModels(m))
+      .catch(() => live && setModels(null))
     return () => {
       live = false
     }
   }, [studio.state])
-  return [data, async () => setData(await providersApi.get())] as const
+  async function reload() {
+    const [d, m] = await Promise.all([providersApi.get(), modelsApi.get()])
+    setData(d)
+    setModels(m)
+  }
+  return [data, models, reload] as const
 }
 
-/** One quiet line on a step: which service does each kind of work here, and whether it can run now.
- * Clips and music offer their engines right here, where the step that makes them is. */
-export function ProvidersPanel({ studio, step }: { studio: Studio; step: string }) {
-  const purposes = STEP_PURPOSES[step] ?? []
-  const [data, reload] = useProviders(studio)
-  if (!purposes.length || !data) return null
+/** A model picker for one task: the connected services' models first, grouped by service,
+ * then the ones whose service has no key yet (greyed, so it's clear what connecting would add). */
+function ModelPicker({ task, info, onPick }: { task: string; info: TaskInfo; onPick: (task: string, id: string) => void }) {
+  const ready = info.options.filter((o) => o.connected && !o.paused)
+  const groups = [...new Set(ready.map((o) => o.provider))].map((p) => ({ provider: p, options: ready.filter((o) => o.provider === p) }))
+  const unavailable = info.options.filter((o) => !o.connected || o.paused)
+  const fallbacks = info.chain.filter((id) => id !== info.model).map((id) => info.options.find((o) => o.id === id)?.label ?? id)
+  return (
+    <Select items={info.options.map((o) => ({ value: o.id, label: o.label }))} value={info.model} onValueChange={(v) => v && v !== info.model && onPick(task, String(v))}>
+      <SelectTrigger
+        size="sm"
+        title={`${info.does}.${fallbacks.length ? ` If it can't answer: ${fallbacks.join(", ")}.` : ""}`}
+        className="h-6 gap-1 border-none px-1.5 text-[12px] shadow-none hover:bg-secondary"
+      >
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent className="max-h-96 min-w-80">
+        {groups.map((g) => (
+          <SelectGroup key={g.provider}>
+            <SelectLabel>{g.provider}</SelectLabel>
+            {g.options.map((o) => (
+              <SelectItem key={o.id} value={o.id} title={o.note || undefined}>
+                {o.label}
+                <span className={cn("ml-auto pl-3 text-[11px]", o.paid ? "text-paid" : "text-free")}>{o.price}</span>
+              </SelectItem>
+            ))}
+          </SelectGroup>
+        ))}
+        {unavailable.length > 0 && (
+          <SelectGroup>
+            <SelectLabel>Not connected or paused</SelectLabel>
+            {unavailable.map((o) => (
+              <SelectItem key={o.id} value={o.id} disabled>
+                {o.label}
+                <span className="ml-auto pl-3 text-[11px] text-subtle">{o.paused ? `${o.provider} paused` : `Connect ${o.provider}`}</span>
+              </SelectItem>
+            ))}
+          </SelectGroup>
+        )}
+      </SelectContent>
+    </Select>
+  )
+}
 
-  async function setEngine(purpose: Purpose, id: string) {
-    try {
-      await providersApi.chooseEngine(purpose, id)
-      toast.success(`${data![purpose].label} now use ${data![purpose].engines.find((e) => e.id === id)?.label}`)
-      await reload()
-      await studio.refresh() // prices per scene follow the engine
-    } catch (err) {
-      toast.error((err as Error).message)
+/** The model a task starts with, its picker's data, and a way to pick: for a picker beside an action. */
+export function useTaskModel(studio: Studio, task: string) {
+  const [models, setModels] = useState<Models | null>(null)
+  useEffect(() => {
+    let live = true
+    modelsApi
+      .get()
+      .then((m) => live && setModels(m))
+      .catch(() => live && setModels(null))
+    return () => {
+      live = false
     }
+  }, [studio.state])
+  const info = models?.tasks[task] ?? null
+  const chosen = info?.options.find((o) => o.id === info.model) ?? null
+  async function pick(t: string, id: string) {
+    await chooseModel(t, info!, id)
+    setModels(await modelsApi.get())
+    await studio.refresh()
+  }
+  return { info, chosen, pick }
+}
+
+async function chooseModel(task: string, info: TaskInfo, id: string) {
+  const label = info.options.find((o) => o.id === id)?.label ?? id
+  try {
+    await modelsApi.choose(task, id)
+    toast.success(`${info.label} now start${info.label.endsWith("s") ? "" : "s"} with ${label}`, {
+      description: task === "tts" ? "Every line is recorded again with it the next time voices run." : task === "image" ? "Pictures made with the old model show as out of date." : undefined,
+    })
+  } catch (err) {
+    toast.error((err as Error).message)
+    throw err
+  }
+}
+
+/** A labelled model picker for one task, to sit beside the button that runs it. */
+export function TaskPicker({ studio, task, label }: { studio: Studio; task: string; label?: string }) {
+  const { info, pick } = useTaskModel(studio, task)
+  if (!info) return null
+  return (
+    <span className="inline-flex items-center gap-1 text-[12px]">
+      <span className="text-subtle">{label ?? "Model"}:</span>
+      <ModelPicker task={task} info={info} onPick={(t, id) => pick(t, id).catch(() => {})} />
+    </span>
+  )
+}
+
+/** One quiet line on a step: a model picker for each task the step runs, and whether its service can run now. */
+export function ProvidersPanel({ studio, step }: { studio: Studio; step: string }) {
+  const [data, models, reload] = useProviders(studio)
+  const tasks = models?.steps[step] ?? []
+  if (!tasks.length || !data || !models) return null
+
+  async function pick(task: string, id: string) {
+    try {
+      await chooseModel(task, models!.tasks[task], id)
+    } catch {
+      return
+    }
+    await reload()
+    await studio.refresh() // prices and out-of-date marks follow the model
   }
 
+  // The service status shows once per kind of work, after its last task (Storyboard and Lines share Writing's).
+  const lastOfPurpose = new Map(tasks.map((t) => [models.tasks[t].purpose, t]))
   return (
     <div className="mb-6 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-[12px]">
-      {purposes.map((p) => {
-        const info = data[p]
+      {tasks.map((t) => {
+        const info = models.tasks[t]
+        const purpose = data[info.purpose as Purpose]
         return (
-          <span key={p} className="inline-flex items-center gap-1.5">
+          <span key={t} className="inline-flex items-center gap-1.5">
             <span className="text-subtle">{info.label}:</span>
-            {info.engines.length > 1 ? (
-              <Select items={info.engines.map((e) => ({ value: e.id, label: e.label }))} value={info.engine ?? ""} onValueChange={(v) => v && v !== info.engine && setEngine(p, String(v))}>
-                <SelectTrigger size="sm" className="h-6 gap-1 border-none px-1.5 text-[12px] shadow-none hover:bg-secondary">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="min-w-80">
-                  {info.engines.map((e) => (
-                    <SelectItem key={e.id} value={e.id}>
-                      {e.label}
-                      <span className={cn("ml-auto pl-3 text-[11px]", e.paid ? "text-paid" : "text-free")}>{e.price}</span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            ) : (
-              <span>{info.provider}</span>
-            )}
-            <StatusText info={info} />
+            <ModelPicker task={t} info={info} onPick={pick} />
+            {purpose && lastOfPurpose.get(info.purpose) === t && <StatusText info={purpose} />}
           </span>
         )
       })}

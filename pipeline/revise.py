@@ -12,6 +12,7 @@ import copy
 import json
 from typing import Any
 
+from . import catalog
 from . import storyboard as sbmod
 from .config import Project
 from .providers import route
@@ -46,10 +47,9 @@ Rewrite the scene to answer the feedback and change nothing else. Rules:
 - Return the whole scene as one JSON object in exactly the same shape."""
 
 
-def writers(sb: dict[str, Any]) -> list[str]:
-    """A revision rewrites spoken lines too, so it goes to the lines writer first."""
-    return list(dict.fromkeys(sbmod.model_list(sb["models"].get("lines") or []) +
-                              sbmod.model_list(sb["models"]["script"])))
+def writers(project: Project, sb: dict[str, Any]) -> list[str]:
+    """The Revisions picker's chain; until it is set, the lines writer first, then the storyboard's."""
+    return sbmod.model_list(catalog.chain(project, "revise", sb))
 
 
 def propose(project: Project, shot_id: str, feedback: str) -> dict[str, Any]:
@@ -57,7 +57,7 @@ def propose(project: Project, shot_id: str, feedback: str) -> dict[str, Any]:
     shot = next(s for s in sb["shots"] if s["id"] == shot_id)
     story = project.story.read_text("utf-8") if project.story.exists() else ""
     text, used = route.generate_text(project, stage="studio", item=f"{shot_id}-revise", json_mode=True,
-                                     models=writers(sb), temperature=0.5,
+                                     models=writers(project, sb), temperature=0.5,
                                      system=SYSTEM, prompt=_prompt(sb, shot, feedback, story))
     proposal = json.loads(text)
     if isinstance(proposal, list):
@@ -134,7 +134,7 @@ def propose_script(project: Project, feedback: str) -> dict[str, Any]:
     sb = sbmod.load(project)
     story = project.story.read_text("utf-8") if project.story.exists() else ""
     text, used = route.generate_text(project, stage="studio", item="script-revise", json_mode=True,
-                                     models=writers(sb), temperature=0.5,
+                                     models=writers(project, sb), temperature=0.5,
                                      system=SYSTEM, prompt=_script_prompt(sb, feedback, story))
     proposal = merge_script(sb, json.loads(text))
     errors = sbmod.schema_errors(proposal) or sbmod.rule_errors(proposal, project)

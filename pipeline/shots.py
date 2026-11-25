@@ -24,7 +24,7 @@ from . import motion
 from . import runlog
 from . import storyboard as sbmod
 from .cache import StageCache, key_for, sha256_file, write_atomic
-from .config import ROOT, Project
+from .config import ROOT, ConfigError, Project
 from .engines import MODES, VIDEO_ENGINES
 from .providers import gemini, wavespeed
 from .retry import ProviderError, QuotaExhausted, RetryableError
@@ -169,6 +169,9 @@ def run(project: Project, *, only: set[str] | None = None, force: bool = False,
                     except QuotaExhausted as exc:
                         status.append(f"no credit left ({exc}): falls back")
                         limit = bought  # stop buying for the rest of the run
+                    except ConfigError as exc:  # a fresh clone with no keys still builds the film
+                        status.append(f"not bought ({exc}): falls back")
+                        limit = bought
                     except (ProviderError, RetryableError) as exc:
                         raw.manifest[f"{sid}#attempts"] = {"key": key, "count": count + 1, "error": str(exc)[:300],
                                                            "file": ""}
@@ -179,7 +182,7 @@ def run(project: Project, *, only: set[str] | None = None, force: bool = False,
             if clip is not None and mode in ("masked_i2v", "cinemagraph"):
                 try:
                     regions = locate(project, sb, shot, keyframe)
-                except (ProviderError, RetryableError, QuotaExhausted, ValueError) as exc:
+                except (ProviderError, RetryableError, QuotaExhausted, ValueError, ConfigError) as exc:
                     status.append(f"mask not found ({' '.join(str(exc).split())[:120]}): falls back until the next run")
                     report[sid] = "; ".join(status)
                     continue

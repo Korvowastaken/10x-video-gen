@@ -27,7 +27,7 @@ from typing import Any
 
 from . import storyboard as sbmod
 from .cache import StageCache, key_for
-from .config import Project
+from .config import ConfigError, Project
 from .media import measure_loudness, probe_duration, run_ffmpeg, write_wav
 from .providers import gemini
 from .retry import ProviderError, QuotaExhausted, RetryableError
@@ -154,6 +154,7 @@ def run(project: Project, *, only: set[str] | None = None, force: bool = False,
     raw_cache = StageCache(project, "narration/raw")
     listen_models = sbmod.model_list(sb["models"].get("listen", [])) if listen else []
     timing: dict[str, float] = {}
+    stale: list[str] = []
     spoken = reprocessed = cached = 0
     for item, shot, line in line_items(sb):
         selected = only is None or shot["id"] in only
@@ -173,8 +174,18 @@ def run(project: Project, *, only: set[str] | None = None, force: bool = False,
             meta = {k: v for k, v in (raw_cache.entry(item) or {}).items() if k in ("model", "heard", "cer", "take")}
             reprocessed += 1
         else:
-            raw, meta = _take(project, sb, item, tspec, listen_models, raw_cache)
-            spoken += 1
+            try:
+                raw, meta = _take(project, sb, item, tspec, listen_models, raw_cache)
+                spoken += 1
+            except (QuotaExhausted, ProviderError, RetryableError, ConfigError) as exc:
+                old = cache.current(item)
+                if old is None:
+                    raise
+                # No voice today (quota, no key): keep the previous take and say so loudly.
+                stale.append(item)
+                timing[item] = probe_duration(old)
+                print(f"  {item}: STALE - kept the previous take ({' '.join(str(exc).split())[:100]})")
+                continue
         out = cache.path(item, key, ".wav")
         gain = process(raw, out)
         duration = round(probe_duration(out), 3)
@@ -184,6 +195,7 @@ def run(project: Project, *, only: set[str] | None = None, force: bool = False,
         cer = f", listen-back CER {meta['cer']:.2f}" if meta.get("cer") is not None else ""
         print(f"  {item}: {duration:.1f}s{cer}{flag}")
     project.out("narration", "timing.json").write_text(json.dumps(timing, indent=2) + "\n", "utf-8")
+    project.out("narration", "stale.json").write_text(json.dumps(stale, indent=2) + "\n", "utf-8")
     print(f"  narration: {spoken} line(s) spoken, {reprocessed} re-processed from raw takes, {cached} cached, "
-          f"{sum(timing.values()):.1f}s of speech")
+          f"{len(stale)} stale, {sum(timing.values()):.1f}s of speech")
     return timing

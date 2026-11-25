@@ -21,7 +21,7 @@ from typing import Any
 from . import runlog
 from . import storyboard as sbmod
 from .cache import StageCache, key_for, write_atomic
-from .config import ROOT, Project
+from .config import ROOT, ConfigError, Project
 from .engines import music_engine
 from .media import measure_loudness, probe_duration, run_ffmpeg
 from .providers import wavespeed
@@ -77,8 +77,8 @@ def run(project: Project, *, force: bool = False) -> None:
                                                    model=engine["model"], usd_per_s=engine["usd_per_s"],
                                                    tags=spec["tags"], duration=spec["duration"], seed=seed,
                                                    lyrics=spec["lyrics"])
-            except QuotaExhausted as exc:
-                print(f"  music: no WaveSpeed credit left ({exc}); assembly keeps the placeholder score")
+            except (QuotaExhausted, ConfigError) as exc:  # no credit, or a fresh clone with no key
+                print(f"  music: cannot buy candidates ({exc}); assembly keeps the placeholder score")
                 break
             except (ProviderError, RetryableError) as exc:
                 print(f"  music: candidate_{index} failed: {exc}")

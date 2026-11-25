@@ -27,14 +27,15 @@ from typing import Any
 
 from PIL import Image, ImageDraw, ImageFont
 
+from . import motion
 from . import storyboard as sbmod
 from .cache import StageCache, key_for, sha256_file
+from .engines import FALLBACK, MODES, stretch_cap
 from .config import FONTS, Project
 from .media import measure_loudness, probe_duration, probe_video, run_ffmpeg
 
-ASSEMBLE_VERSION = 3
+ASSEMBLE_VERSION = 4
 TRIM_HEAD = 0.12          # many generated clips have a weak first frames
-MAX_SLOWDOWN = 1.6        # stretch a short clip at most this much, then hold the last frame
 MIN_FILM, MAX_FILM = 60.0, 90.0
 FORMATS = {"9x16": (1080, 1920), "16x9": (1920, 1080)}
 CAPTION_STYLE = {  # TikTok-like: bold white, soft dark outline, top centre on vertical
@@ -223,24 +224,58 @@ def kenburns_filter(mode: str, frames: int, w: int, h: int, fps: int) -> str:
             f"zoompan=z='{zoom}':x='{x}':y='{y}':d={frames}:s={w}x{h}:fps={fps},setsar=1,format=yuv420p")
 
 
-def render_segment(source: tuple[str, Path | None], duration: float, out: Path, *, w: int, h: int,
-                   fps: int, kenburns: str = "zoom-in") -> None:
-    kind, path = source
+def render_segment(source: dict[str, Any], duration: float, out: Path, *, w: int, h: int, fps: int,
+                   interpolation: str = "rife") -> None:
+    """One shot's picture at its exact length. Sources:
+    clip      a generated clip: RIFE to 24 fps, slowed at most to its cap, then the last frame held;
+    loop      a composited ping-pong cycle, retimed to 24 fps and looped to fill the shot;
+    parallax  a camera move over the still from its depth map;
+    image     a slow pan or zoom over the still (kenburns "still" holds it);
+    black     nothing yet (the radio cut)."""
+    kind = source["kind"]
     frames = int(round(duration * fps))
     common = ["-an", "-r", str(fps), "-frames:v", str(frames), "-c:v", "libx264", "-preset", "veryfast",
               "-crf", "18", "-pix_fmt", "yuv420p", str(out)]
-    if kind == "clip":
-        info = probe_video(path)
-        usable = max(0.5, info["duration"] - TRIM_HEAD)
-        speed = min(MAX_SLOWDOWN, duration / usable) if usable < duration else 1.0
-        vf = (f"trim=start={TRIM_HEAD},setpts=(PTS-STARTPTS)*{speed:.4f},fps={fps},"
-              f"scale={w}:{h}:force_original_aspect_ratio=increase:flags=lanczos,crop={w}:{h},"
-              f"tpad=stop_mode=clone:stop_duration={duration:.3f},setsar=1,format=yuv420p")
-        run_ffmpeg(["-i", str(path), "-vf", vf, *common])
+    fit = f"scale={w}:{h}:force_original_aspect_ratio=increase:flags=lanczos,crop={w}:{h},setsar=1"
+    if kind in ("clip", "loop"):
+        src, src_fps = motion.read_frames(source["path"])
+        if kind == "clip":
+            src = src[int(round(TRIM_HEAD * src_fps)):] or src  # many clips start weak
+        length = len(src) / src_fps
+        stretch = min(source.get("cap", 1.0), duration / length) if kind == "clip" and length < duration else 1.0
+        interpolator = _interpolator(src[0].shape[1], src[0].shape[0]) if interpolation == "rife" else None
+        timed = out.with_name(out.stem + ".timed.mp4")
+        motion.write_frames(motion.retime(src, src_fps, out_fps=fps, stretch=stretch, interpolator=interpolator),
+                            timed, fps, crf=14)
+        if kind == "loop":
+            run_ffmpeg(["-stream_loop", "-1", "-i", str(timed), "-vf", f"{fit},format=yuv420p", *common])
+        else:
+            run_ffmpeg(["-i", str(timed), "-vf", f"{fit},tpad=stop_mode=clone:stop_duration={duration:.3f},"
+                        "format=yuv420p", *common])
+        timed.unlink(missing_ok=True)
+    elif kind == "parallax":
+        motion.render_parallax(source["path"], source["depth"], out, duration=frames / fps, fps=fps, size=(w, h),
+                               move=source["move"], amount=source["amount"])
     elif kind == "image":
-        run_ffmpeg(["-i", str(path), "-vf", kenburns_filter(kenburns, frames, w, h, fps), *common])
+        run_ffmpeg(["-i", str(source["path"]), "-vf",
+                    kenburns_filter(source.get("kenburns", "zoom-in"), frames, w, h, fps), *common])
     else:  # black
         run_ffmpeg(["-f", "lavfi", "-i", f"color=c=black:s={w}x{h}:r={fps}", *common])
+
+
+_INTERPOLATORS: dict[tuple[int, int], Any] = {}
+
+
+def _interpolator(width: int, height: int):
+    """One RIFE instance per clip size; None (repeat frames) if RIFE cannot start here."""
+    if (width, height) not in _INTERPOLATORS:
+        try:
+            _INTERPOLATORS[(width, height)] = motion.Interpolator(width, height)
+            print(f"  RIFE {motion.RIFE_MODEL} on {_INTERPOLATORS[(width, height)].device}")
+        except Exception as exc:  # keep the edit going; the clip just repeats frames
+            print(f"  RIFE unavailable ({exc}); repeating frames instead")
+            _INTERPOLATORS[(width, height)] = None
+    return _INTERPOLATORS[(width, height)]
 
 
 def end_card_image(sb: dict[str, Any], w: int, h: int, out: Path) -> None:
@@ -325,18 +360,58 @@ def mix_audio(sb: dict[str, Any], narration: Path, music: Path | None, total: fl
 
 # ---------------------------------------------------------------- sources
 
-def shot_source(project: Project, sb: dict[str, Any], shot: dict[str, Any], mode: str) -> tuple[str, Path | None]:
+def _source_for(project: Project, sb: dict[str, Any], shot: dict[str, Any], mode: str,
+                keyframe: Path) -> dict[str, Any] | None:
+    """What `mode` needs for this shot, or None if it is not available (then fall back)."""
+    from .shots import clip_spec
+
+    sid = shot["id"]
+    motion_cfg = shot["motion"]
+    if mode in ("full_i2v", "flf_inbetween", "masked_i2v", "cinemagraph"):
+        end = StageCache(project, "keyframes").current(f"{sid}_end") if motion_cfg["mode"] == "flf_inbetween" else None
+        if motion_cfg["mode"] == "flf_inbetween" and end is None:
+            return None
+        clip = StageCache(project, "shots/raw").hit(sid, key_for(clip_spec(sb, shot, keyframe, end)), ".mp4")
+        if clip is None:
+            return None
+        if mode in ("full_i2v", "flf_inbetween"):
+            return {"kind": "clip", "path": clip, "cap": stretch_cap(shot)}
+        entry = StageCache(project, "shots").entry(sid) or {}
+        composite = StageCache(project, "shots").current(sid)
+        if composite is None or entry.get("spec", {}).get("clip") != sha256_file(clip):
+            return None
+        loop = motion_cfg.get("loop", "pingpong")
+        return {"kind": "loop" if loop == "pingpong" else "clip", "path": composite, "cap": stretch_cap(shot)}
+    if mode == "parallax":
+        entry = StageCache(project, "depth").entry(sid) or {}
+        depth = StageCache(project, "depth").current(sid)
+        if depth is None or entry.get("spec", {}).get("keyframe") != sha256_file(keyframe):
+            return None
+        params = {"move": "push-in", "amount": 0.03, **motion_cfg.get("parallax", {})}
+        return {"kind": "parallax", "path": keyframe, "depth": depth, **params}
+    if mode == "still":
+        return {"kind": "image", "path": keyframe, "kenburns": "still"}
+    return {"kind": "image", "path": keyframe, "kenburns": motion_cfg.get("kenburns", "zoom-in")}
+
+
+def shot_source(project: Project, sb: dict[str, Any], shot: dict[str, Any], mode: str) -> dict[str, Any]:
+    """Walk the shot's fallback chain (engines.FALLBACK) and say which source it ended on.
+    The rough cut skips paid modes, so it shows what the film looks like for free."""
     if mode == "radio":
-        return ("black", None)
-    if mode == "final" and shot["motion"]["mode"] == "video":
-        clip = StageCache(project, "shots").current(shot["id"])
-        if clip:
-            return ("clip", clip)
+        return {"kind": "black", "used": "black"}
     keyframe = StageCache(project, "keyframes").current(shot["id"])
-    if keyframe:
-        return ("image", keyframe)
-    print(f"  {shot['id']}: no keyframe yet, using black")
-    return ("black", None)
+    if keyframe is None:
+        print(f"  {shot['id']}: no keyframe yet, using black")
+        return {"kind": "black", "used": "black"}
+    wanted = shot["motion"]["mode"]
+    chain = [wanted] + FALLBACK[wanted]
+    if mode == "rough":
+        chain = [m for m in chain if not MODES[m]["paid"]]
+    for candidate in chain or ["still_kenburns"]:
+        source = _source_for(project, sb, shot, candidate, keyframe)
+        if source is not None:
+            return {**source, "used": candidate, "wanted": wanted}
+    return {"kind": "image", "path": keyframe, "kenburns": "zoom-in", "used": "still_kenburns", "wanted": wanted}
 
 
 def chosen_music(project: Project, sb: dict[str, Any]) -> Path | None:
@@ -374,21 +449,30 @@ def run(project: Project, *, mode: str = "final") -> dict[str, Any]:
 
     # 1. picture: one cached segment per shot, at 9:16 (radio: 720x1280 black)
     w, h = (720, 1280) if mode == "radio" else FORMATS["9x16"]
-    segments = []
+    interpolation = sb.get("video", {}).get("interpolation", "rife")
+    segments, used = [], {}
     rendered = 0
     for timing, shot in zip(shots, sb["shots"]):
         source = shot_source(project, sb, shot, mode)
-        spec = {"v": ASSEMBLE_VERSION, "kind": source[0], "src": sha256_file(source[1]) if source[1] else None,
-                "dur": timing.duration, "w": w, "h": h, "fps": fps, "kb": shot["motion"].get("kenburns", "zoom-in")}
+        used[shot["id"]] = {k: source.get(k) for k in ("used", "wanted")}
+        spec = {"v": ASSEMBLE_VERSION, "kind": source["kind"],
+                "src": sha256_file(source["path"]) if source.get("path") else None,
+                "depth": sha256_file(source["depth"]) if source.get("depth") else None,
+                "dur": timing.duration, "w": w, "h": h, "fps": fps,
+                **{k: source.get(k) for k in ("kenburns", "move", "amount", "cap")},
+                "interp": f"{interpolation}:{motion.RIFE_MODEL}" if source["kind"] in ("clip", "loop") else None}
         key = key_for(spec)
         seg = seg_cache.hit(shot["id"], key, ".mp4")
         if not seg:
             seg = seg_cache.path(shot["id"], key, ".mp4")
-            render_segment(source, timing.duration, seg, w=w, h=h, fps=fps, kenburns=spec["kb"])
+            render_segment(source, timing.duration, seg, w=w, h=h, fps=fps, interpolation=interpolation)
             seg_cache.record(shot["id"], key, seg, spec)
             rendered += 1
         segments.append(seg)
-    print(f"  picture: {rendered} segment(s) rendered, {len(segments) - rendered} reused")
+    fell_back = [f"{sid} {u['wanted']}->{u['used']}" for sid, u in used.items()
+                 if u.get("wanted") and u["used"] != u["wanted"]]
+    print(f"  picture: {rendered} segment(s) rendered, {len(segments) - rendered} reused"
+          + (f"; fell back: {', '.join(fell_back)}" if fell_back else ""))
     picture = work / f"picture_{mode}.mp4"
     _concat(segments, picture)
 
@@ -402,7 +486,7 @@ def run(project: Project, *, mode: str = "final") -> dict[str, Any]:
     # 3. captions and exports
     events = caption_events(shots, edit["caption_chars"])
     report: dict[str, Any] = {"mode": mode, "duration_s": round(total, 2), "shots": len(shots), **mix_info,
-                              "sources": {s["id"]: shot_source(project, sb, s, mode)[0] for s in sb["shots"]}}
+                              "sources": used}
     slug = "radio_cut" if mode == "radio" else ("rough_cut" if mode == "rough" else "heritage_short")
     out_dir = project.outputs / ("final" if mode == "final" else "cuts")
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -427,7 +511,8 @@ def run(project: Project, *, mode: str = "final") -> dict[str, Any]:
             card_png = work / f"end_card_{fmt}.png"
             end_card_image(sb, fw, fh, card_png)
             card = work / f"end_card_{fmt}.mp4"
-            render_segment(("image", card_png), end_len, card, w=fw, h=fh, fps=fps, kenburns="zoom-in")
+            render_segment({"kind": "image", "path": card_png, "kenburns": "zoom-in"}, end_len, card,
+                           w=fw, h=fh, fps=fps)
             _concat([base, card], full)
         else:
             shutil.copy2(base, full)

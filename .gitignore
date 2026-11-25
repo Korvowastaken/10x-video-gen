@@ -15,9 +15,14 @@ __pycache__/
 outputs/_tmp/
 outputs/_kaggle/
 outputs/assemble/
+# rendered films: rebuilt from the cached inputs by `make film`, shared as links
+outputs/final/*.mp4
 
 # OS / editor
 .DS_Store
 Thumbs.db
 .vscode/
 .idea/
+
+# downloaded model weights (fetched on first use)
+.models/

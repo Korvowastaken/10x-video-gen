@@ -13,6 +13,11 @@ dependencies = [
     "kaggle>=1.7",
     "six>=1.16",  # kaggle imports it without declaring it (FAILURES.md F3)
     "imageio-ffmpeg>=0.5",
+    # local motion: depth parallax, masked compositing, frame interpolation
+    "numpy>=1.26",
+    "opencv-python-headless>=4.9",
+    "onnxruntime>=1.18",
+    "rife-ncnn-vulkan-python-tntwise>=1.4.5",
 ]
 
 [dependency-groups]

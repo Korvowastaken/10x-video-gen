@@ -175,7 +175,7 @@ export function next(state: State, flow?: Flow): Next {
       run: () => api.run("keyframes"),
     }
   }
-  const voices = state.shots.reduce((n, m) => n + m.lines.filter((l, i) => !l.audio || m.stale.voice[i]).length, 0)
+  const voices = state.shots.reduce((n, m) => n + m.lines.filter((l, i) => !l.audio || (m.stale.voice[i] && !l.tunable)).length, 0)
   if (voices)
     return {
       step: "scenes",

@@ -167,6 +167,16 @@ def _stale_or_unknown(sb: dict[str, Any], shot: dict[str, Any], kf: StageCache, 
     return stale(sb, shot, kf, raw, narration, approved)
 
 
+def _tune_state(sb: dict[str, Any], item: str, line: dict[str, Any], raw: StageCache,
+                errors: list[str]) -> dict[str, Any]:
+    """The tuning a line is rendered with, and whether its saved take can be re-tuned for free."""
+    if errors:
+        return {"tune": {}, "tunable": False, "previewable": False}
+    from .narration import line_tune, tts_spec
+    return {"tune": line_tune(sb, line), "tunable": raw.hit(item, key_for(tts_spec(sb, line)), ".wav") is not None,
+            "previewable": raw.current(item) is not None}
+
+
 def state() -> dict[str, Any]:
     story = PROJECT.story.read_text("utf-8") if PROJECT.story.exists() else ""
     if not PROJECT.storyboard.exists():
@@ -177,6 +187,7 @@ def state() -> dict[str, Any]:
     errors = sbmod.schema_errors(sb) or sbmod.rule_errors(sb, PROJECT)
     kf, raw, comp = (StageCache(PROJECT, s) for s in ("keyframes", "shots/raw", "shots"))
     narration, refs = StageCache(PROJECT, "narration"), StageCache(PROJECT, "refs")
+    voice_raw = StageCache(PROJECT, "narration/raw")
     report_path = PROJECT.outputs / "final" / "heritage_short.report.json"
     report = json.loads(report_path.read_text("utf-8")) if report_path.exists() else {}
     approved = None if errors else approved_sheets(sb, refs)
@@ -185,10 +196,11 @@ def state() -> dict[str, Any]:
         sid, mode = shot["id"], shot["motion"]["mode"]
         engine = VIDEO_ENGINES.get(shot["motion"].get("engine") or sb["models"]["video"], {})
         lines = []
-        for n, _ in enumerate(shot["lines"], 1):
+        for n, line in enumerate(shot["lines"], 1):
             entry = narration.entry(f"{sid}_L{n}") or {}
             lines.append({"audio": _url(narration.current(f"{sid}_L{n}")), "cer": entry.get("cer"),
-                          "heard": entry.get("heard"), "seconds": entry.get("duration_s")})
+                          "heard": entry.get("heard"), "seconds": entry.get("duration_s"),
+                          **_tune_state(sb, f"{sid}_L{n}", line, voice_raw, errors)})
         shots.append({
             "id": sid, "keyframe": _url(kf.current(sid)), "end": _url(kf.current(f"{sid}_end")),
             "clip": _url(comp.current(sid) if mode in ("masked_i2v", "cinemagraph") else raw.current(sid)),

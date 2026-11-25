@@ -544,6 +544,31 @@
       "type": "string",
       "pattern": "^S[0-9]{2}$"
     },
+    "tune": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Free voice tuning, applied to the saved take with FFmpeg (no TTS call). Leave a field out for no change.",
+      "properties": {
+        "speed": {
+          "type": "number",
+          "minimum": 0.75,
+          "maximum": 1.35,
+          "description": "Tempo multiplier; the pitch stays put. 1 is as recorded."
+        },
+        "pitch": {
+          "type": "number",
+          "minimum": -4,
+          "maximum": 4,
+          "description": "Pitch shift in semitones; the length stays put. 0 is as recorded."
+        },
+        "age": {
+          "type": "number",
+          "minimum": -1,
+          "maximum": 1,
+          "description": "Feel: -1 younger and brighter, +1 older and darker with a slight tremor. 0 is as recorded."
+        }
+      }
+    },
     "modelList": {
       "oneOf": [
         {
@@ -656,6 +681,10 @@
               "type": "string",
               "minLength": 3,
               "description": "Plain-language delivery note: age, pace, warmth."
+            },
+            "tune": {
+              "$ref": "#/$defs/tune",
+              "description": "Default tuning for every line this character speaks. The voice name decides gender; this only shapes its feel."
             }
           }
         }
@@ -1008,6 +1037,10 @@
               "direction": {
                 "type": "string",
                 "description": "Overrides the speaker's delivery note for this line."
+              },
+              "tune": {
+                "$ref": "#/$defs/tune",
+                "description": "Overrides the speaker's default tuning for this line, field by field."
               }
             }
           }

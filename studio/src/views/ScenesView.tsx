@@ -1,4 +1,4 @@
-import { ArrowRight, Check, ChevronDown, ChevronUp, Sparkles, X } from "lucide-react"
+import { ArrowRight, AudioLines, Check, ChevronDown, ChevronUp, Sparkles, X } from "lucide-react"
 import { createContext, useContext, useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
 
@@ -18,6 +18,7 @@ import { LimitsContext } from "@/lib/limits"
 import { affected, back, blocked, FREE, fieldLabel, LIMIT_OF, PAID, PART_LABEL, scene, usd, type Part } from "@/lib/progress"
 import { cn } from "@/lib/utils"
 import { ApproveBar, StatusDot, StepHeader } from "@/views/parts"
+import { VoicePanel } from "@/views/VoicePanel"
 
 /** The flow, for the motion picker deep in the editor: prices and the allowed modes. */
 const FlowContext = createContext<Flow | null>(null)
@@ -159,7 +160,7 @@ function SceneWorkspace({
   const { refresh, track, busy } = studio
   const [draft, setDraft] = useState<Shot>(shot)
   const [errors, setErrors] = useState<string[]>([])
-  const [tab, setTab] = useState<"feedback" | "edit">("feedback")
+  const [tab, setTab] = useState<"feedback" | "edit" | "voice">("feedback")
   const dirty = JSON.stringify(draft) !== JSON.stringify(shot)
   useEffect(() => {
     if (!dirty) setDraft(shot)
@@ -231,13 +232,16 @@ function SceneWorkspace({
         <Preview studio={studio} shot={shot} media={media} />
 
         <div className="min-w-0">
-          <Tabs value={tab} onValueChange={(v) => setTab(v as "feedback" | "edit")}>
+          <Tabs value={tab} onValueChange={(v) => setTab(v as "feedback" | "edit" | "voice")}>
             <TabsList variant="line" className="mb-4 h-auto border-b pb-0 w-full justify-start rounded-none">
               <TabsTrigger value="feedback" className="flex-none px-1 pb-2.5">
                 <Sparkles /> Give feedback
               </TabsTrigger>
               <TabsTrigger value="edit" className="ml-4 flex-none px-1 pb-2.5">
                 Edit by hand {dirty && <span className="size-1.5 rounded-full bg-primary" />}
+              </TabsTrigger>
+              <TabsTrigger value="voice" className="ml-4 flex-none px-1 pb-2.5" disabled={!shot.lines.length}>
+                <AudioLines /> Voice
               </TabsTrigger>
             </TabsList>
             <TabsContent value="feedback" keepMounted>
@@ -273,6 +277,9 @@ function SceneWorkspace({
                 </Button>
                 {dirty && <WillMakeStale parts={affected(shot, draft, !!media.clip)} prefix="Saving puts" />}
               </div>
+            </TabsContent>
+            <TabsContent value="voice">
+              <VoicePanel studio={studio} shot={shot} media={media} />
             </TabsContent>
           </Tabs>
 
@@ -584,8 +591,10 @@ function RedoPanel({
       id: "voice",
       label: shot.lines.length > 1 ? `Voice (${shot.lines.length} lines)` : "Voice",
       off: shot.lines.length ? undefined : "No spoken line",
-      ...(media.stale.voice.some(Boolean)
+      ...(media.stale.voice.some((s, i) => s && !media.lines[i]?.tunable)
         ? { state: "Out of date", tone: "stale" as const }
+        : media.stale.voice.some(Boolean)
+          ? { state: "Tuning not applied (free, Voice tab)", tone: "ok" as const }
         : status.missing.includes("voice")
           ? { state: "Not recorded", tone: "missing" as const }
           : { state: "Up to date", tone: "ok" as const }),

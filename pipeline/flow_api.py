@@ -14,6 +14,7 @@ from pydantic import BaseModel
 from . import flow, revise, steps
 from . import storyboard as sbmod
 from .cache import StageCache
+from .media import probe_duration
 
 router = APIRouter(prefix="/api")
 
@@ -271,6 +272,64 @@ def post_restore(scene: str, body: Version) -> dict[str, Any]:
     if errors:
         raise HTTPException(422, {"errors": errors})
     return {"ok": True}
+
+
+class Preview(BaseModel):
+    item: str
+    tune: dict[str, float] = {}
+
+
+@router.post("/voice/preview")
+def post_voice_preview(body: Preview) -> dict[str, Any]:
+    """Render one line with a tuning from its saved take. Free and local: no TTS call."""
+    from . import narration
+
+    project = _project()
+    sb = sbmod.load_valid(project)
+    try:
+        path = narration.preview(project, sb, body.item, body.tune)
+    except KeyError:
+        raise HTTPException(404, "no such line")
+    if path is None:
+        raise HTTPException(409, "this line has no saved take yet; record it first")
+    path, older = path
+    return {"audio": _studio()._url(path), "seconds": round(probe_duration(path), 2), "older": older}
+
+
+class Tuning(BaseModel):
+    characters: dict[str, dict[str, float] | None] = {}
+    lines: dict[str, dict[str, float] | None] = {}
+
+
+@router.put("/voice")
+def put_voice(body: Tuning) -> dict[str, Any]:
+    """Save character defaults and line overrides (None clears one), then re-render the
+    changed lines from their saved takes. Free and local: no TTS call."""
+    from . import narration, tuning
+
+    try:
+        flow.require(_project(), "scenes")
+    except flow.GateError as exc:
+        raise HTTPException(409, str(exc))
+    sb = sbmod.load(_project())
+    cast = sbmod.characters(sb)
+    for cid, tune in body.characters.items():
+        if cid not in cast:
+            raise HTTPException(404, f"no character '{cid}'")
+        voice = cast[cid]["voice"]
+        voice.pop("tune", None)
+        if tune and (clean := tuning.normalise(tune)):
+            voice["tune"] = clean
+    lines = {item: line for item, _, line in narration.line_items(sb)}
+    for item, tune in body.lines.items():
+        if item not in lines:
+            raise HTTPException(404, f"no line '{item}'")
+        lines[item].pop("tune", None)
+        if tune is not None:  # its own values, neutral ones too: they override the character's default
+            lines[item]["tune"] = tuning.clamp(tune)
+    _save(sb)
+    return _job("scenes", "tune voices (free, from saved takes)",
+                lambda: narration.run(_project(), listen=False, speak=False))
 
 
 # ---------------------------------------------------------------- 6 final cut

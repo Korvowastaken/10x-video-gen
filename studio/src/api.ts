@@ -1,6 +1,8 @@
 // Typed calls to the studio API (pipeline/studio.py).
 
-export type Line = { speaker: string; text: string; en: string; direction?: string }
+/** Free voice tuning, applied to the saved take (pipeline/tuning.py). A missing field is "as recorded". */
+export type Tune = { speed?: number; pitch?: number; age?: number }
+export type Line = { speaker: string; text: string; en: string; direction?: string; tune?: Tune }
 export type Motion = {
   mode: string
   prompt: string
@@ -36,7 +38,7 @@ export type Character = {
   consent?: string
   look?: string
   reference?: { prompt: string; seeds: number[]; chosen?: number; photo?: string }
-  voice: { name: string; direction: string }
+  voice: { name: string; direction: string; tune?: Tune }
 }
 export type Place = { id: string; name: string; look: string; reference?: { prompt: string; seeds: number[]; photo?: string } }
 export type Storyboard = {
@@ -61,7 +63,18 @@ export type ShotState = {
   used: string | null
   /** Made from other inputs than the storyboard holds now: a redo would remake it. */
   stale: { keyframe: boolean; voice: boolean[]; clip: boolean }
-  lines: { audio: string | null; cer: number | null; heard: string | null; seconds: number | null }[]
+  lines: {
+    audio: string | null
+    cer: number | null
+    heard: string | null
+    seconds: number | null
+    /** The tuning the line is rendered with: the character's default, then the line's own. */
+    tune: Tune
+    /** A saved take exists for the line's words and voice, so it can be re-tuned for free. */
+    tunable: boolean
+    /** Some saved take exists, maybe an out-of-date one: settings can be tried on it. */
+    previewable: boolean
+  }[]
 }
 /** A free tier's state today: used up or not, when it comes back, and how much is left (when measurable). */
 export type Limit = {
@@ -181,6 +194,8 @@ export const api = {
   feedback: (id: string, text: string) =>
     call<{ proposal: Shot; errors: string[]; model: string }>("POST", `/api/shots/${id}/feedback`, { text }),
   redo: (id: string, parts: string[]) => call<Job>("POST", `/api/shots/${id}/redo`, { parts }),
+  previewVoice: (item: string, tune: Tune) => call<{ audio: string; seconds: number; older: boolean }>("POST", "/api/voice/preview", { item, tune }),
+  tuneVoices: (body: { characters?: Record<string, Tune | null>; lines?: Record<string, Tune | null> }) => call<Job>("PUT", "/api/voice", body),
   upload: (owner: string, file: File) => {
     const form = new FormData()
     form.append("file", file)

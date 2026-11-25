@@ -86,9 +86,15 @@ def _print(parts: dict[str, Any]) -> dict[str, Any]:
 
 def script_view(sb: dict[str, Any]) -> dict[str, Any]:
     """The words of the film: who speaks, what they say, what happens. Order-free,
-    so reordering scenes in the sketch does not reopen the script."""
-    cast = [{k: c.get(k) for k in ("id", "name", "role", "visible", "voice")} for c in sb["characters"]]
-    scenes = sorted(key_for({k: s.get(k) for k in ("beat", "location", "characters", "duration_s", "lines")})
+    so reordering scenes in the sketch does not reopen the script. Voice tuning is
+    left out: it is set in Scenes and only re-renders saved takes."""
+    def untuned(x: dict[str, Any]) -> dict[str, Any]:
+        return {k: v for k, v in x.items() if k != "tune"}
+
+    cast = [{k: untuned(c[k]) if k == "voice" else c.get(k) for k in ("id", "name", "role", "visible", "voice")}
+            for c in sb["characters"]]
+    scenes = sorted(key_for({k: [untuned(ln) for ln in s["lines"]] if k == "lines" else s.get(k)
+                             for k in ("beat", "location", "characters", "duration_s", "lines")})
                     for s in sb["shots"])
     return {"title": sb.get("title"), "logline": sb.get("logline"), "language": sb.get("language"),
             "cast": cast, "places": [{k: p.get(k) for k in ("id", "name")} for p in sb["locations"]],

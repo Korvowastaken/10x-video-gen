@@ -15,6 +15,11 @@ re-taken, at most MAX_TAKES times, and the closest take is kept.
 Processing: trim silence at both ends, shorten pauses inside the line that run
 longer than 0.45 s, and set the line to -18 LUFS so every voice enters the mix
 at the same level. Durations go to timing.json; assembly times shots from them.
+
+Tuning (pipeline/tuning.py): speed, pitch and age per character and per line,
+applied in the same first FFmpeg pass. It is part of the processed line's key,
+not the raw take's, so tuning re-renders from the saved take for free. A sped
+up line is shorter, and assembly times the shot from the new length.
 """
 from __future__ import annotations
 
@@ -22,10 +27,12 @@ import json
 import re
 import shutil
 import unicodedata
+import wave
 from pathlib import Path
 from typing import Any
 
 from . import storyboard as sbmod
+from . import tuning
 from .cache import StageCache, key_for
 from .config import ConfigError, Project
 from .media import measure_loudness, probe_duration, run_ffmpeg, write_wav
@@ -64,10 +71,13 @@ def char_error_rate(reference: str, hypothesis: str) -> float:
     return round(previous[-1] / len(ref), 3)
 
 
-def process(raw: Path, out: Path) -> float:
-    """Trim and tighten silences, then set the line to TARGET_LUFS. Returns the gain applied."""
+def process(raw: Path, out: Path, tune: dict[str, Any] | None = None) -> float:
+    """Tune, trim and tighten silences, then set the line to TARGET_LUFS. Returns the gain applied."""
+    with wave.open(str(raw), "rb") as wav:
+        rate = wav.getframerate()
+    chain = ",".join([*tuning.filters(tune, rate), TRIM_AND_TIGHTEN])
     tightened = out.with_name(out.stem + ".tight.wav")
-    run_ffmpeg(["-i", str(raw), "-af", TRIM_AND_TIGHTEN, "-ar", "24000", "-ac", "1", str(tightened)])
+    run_ffmpeg(["-i", str(raw), "-af", chain, "-ar", "24000", "-ac", "1", str(tightened)])
     loudness = measure_loudness(tightened)
     gain = max(-20.0, min(20.0, TARGET_LUFS - loudness.get("input_i", TARGET_LUFS)))
     run_ffmpeg(["-i", str(tightened), "-af", f"volume={gain:.2f}dB,alimiter=limit=0.89:level=false",
@@ -101,9 +111,42 @@ def tts_models(sb: dict[str, Any]) -> list[str]:
     return sbmod.model_list(sb["models"]["tts"])
 
 
-def spec_for(sb: dict[str, Any], line: dict[str, Any]) -> dict[str, Any]:
-    """Key of the processed line: the raw take's key plus the post-processing version."""
-    return {"tts": key_for(tts_spec(sb, line)), "post": POST_VERSION}
+def line_tune(sb: dict[str, Any], line: dict[str, Any]) -> dict[str, float]:
+    return tuning.resolve(sbmod.characters(sb)[line["speaker"]], line)
+
+
+def spec_for(sb: dict[str, Any], line: dict[str, Any], tune: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Key of the processed line: the raw take's key, the post-processing version and the
+    tuning (left out when neutral, so untuned lines keep their old keys). `tune` previews
+    another tuning than the storyboard holds."""
+    spec: dict[str, Any] = {"tts": key_for(tts_spec(sb, line)), "post": POST_VERSION}
+    tune = line_tune(sb, line) if tune is None else tuning.normalise(tune)
+    if tune:
+        spec.update(tune=tune, tune_version=tuning.TUNE_VERSION)
+    return spec
+
+
+def preview(project: Project, sb: dict[str, Any], item: str,
+            tune: dict[str, Any] | None) -> tuple[Path, bool] | None:
+    """Render one line with a tuning from its saved take, without saving it to the storyboard.
+    Free: no TTS call. Returns (file, older): older when only an out-of-date take exists
+    (other words, voice or model), good for choosing settings until the line is recorded
+    again. None when the line has no take at all."""
+    line = next((ln for i, _, ln in line_items(sb) if i == item), None)
+    if line is None:
+        raise KeyError(item)
+    raws = StageCache(project, "narration/raw")
+    raw = raws.hit(item, key_for(tts_spec(sb, line)), ".wav")
+    older = raw is None
+    raw = raw or raws.current(item)
+    if raw is None:
+        return None
+    out_dir = project.outputs / "narration" / "preview"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out = out_dir / f"{raw.stem}__{key_for({'tune': tuning.normalise(tune), 'v': tuning.TUNE_VERSION, 'post': POST_VERSION})}.wav"
+    if not out.exists():
+        process(raw, out, tune)
+    return out, older
 
 
 def _take(project: Project, sb: dict[str, Any], item: str, spec: dict[str, Any], listen_models: list[str],
@@ -148,7 +191,8 @@ def _take(project: Project, sb: dict[str, Any], item: str, spec: dict[str, Any],
 
 
 def run(project: Project, *, only: set[str] | None = None, force: bool = False,
-        listen: bool = True) -> dict[str, float]:
+        listen: bool = True, speak: bool = True) -> dict[str, float]:
+    """`speak=False` re-processes from saved takes only (tuning): a line with no take keeps its old file."""
     sb = sbmod.load_valid(project)
     cache = StageCache(project, "narration")
     raw_cache = StageCache(project, "narration/raw")
@@ -164,7 +208,13 @@ def run(project: Project, *, only: set[str] | None = None, force: bool = False,
         out = cache.hit(item, key, ".wav")
         if out and not (force and selected):
             cached += 1
-            timing[item] = cache.entry(item).get("duration_s") or probe_duration(out)
+            entry = cache.entry(item) or {}
+            if entry.get("key") != key:  # back to a tuning made before: point the manifest at it again
+                raw_meta = {k: v for k, v in (raw_cache.entry(item) or {}).items() if k in ("model", "heard", "cer", "take")}
+                cache.record(item, key, out, {**spec_for(sb, line), "tts": tspec},
+                             duration_s=round(probe_duration(out), 3), **raw_meta)
+                entry = cache.entry(item) or {}
+            timing[item] = entry.get("duration_s") or probe_duration(out)
             continue
         if not selected and cache.current(item):
             timing[item] = probe_duration(cache.current(item))  # not selected: keep the old take
@@ -173,6 +223,13 @@ def run(project: Project, *, only: set[str] | None = None, force: bool = False,
         if raw and not (force and selected):
             meta = {k: v for k, v in (raw_cache.entry(item) or {}).items() if k in ("model", "heard", "cer", "take")}
             reprocessed += 1
+        elif not speak:
+            old = cache.current(item)
+            if old is not None:
+                stale.append(item)
+                timing[item] = probe_duration(old)
+            print(f"  {item}: no saved take for this text and voice; record it first (tuning needs a take)")
+            continue
         else:
             try:
                 raw, meta = _take(project, sb, item, tspec, listen_models, raw_cache)
@@ -187,13 +244,15 @@ def run(project: Project, *, only: set[str] | None = None, force: bool = False,
                 print(f"  {item}: STALE - kept the previous take ({' '.join(str(exc).split())[:100]})")
                 continue
         out = cache.path(item, key, ".wav")
-        gain = process(raw, out)
+        tune = line_tune(sb, line)
+        gain = process(raw, out, tune)
         duration = round(probe_duration(out), 3)
-        cache.record(item, key, out, {"tts": tspec, "post": POST_VERSION}, duration_s=duration, gain_db=gain, **meta)
+        cache.record(item, key, out, {**spec_for(sb, line), "tts": tspec}, duration_s=duration, gain_db=gain, **meta)
         timing[item] = duration
         flag = "  <-- check by ear" if (meta.get("cer") or 0) > 0.35 else ""
         cer = f", listen-back CER {meta['cer']:.2f}" if meta.get("cer") is not None else ""
-        print(f"  {item}: {duration:.1f}s{cer}{flag}")
+        tuned = f", tuned {tuning.describe(tune)}" if tune else ""
+        print(f"  {item}: {duration:.1f}s{cer}{tuned}{flag}")
     project.out("narration", "timing.json").write_text(json.dumps(timing, indent=2) + "\n", "utf-8")
     project.out("narration", "stale.json").write_text(json.dumps(stale, indent=2) + "\n", "utf-8")
     print(f"  narration: {spoken} line(s) spoken, {reprocessed} re-processed from raw takes, {cached} cached, "

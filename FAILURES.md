@@ -94,6 +94,7 @@ The worst bug so far, and the hardest to see, because nothing errored.
   - The official code wants about 24 GB of GPU memory, against a T4's 16 GB.
   - F4 left 6 GPU hours a week.
   - ACE-Step pins its own torch build, which conflicts with Kaggle's.
+- **Where the idea came from:** Samuel Birhanu shared `model-options.md` on the cohort Slack (checked 2026-11-25): a comparison of free and cheap hosted APIs for each stage of this pipeline, made so that nobody has to depend on Kaggle notebooks. It pointed us to WaveSpeed for video and music.
 - **Now:** WaveSpeed's hosted Wan 2.2 I2V 480p Ultra Fast ($0.05 per 5 s, `last_image` for in-betweens) and ACE-Step 1.5 ($0.0003 a second), with one key.
 - **Kept:** the Kaggle runner (smoke-tested with a real GPU job) and both Kaggle job scripts, as the `kaggle-wan22-ti2v-5b` and `kaggle-ace-step-1.5` fallback engines. They have not been run end to end.
 

@@ -135,6 +135,10 @@ the single model call.
 - `ETHICS.md`: consent records, licences, labelling plan
 - `research/motion-on-a-budget.md`: how we cut paid video by more than half
 
+## Thanks
+
+- **Samuel Birhanu**, from the cohort Slack, shared `model-options.md`: research on which free and cheap hosted models fit each stage. It led us to move video and music from Kaggle notebooks to WaveSpeed's APIs (FAILURES F12), which made the pipeline a reusable piece of software instead of a notebook workflow.
+
 > **Status.** `story.md` holds the brief's example story (a girl walking to
 > the market in Dessie), used to build and test the pipeline end to end; the
 > family story replaces it for the published film. Its narration was spoken

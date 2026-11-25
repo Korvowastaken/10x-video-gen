@@ -3,7 +3,7 @@ import { createContext, useContext, useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
 
 import { ApiError, api, diff, MODES, type Flow, type Shot, type ShotState } from "@/api"
-import type { Studio } from "@/App"
+import type { Studio, View } from "@/App"
 import { ProvidersPanel } from "@/components/providers-panel"
 import { CostTag, RunButton } from "@/components/run-button"
 import { Button } from "@/components/ui/button"
@@ -17,7 +17,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { LimitsContext } from "@/lib/limits"
 import { affected, back, blocked, FREE, fieldLabel, LIMIT_OF, PAID, PART_LABEL, scene, usd, type Part } from "@/lib/progress"
 import { cn } from "@/lib/utils"
-import { ApproveBar, StatusDot } from "@/views/parts"
+import { ApproveBar, StatusDot, StepHeader } from "@/views/parts"
 
 /** The flow, for the motion picker deep in the editor: prices and the allowed modes. */
 const FlowContext = createContext<Flow | null>(null)
@@ -28,8 +28,35 @@ export function ScenesView({ studio, onScene }: { studio: Studio; onScene: (id: 
   const shot = sb.shots.find((s) => s.id === studio.scene) ?? sb.shots[0]
   const media = studio.state.shots.find((s) => s.id === shot.id)!
   const i = sb.shots.indexOf(shot)
+  const rows = sb.shots.map((s) => ({ s, flow: studio.flow.scenes.find((x) => x.id === s.id), status: scene(studio.state.shots.find((x) => x.id === s.id)!) }))
+  const tones = rows.map((r) => toneOf(r.flow, r.status))
+  const count = (t: string) => tones.filter((x) => x === t).length
+  const toBuy = studio.state.shots.filter((m) => scene(m).toBuy)
+  const step = studio.flow.steps[4]
+  const current = studio.flow.steps.find((s) => !s.locked && s.state !== "approved")
+  const buying = toBuy.length ? `, ${toBuy.length} clips to buy (${usd(toBuy.reduce((n, m) => n + m.price, 0))})` : ""
   return (
     <FlowContext.Provider value={studio.flow}>
+    <div className="border-b px-10 pt-8 pb-5">
+      <StepHeader
+        n={5}
+        title="Scenes"
+        lead={`Approve each scene to open the Final cut. ${count("weave-done")} of ${sb.shots.length} approved, ${count("weave-stale")} need you${buying}.`}
+        flush
+      >
+        <div className="flex items-center gap-2">
+          <BudgetButton studio={studio} />
+          {step.locked && current && <Button onClick={() => studio.go(STEP_VIEW[current.id] ?? "story")}>Go to {current.title}</Button>}
+        </div>
+      </StepHeader>
+      <SceneWeave tones={tones} ids={rows.map((r) => r.s.id)} />
+      <div className="mt-2 flex gap-5 text-[12px] text-muted-foreground">
+        <Legend tone="bg-free" label="Approved" n={count("weave-done")} />
+        <Legend tone="bg-gold" label="Ready to approve" n={count("weave-current")} />
+        <Legend tone="bg-warn" label="Needs you" n={count("weave-stale")} />
+        <Legend tone="bg-thread" label="Not made yet" n={count("weave-locked")} />
+      </div>
+    </div>
     <div className="grid min-h-full grid-cols-[272px_minmax(0,1fr)]">
       <SceneList studio={studio} selected={shot.id} onSelect={onScene} />
       <SceneWorkspace
@@ -54,26 +81,18 @@ function SceneList({ studio, selected, onSelect }: { studio: Studio; selected: s
     return { s, m, status: scene(m) }
   })
   const work = rows.filter((r) => r.status.needsWork).length
-  const toBuy = rows.filter((r) => r.status.toBuy)
   const shown = filter === "work" ? rows.filter((r) => r.status.needsWork) : rows
   const approval = Object.fromEntries(studio.flow.scenes.map((s) => [s.id, s.state]))
-  const approved = studio.flow.scenes.filter((s) => s.state === "approved").length
   return (
-    <nav className="sticky top-0 flex h-screen flex-col border-r">
-      <div className="border-b px-4 pt-8 pb-3">
-        <div className="text-[12px] text-subtle">Step 5 of 6</div>
-        <h1 className="text-lg font-semibold tracking-tight">Scenes</h1>
-        <p className="mt-0.5 text-[12px] text-subtle">
-          {approved} of {sb.shots.length} approved · {toBuy.length ? `${toBuy.length} clips to buy (${usd(toBuy.reduce((n, r) => n + r.m.price, 0))})` : "all clips bought"}
-        </p>
-        <BudgetButton studio={studio} />
+    <nav aria-label="Scenes" className="sticky top-0 flex h-screen flex-col border-r">
+      <div className="border-b px-3 pt-4 pb-3">
         <ToggleGroup
           value={[filter]}
           onValueChange={(v) => v[0] && setFilter(v[0] as "all" | "work")}
           variant="outline"
           size="sm"
           spacing={0}
-          className="mt-3 w-full"
+          className="w-full"
         >
           <ToggleGroupItem value="all" className="flex-1">
             All
@@ -96,20 +115,20 @@ function SceneList({ studio, selected, onSelect }: { studio: Studio; selected: s
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
-                <span className="font-mono text-[12px] font-semibold">{s.id}</span>
+                <span className="text-[12px] font-semibold tabular-nums">{s.id}</span>
                 {approval[s.id] === "approved" && <Check className="size-3 text-free" strokeWidth={3} aria-label="Approved" />}
                 {approval[s.id] === "stale" && <span className="size-1.5 rounded-full bg-warn" title="Changed since you approved it" />}
                 <span className={cn("text-[11.5px]", MODES[s.motion.mode]?.paid ? "text-paid" : "text-subtle")}>{MODES[s.motion.mode]?.label ?? s.motion.mode}</span>
               </div>
               <p className="mt-0.5 line-clamp-2 text-[12.5px] leading-snug text-muted-foreground">{s.lines[0]?.en ?? s.beat}</p>
-              {status.stale.length > 0 && (
+              {approval[s.id] !== "approved" && status.stale.length > 0 && (
                 <StatusDot status="stale" className="mt-1 text-[11.5px]">
-                  {status.stale.map((p) => PART_LABEL[p]).join(", ")} out of date
+                  Redo
                 </StatusDot>
               )}
-              {status.stale.length === 0 && status.missing.length > 0 && (
+              {approval[s.id] !== "approved" && status.stale.length === 0 && status.missing.length > 0 && (
                 <StatusDot status="missing" className="mt-1 text-[11.5px]">
-                  {status.missing.map((p) => PART_LABEL[p]).join(", ")} not made
+                  Not made
                 </StatusDot>
               )}
             </div>
@@ -175,15 +194,21 @@ function SceneWorkspace({
       <ProvidersPanel studio={studio} step="scenes" />
       <header className="mb-6 flex items-start gap-6">
         <div className="min-w-0 flex-1">
-          <div className="font-mono text-[12px] text-subtle">
+          <div className="text-[12px] text-subtle tabular-nums">
             {shot.id} · {shot.size} · {shot.duration_s} s
           </div>
           <h2 className="mt-0.5 text-xl font-semibold tracking-tight">{shot.beat}</h2>
+          {shot.lines[0] && (
+            <p className="mt-1.5 text-[15px]">
+              <span lang="am">{shot.lines[0].text}</span>
+              <span className="ml-2 text-muted-foreground">{shot.lines[0].en}</span>
+            </p>
+          )}
           <p className="mt-1 max-w-3xl text-muted-foreground">{shot.reason}</p>
         </div>
         <div className="flex items-center gap-1">
           <RunButton
-            variant="secondary"
+            variant={flowScene?.blockers.length ? "default" : "secondary"}
             cost={FREE("Cloudflare", "pictures")}
             disabled={busy || dirty || studio.flow.steps[4].locked}
             onRun={() => track(api.makeScene(shot.id))}
@@ -426,7 +451,7 @@ function FeedbackPanel({
         <div className="mt-2 flex items-center gap-3">
           <Button onClick={ask} disabled={!text.trim() || loading || dirty || !!writing}>
             <Sparkles /> {loading ? "Gemini is revising…" : "Revise with Gemini"}
-            <CostTag cost={FREE("Gemini", "writing")} className={cn("-mr-1", !writing && "bg-white/15 text-white")} />
+            <CostTag cost={FREE("Gemini", "writing")} className={cn("-mr-1", !writing && "bg-background/15 text-background group-disabled/button:bg-free/12 group-disabled/button:text-free")} />
           </Button>
           {writing ? null : dirty ? (
             <span className="text-[12px] text-subtle">
@@ -497,7 +522,7 @@ function FeedbackPanel({
               <>
                 <Button disabled={proposal.errors.length > 0 || busy} onClick={() => accept(free)}>
                   <Check /> Accept and redo {free.map((p) => PART_LABEL[p].toLowerCase()).join(" + ")}
-                  <CostTag cost={FREE()} className="-mr-1 bg-white/15 text-white" />
+                  <CostTag cost={FREE()} className="-mr-1 bg-background/15 text-background group-disabled/button:bg-free/12 group-disabled/button:text-free" />
                 </Button>
                 <Button variant="secondary" disabled={proposal.errors.length > 0} onClick={() => accept([])}>
                   Accept only
@@ -605,8 +630,8 @@ function RedoPanel({
             >
               <Checkbox checked={parts.includes(o.id)} disabled={!!o.off || !!out} onCheckedChange={(on) => toggle(o.id, on)} />
               <span className="w-40 text-[13px] font-medium">{o.label}</span>
-              {o.off ? <span className="text-[12px] text-subtle">{o.off}</span> : <StatusDot status={o.tone}>{o.state}</StatusDot>}
-              {!o.off && out && <span className="text-[12px] text-warn">· free limit used up</span>}
+              {o.off ? <span className="text-[12px] text-subtle">{o.off}</span> : <StatusDot status={o.tone} className="whitespace-nowrap">{o.state}</StatusDot>}
+              {!o.off && out && <span className="text-[12px] whitespace-nowrap text-warn">· free limit used up</span>}
               {!o.off && <CostTag cost={price} className="ml-auto" />}
             </label>
           )
@@ -804,17 +829,12 @@ function BudgetButton({ studio }: { studio: Studio }) {
   const over = b.planned_usd > b.budget_usd
   return (
     <>
-      <button onClick={() => setOpen(true)} className="mt-2 w-full rounded-md border px-2.5 py-1.5 text-left text-[12px] transition-colors hover:bg-muted">
-        <span className="flex justify-between">
-          <span className="text-muted-foreground">Film budget</span>
-          <span className={cn("tabular-nums", over ? "text-warn" : "text-secondary-foreground")}>
-            {usd(b.planned_usd)} of {usd(b.budget_usd)}
-          </span>
+      <Button variant="outline" onClick={() => setOpen(true)} title={`${b.allowed_modes.length} of ${Object.keys(flow.catalog.modes).length} motion modes allowed`}>
+        Modes and budget
+        <span className={cn("tabular-nums", over ? "text-warn" : "text-muted-foreground")}>
+          {usd(b.planned_usd)} planned of {usd(b.budget_usd)}
         </span>
-        <span className="mt-0.5 block text-subtle">
-          {b.allowed_modes.length} of {Object.keys(flow.catalog.modes).length} motion modes allowed · spent {usd(b.spent_usd)}
-        </span>
-      </button>
+      </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -872,5 +892,37 @@ function Versions({ studio, id, history }: { studio: Studio; id: string; history
         </Button>
       ))}
     </div>
+  )
+}
+
+const STEP_VIEW: Record<string, View> = { story: "story", script: "script", sketch: "sketch", references: "references", scenes: "scenes", final: "film" }
+
+/** A scene's band colour: green approved, red changed or out of date, gold ready to approve, bare thread when not made. */
+function toneOf(f: Flow["scenes"][number] | undefined, status: ReturnType<typeof scene>) {
+  if (f?.state === "approved") return "weave-done"
+  if (f?.state === "stale" || status.stale.length) return "weave-stale"
+  if (f && !f.blockers.length) return "weave-current"
+  return "weave-locked"
+}
+
+const TONE_WORD: Record<string, string> = { "weave-done": "approved", "weave-stale": "needs you", "weave-current": "ready to approve", "weave-locked": "not made yet" }
+
+/** The scenes as one woven strip, one segment per scene in film order. */
+function SceneWeave({ tones, ids }: { tones: string[]; ids: string[] }) {
+  return (
+    <div className="mt-4 flex gap-[3px]" role="img" aria-label={`${tones.filter((t) => t === "weave-done").length} of ${tones.length} scenes approved`}>
+      {tones.map((t, i) => (
+        <span key={ids[i]} title={`${ids[i]}: ${TONE_WORD[t]}`} className={cn("weave-h h-2.5 flex-1", t)} />
+      ))}
+    </div>
+  )
+}
+
+function Legend({ tone, label, n }: { tone: string; label: string; n: number }) {
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <span className={cn("size-2 rounded-full", tone)} />
+      {label} <span className="text-foreground tabular-nums">{n}</span>
+    </span>
   )
 }

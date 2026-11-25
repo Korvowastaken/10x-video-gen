@@ -58,7 +58,7 @@ export function SketchView({ studio }: { studio: Studio }) {
             {animatic ? "Draw again" : "Draw the sketch"}
           </RunButton>
           {step.state === "approved" && (
-            <Button variant="ghost" onClick={() => go("references")}>
+            <Button onClick={() => go("references")}>
               Go to References
             </Button>
           )}

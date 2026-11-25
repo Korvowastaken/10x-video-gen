@@ -42,7 +42,7 @@ export function ScriptView({ studio }: { studio: Studio }) {
             {sb ? "Draft again" : "Draft the script"}
           </RunButton>
           {step.state === "approved" && (
-            <Button variant="ghost" onClick={() => go("sketch")}>
+            <Button onClick={() => go("sketch")}>
               Go to Sketch
             </Button>
           )}

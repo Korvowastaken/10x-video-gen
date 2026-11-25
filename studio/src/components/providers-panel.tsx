@@ -21,9 +21,9 @@ export function ProvidersPanel({ studio, step }: { studio: Studio; step: string 
   const [data, setData] = useState<Providers | null>(null)
   const [open, setOpen] = useState(() => {
     try {
-      return localStorage.getItem("providers-open") !== "0"
+      return localStorage.getItem("providers-open") === "1"
     } catch {
-      return true
+      return false
     }
   })
   // Look again whenever the studio state changes: after a job, a limit may be used up or a balance spent.
@@ -51,10 +51,10 @@ export function ProvidersPanel({ studio, step }: { studio: Studio; step: string 
   const trouble = data ? purposes.filter((p) => data[p].keys.length === 0 || data[p].keys.every((k) => k.used_up)) : []
 
   return (
-    <section className="mb-7 rounded-lg border">
+    <section className="mb-6 rounded-md border">
       <button onClick={toggle} className="flex w-full items-center gap-3 px-4 py-2.5 text-left">
-        <span className="text-[13px] font-medium">Providers and keys</span>
-        {data && !open && (
+        <span className="shrink-0 text-[13px] font-medium">Providers and keys</span>
+        {data && !open && !trouble.length && (
           <span className="truncate text-[12px] text-subtle">
             {purposes.map((p) => `${data[p].label} on ${data[p].provider}`).join(" · ")}
           </span>

@@ -13,13 +13,15 @@ export function Page({ children, className }: { children: React.ReactNode; class
 }
 
 /** Step number, title and one line on what this step is for. */
-export function StepHeader({ n, title, lead, children }: { n: number; title: string; lead: string; children?: React.ReactNode }) {
+export function StepHeader({ n, title, lead, flush, children }: { n: number; title: string; lead: string; flush?: boolean; children?: React.ReactNode }) {
   return (
-    <header className="mb-7 flex items-end gap-6">
+    <header className={cn("flex items-end gap-6", !flush && "mb-6 border-b pb-5")}>
       <div className="min-w-0 flex-1">
-        <div className="mb-1 text-[12px] text-subtle tabular-nums">Step {n} of 6</div>
-        <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
-        <p className="mt-1 max-w-2xl text-muted-foreground">{lead}</p>
+        <h1 className="text-[28px] leading-tight font-semibold tracking-[-0.01em]">{title}</h1>
+        <p className="mt-1 max-w-2xl text-muted-foreground">
+          <span className="text-subtle tabular-nums">Step {n} of 6 · </span>
+          {lead}
+        </p>
       </div>
       {children}
     </header>
@@ -97,9 +99,10 @@ export function ApproveBar({ studio, step, what, scene }: { studio: Studio; step
   return (
     <div
       className={cn(
-        "mb-6 flex items-center gap-3 rounded-lg border px-3.5 py-2.5 text-[13px]",
-        state === "approved" && !s.locked && "border-free/25 bg-free/6",
-        state === "stale" && "border-warn/30 bg-warn/8",
+        "mb-6 flex min-h-12 items-center gap-3 rounded-md border px-4 py-2 text-[13px]",
+        state === "approved" && !s.locked && "border-free/30 bg-free/8",
+        state === "stale" && "border-warn/35 bg-warn/8",
+        !s.locked && state !== "approved" && state !== "stale" && !blockers.length && "border-gold/60 bg-gold/10",
       )}
     >
       {s.locked ? (
@@ -109,7 +112,7 @@ export function ApproveBar({ studio, step, what, scene }: { studio: Studio; step
       ) : state === "stale" ? (
         <RefreshCw className="size-3.5 shrink-0 text-warn" strokeWidth={2.5} />
       ) : (
-        <span className="size-2 shrink-0 rounded-full border border-primary" />
+        <span className={cn("size-2.5 shrink-0 rounded-full", blockers.length ? "border border-thread" : "bg-gold")} />
       )}
       <div className="min-w-0 flex-1">
         {s.locked ? (
@@ -118,7 +121,7 @@ export function ApproveBar({ studio, step, what, scene }: { studio: Studio; step
           <span>{upper(what)} is approved.</span>
         ) : state === "stale" ? (
           <span>
-            <span className="text-warn">Changed since you approved it:</span> {changed.join(", ")}. Check it, then approve again.
+            <span className="font-medium text-warn">Changed since you approved it:</span> {changed.join(", ")}. Check it, then approve again.
           </span>
         ) : blockers.length ? (
           <span className="text-muted-foreground">Before you can approve: {blockers.join("; ")}.</span>

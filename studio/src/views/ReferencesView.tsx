@@ -47,7 +47,7 @@ export function ReferencesView({ studio }: { studio: Studio }) {
             {undrawn ? "Draw sheets" : "Redraw what changed"}
           </RunButton>
           {step.state === "approved" && (
-            <Button variant="ghost" onClick={() => go("scenes")}>
+            <Button onClick={() => go("scenes")}>
               Go to Scenes
             </Button>
           )}

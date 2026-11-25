@@ -27,7 +27,7 @@ export function StoryView({ studio }: { studio: Studio }) {
     <Page>
       <StepHeader n={1} title="Story" lead="Write or paste the family story in plain words, in any language. Change the settings on the right only if the defaults don't fit.">
         {flow.steps[0].state === "approved" && (
-          <Button variant="ghost" onClick={() => go("script")}>
+          <Button onClick={() => go("script")}>
             Go to Script
           </Button>
         )}

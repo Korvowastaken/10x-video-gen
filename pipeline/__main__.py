@@ -79,6 +79,7 @@ def main(argv: list[str] | None = None) -> int:
     smoke.add_argument("--kaggle-gpu", action="store_true", help="also run a 1-minute GPU job on Kaggle")
     sub.add_parser("costs")
     sub.add_parser("site")
+    sub.add_parser("studio")
     sub.add_parser("prune")
     args = parser.parse_args(argv)
 
@@ -117,6 +118,9 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "smoke":
             from . import smoke
             return smoke.run(project, kaggle_gpu=args.kaggle_gpu)
+        elif args.command == "studio":
+            from . import studio
+            studio.main()
         elif args.command == "site":
             from . import site
             site.run(project)

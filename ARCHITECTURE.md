@@ -194,6 +194,21 @@ inference time and `cost.usd_list` the list price. Prompts are logged as a
 length and a hash; the full text is in `storyboard.json`. `make costs`
 summarises the log per stage for `COSTS.md`.
 
+## The studio
+
+`make studio` builds the React app in `studio/` and serves it with the API in
+`pipeline/studio.py` (FastAPI, 127.0.0.1:8765). The studio never holds its own
+state: every edit writes `story.md` or `storyboard.json` through the same schema
+and rule checks as `make validate`, and every button runs the same stage
+function the CLI runs, one job at a time, with its log streamed back. So a scene
+redone from the browser hits the same cache as `make shots ONLY=S03`.
+
+Scene feedback goes through `pipeline/revise.py`: Gemini proposes a revised shot
+from the note, the studio shows the diff, and nothing changes until you accept
+it. The shot keeps its id and seeds, so only the parts the note touched are
+regenerated. Reference photos are saved in `references/` (git-ignored, since
+they can show real people) and fed to FLUX next to the character sheet.
+
 ## Layout
 
 ```

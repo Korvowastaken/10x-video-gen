@@ -533,6 +533,11 @@
           "type": "integer",
           "minimum": 0,
           "description": "Index into seeds of the approved (golden) reference."
+        },
+        "photo": {
+          "type": "string",
+          "pattern": "^references/[A-Za-z0-9_.\\-]+$",
+          "description": "An uploaded reference image (references/<file>) given to the image model with every sheet of this character or place. A photo of a real person needs their consent row."
         }
       }
     },

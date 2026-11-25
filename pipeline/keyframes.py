@@ -84,10 +84,15 @@ def references(project: Project, sb: dict[str, Any], *, force: bool = False,
             continue
         ref = character["reference"]
         prompt = sbmod.reference_prompt(sb, character)
+        photo = _photo(project, ref)
+        if photo:
+            prompt += (" Base the face, hair and build on the reference photo, drawn in the style above, "
+                       "not as a photograph.")
         for i, seed in enumerate(ref["seeds"]):
-            spec = {"v": 1, "prompt": prompt, "seed": seed, "model": models[0], "size": REFERENCE_SIZE}
+            spec = {"v": 1, "prompt": prompt, "seed": seed, "model": models[0], "size": REFERENCE_SIZE,
+                    "photo": sha256_file(photo) if photo else None}
             path = _make(project, cache, item=f"char_{character['id']}_{i}", spec=spec, models=models, prompt=prompt, seed=seed,
-                         size=REFERENCE_SIZE, references=[], force=force, counts=counts)
+                         size=REFERENCE_SIZE, references=[photo] if photo else [], force=force, counts=counts)
             if i == ref.get("chosen", 0):
                 approved[character["id"]] = path
     for location in sb["locations"]:
@@ -96,13 +101,27 @@ def references(project: Project, sb: dict[str, Any], *, force: bool = False,
             continue
         prompt = sbmod.location_prompt(sb, location)
         seed = ref["seeds"][ref.get("chosen", 0)]
-        spec = {"v": 1, "prompt": prompt, "seed": seed, "model": models[0], "size": KEYFRAME_SIZE}
+        photo = _photo(project, ref)
+        if photo:
+            prompt += " Base the layout, landmarks and colours on the reference photo, drawn in the style above."
+        spec = {"v": 1, "prompt": prompt, "seed": seed, "model": models[0], "size": KEYFRAME_SIZE,
+                "photo": sha256_file(photo) if photo else None}
         approved[f"place:{location['id']}"] = _make(
             project, cache, item=f"place_{location['id']}", spec=spec, models=models, prompt=prompt, seed=seed,
-            size=KEYFRAME_SIZE, references=[], force=force, counts=counts)
+            size=KEYFRAME_SIZE, references=[photo] if photo else [], force=force, counts=counts)
     contact_sheet([(name, p) for name, p in sorted(_all_current(cache).items())],
                   project.out("refs", "contact_sheet.jpg"), columns=4)
     return approved
+
+
+def _photo(project: Project, ref: dict[str, Any]) -> Path | None:
+    """An uploaded reference photo (references/<file>) for a character or place, if there is one."""
+    if not ref.get("photo"):
+        return None
+    path = project.root / ref["photo"]
+    if not path.exists():
+        raise FileNotFoundError(f"reference photo {ref['photo']} is missing")
+    return path
 
 
 def _all_current(cache: StageCache) -> dict[str, Path]:

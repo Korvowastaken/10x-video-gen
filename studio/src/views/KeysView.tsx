@@ -1,27 +1,28 @@
-import { ExternalLink, Trash2 } from "lucide-react"
+import { ExternalLink, Plus, X } from "lucide-react"
 import { useCallback, useEffect, useState } from "react"
 import { toast } from "sonner"
 
-import { api, type KeyService, type State } from "@/api"
+import { api, type KeyService } from "@/api"
 import type { Studio } from "@/App"
-import { CostTag } from "@/components/run-button"
-import {
-  AlertDialog,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
+import { PurposeRows } from "@/components/providers-panel"
 import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { back, FREE } from "@/lib/progress"
 import { cn } from "@/lib/utils"
-import { Page, StatusDot } from "@/views/parts"
+import { Page, Section } from "@/views/parts"
+
+type Key = KeyService["keys"][number]
+
+/** How the connections are grouped on the page, by the work they do. Unknown services land in the last group. */
+const GROUPS: { title: string; ids: string[] }[] = [
+  { title: "Writing and voices", ids: ["anthropic", "azure", "gemini"] },
+  { title: "Pictures, clips and music", ids: ["cloudflare", "wavespeed", "kaggle"] },
+  { title: "Other free writers (optional)", ids: ["groq", "cerebras", "openrouter"] },
+]
 
 export function KeysView({ studio }: { studio: Studio }) {
   const [services, setServices] = useState<KeyService[] | null>(null)
+  const [open, setOpen] = useState<string | null>(null)
   const load = useCallback(async () => {
     try {
       setServices(await api.keys())
@@ -36,32 +37,180 @@ export function KeysView({ studio }: { studio: Studio }) {
     await load()
     await studio.refresh()
   }
+  const known = new Set(GROUPS.flatMap((g) => g.ids))
+  const groups = GROUPS.map((g, i) => ({
+    title: g.title,
+    items: (services ?? []).filter((s) => g.ids.includes(s.id) || (i === GROUPS.length - 1 && !known.has(s.id))),
+  })).filter((g) => g.items.length)
+  const connected = services?.filter((s) => s.keys.length).length ?? 0
+  const current = services?.find((s) => s.id === open) ?? null
 
   return (
-    <Page className="max-w-5xl">
-      <header className="mb-7">
-        <h1 className="text-2xl font-semibold tracking-tight">Keys</h1>
+    <Page className="max-w-6xl">
+      <header className="mb-2 border-b pb-5">
+        <h1 className="text-[28px] leading-tight font-semibold tracking-[-0.01em]">Connections</h1>
         <p className="mt-1 max-w-2xl text-muted-foreground">
-          Saved in the .env file on this computer and only ever shown by their last four characters. Free limits belong to the account behind a key,
-          so add a second key from another account and the studio switches to it by itself when the first one runs out.
+          {services ? `${connected} of ${services.length} services connected. ` : ""}
+          Keys stay in the .env file on this computer. When a free limit runs out, the next key for the same service takes over by itself.
         </p>
       </header>
-      {!services && <p className="text-muted-foreground">Reading the keys…</p>}
-      <div className="divide-y border-y">
-        {services?.map((s) => (
-          <Service key={s.id} service={s} limits={studio.state.limits} onChange={changed} />
-        ))}
-      </div>
+
+      <Section title="What makes what">
+        <PurposeRows studio={studio} />
+      </Section>
+
+      {!services && <p className="mt-8 text-[13px] text-subtle">Reading the connections…</p>}
+      {groups.map((g) => (
+        <Section key={g.title} title={g.title} className="mt-10">
+          <div className="grid grid-cols-3 gap-3">
+            {g.items.map((s) => (
+              <Connector key={s.id} service={s} onOpen={() => setOpen(s.id)} />
+            ))}
+          </div>
+        </Section>
+      ))}
+
+      <Dialog open={!!current} onOpenChange={(o) => !o && setOpen(null)}>
+        {current && <Manage service={current} onChange={changed} />}
+      </Dialog>
     </Page>
   )
 }
 
-function Service({ service, limits, onChange }: { service: KeyService; limits: State["limits"]; onChange: () => Promise<void> }) {
+/** A service's mark: its initials on a tile, since the studio ships no third-party logos. */
+function Mark({ label, on }: { label: string; on: boolean }) {
+  const letters = label.split(/\s+/).map((w) => w[0]).join("").slice(0, 2)
+  return (
+    <span className={cn("grid size-9 shrink-0 place-items-center rounded-md text-[13px] font-semibold", on ? "bg-foreground text-background" : "border bg-muted text-subtle")}>
+      {letters}
+    </span>
+  )
+}
+
+function Connector({ service, onOpen }: { service: KeyService; onOpen: () => void }) {
+  const on = service.keys.length > 0
+  return (
+    <div className="flex flex-col rounded-lg border p-4 transition-colors duration-150 hover:border-thread">
+      <div className="flex items-start gap-3">
+        <Mark label={service.label} on={on} />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-baseline justify-between gap-2">
+            <span className="text-[14px] font-medium">{service.label}</span>
+            <span className={cn("text-[12px]", service.paid ? "text-paid" : "text-free")}>{service.paid ? "Paid" : "Free"}</span>
+          </div>
+          <p className="mt-1 line-clamp-2 text-[12.5px] leading-snug text-muted-foreground" title={service.for}>
+            {service.for}
+          </p>
+        </div>
+      </div>
+      <div className="mt-4 flex items-center justify-between gap-2 pt-1">
+        <span className={cn("inline-flex items-center gap-1.5 text-[12px]", on ? "text-free" : "text-subtle")}>
+          <span className={cn("size-1.5 rounded-full", on ? "bg-free" : "border border-thread")} />
+          {on ? `Connected${service.keys.length > 1 ? ` · ${service.keys.length} keys` : ""}` : "Not connected"}
+        </span>
+        <Button size="sm" variant={on ? "ghost" : "outline"} onClick={onOpen}>
+          {on ? "Manage" : "Connect"}
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+/** The dialog for one service: its keys (use first, remove) and adding one. */
+function Manage({ service, onChange }: { service: KeyService; onChange: () => Promise<void> }) {
+  const [adding, setAdding] = useState(service.keys.length === 0)
+  const [removing, setRemoving] = useState<Key | null>(null)
+  const several = service.keys.length > 1 && !service.single
+  const canAdd = !(service.single && service.keys.length > 0)
+
+  return (
+    <DialogContent className="sm:max-w-lg">
+      <DialogHeader>
+        <div className="flex items-center gap-3">
+          <Mark label={service.label} on={service.keys.length > 0} />
+          <div>
+            <DialogTitle>{service.label}</DialogTitle>
+            <DialogDescription className="mt-0.5">{service.for}</DialogDescription>
+          </div>
+        </div>
+      </DialogHeader>
+
+      <p className="text-[12.5px] text-muted-foreground">
+        {service.limit}{" "}
+        <a href={service.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-0.5 text-link hover:underline">
+          Get a key <ExternalLink className="size-3" />
+        </a>
+      </p>
+
+      {service.keys.length > 0 && (
+        <div className="divide-y rounded-md border">
+          {service.keys.map((k) => (
+            <div key={k.slot} className="flex h-11 items-center gap-3 px-3 text-[13px]">
+              <span className="font-medium">Key {k.n}</span>
+              <span className="text-subtle tabular-nums">{Object.values(k.masked).slice(-1)[0]}</span>
+              {several && k.active && <span className="text-[12px] text-free">Used first</span>}
+              <span className="ml-auto flex items-center gap-1">
+                {several && !k.active && (
+                  <Button
+                    size="xs"
+                    variant="ghost"
+                    onClick={async () => {
+                      await api.useKey(service.id, k.slot)
+                      await onChange()
+                    }}
+                  >
+                    Use first
+                  </Button>
+                )}
+                {removing?.slot === k.slot ? (
+                  <>
+                    <Button
+                      size="xs"
+                      variant="destructive"
+                      onClick={async () => {
+                        await api.removeKey(service.id, k.slot)
+                        setRemoving(null)
+                        toast.success(`${service.label} key ${k.n} removed`)
+                        await onChange()
+                      }}
+                    >
+                      Remove
+                    </Button>
+                    <Button size="xs" variant="ghost" onClick={() => setRemoving(null)}>
+                      Keep
+                    </Button>
+                  </>
+                ) : (
+                  <Button size="icon-xs" variant="ghost" aria-label={`Remove key ${k.n}`} onClick={() => setRemoving(k)}>
+                    <X />
+                  </Button>
+                )}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {adding ? (
+        <AddKey service={service} onDone={async () => (setAdding(false), await onChange())} onCancel={service.keys.length ? () => setAdding(false) : undefined} />
+      ) : (
+        canAdd && (
+          <Button variant="outline" className="self-start" onClick={() => setAdding(true)}>
+            <Plus /> Add {service.keys.length ? "another key" : "a key"}
+          </Button>
+        )
+      )}
+      {service.keys.length > 1 && !service.single && (
+        <p className="text-[12px] text-subtle">Keys from different accounts each have their own free limit; when one runs out, the next is used.</p>
+      )}
+    </DialogContent>
+  )
+}
+
+function AddKey({ service, onDone, onCancel }: { service: KeyService; onDone: () => Promise<void>; onCancel?: () => void }) {
   const [values, setValues] = useState<Record<string, string>>({})
   const [saving, setSaving] = useState(false)
   const [problem, setProblem] = useState<string | null>(null)
-  const [removing, setRemoving] = useState<KeyService["keys"][number] | null>(null)
-  const [adding, setAdding] = useState(service.keys.length === 0)
   const filled = service.fields.every((f) => values[f.name]?.trim())
 
   async function save() {
@@ -69,10 +218,9 @@ function Service({ service, limits, onChange }: { service: KeyService; limits: S
     setProblem(null)
     try {
       await api.addKey(service.id, values)
-      toast.success(`${service.label} key added`)
+      toast.success(`${service.label} connected`)
       setValues({})
-      setAdding(false)
-      await onChange()
+      await onDone()
     } catch (err) {
       setProblem((err as Error).message)
     } finally {
@@ -81,142 +229,32 @@ function Service({ service, limits, onChange }: { service: KeyService; limits: S
   }
 
   return (
-    <section className="grid grid-cols-[280px_minmax(0,1fr)] gap-10 py-6">
-      <div>
-        <div className="flex items-center gap-2">
-          <span className="font-medium">{service.label}</span>
-          {service.paid ? <span className="rounded-[4px] bg-paid/15 px-1.5 text-[11px] font-medium text-paid">Paid</span> : <CostTag cost={FREE()} />}
-        </div>
-        <p className="mt-1 text-[12.5px] text-muted-foreground">{service.for}</p>
-        <p className="mt-2 text-[12px] text-subtle">{service.limit}</p>
-        <a href={service.url} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1 text-[12px] text-primary hover:underline">
-          Get a key <ExternalLink className="size-3" />
-        </a>
-      </div>
-
-      <div className="min-w-0">
-        {service.keys.length > 0 && (
-          <div className="divide-y rounded-lg border">
-            {service.keys.map((k) => (
-              <div key={k.slot} className="flex items-center gap-4 px-4 py-2.5">
-                <span className="w-14 text-[13px] font-medium">Key {k.n}</span>
-                <span className="w-44 truncate font-mono text-[12px] text-muted-foreground">
-                  {Object.values(k.masked).join(" · ")}
-                </span>
-                <KeyStatus service={service.id} fingerprint={k.fingerprint} limits={limits} />
-                <span className="ml-auto flex items-center gap-1">
-                  {service.single || service.keys.length < 2 ? null : k.active ? (
-                    <span className="text-[12px] text-primary">In use</span>
-                  ) : (
-                    <Button
-                      size="xs"
-                      variant="ghost"
-                      onClick={async () => {
-                        await api.useKey(service.id, k.slot)
-                        await onChange()
-                      }}
-                    >
-                      Use this one
-                    </Button>
-                  )}
-                  <Button size="icon-xs" variant="ghost" aria-label={`Remove ${service.label} key ${k.n}`} onClick={() => setRemoving(k)}>
-                    <Trash2 />
-                  </Button>
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {adding ? (
-          <div className={cn("space-y-2", service.keys.length > 0 && "mt-4")}>
-            <div className="flex flex-wrap items-end gap-2">
-              {service.fields.map((f) => (
-                <label key={f.name} className="min-w-48 flex-1">
-                  <span className="mb-1 block text-[12px] text-subtle">{f.label}</span>
-                  <Input
-                    type={/ID|USERNAME/.test(f.name) ? "text" : "password"}
-                    autoComplete="off"
-                    spellCheck={false}
-                    value={values[f.name] ?? ""}
-                    onChange={(e) => setValues((v) => ({ ...v, [f.name]: e.target.value }))}
-                    onKeyDown={(e) => e.key === "Enter" && filled && !saving && save()}
-                    className="font-mono text-[12.5px]"
-                  />
-                </label>
-              ))}
-              <Button onClick={save} disabled={!filled || saving}>
-                {saving ? "Checking…" : service.keys.length ? "Add key" : "Save key"}
-              </Button>
-              {service.keys.length > 0 && (
-                <Button variant="ghost" onClick={() => (setAdding(false), setValues({}), setProblem(null))}>
-                  Cancel
-                </Button>
-              )}
-            </div>
-            {problem ? (
-              <p className="text-[12.5px] text-destructive">{problem}</p>
-            ) : (
-              <p className="text-[12px] text-subtle">
-                {service.id === "gemini" || service.id === "cloudflare"
-                  ? "Checked with the provider before saving, without using any of its limit."
-                  : "Saved as given; it is first used on the next run."}
-              </p>
-            )}
-          </div>
-        ) : service.single ? null : (
-          <Button variant="outline" size="sm" className="mt-3" onClick={() => setAdding(true)}>
-            Add another key
+    <div className="space-y-3">
+      {service.fields.map((f, i) => (
+        <label key={f.name} className="block">
+          <span className="mb-1 block text-[12.5px] text-secondary-foreground">{f.label}</span>
+          <Input
+            autoFocus={i === 0}
+            type={/ID|USERNAME|REGION/.test(f.name) ? "text" : "password"}
+            autoComplete="off"
+            spellCheck={false}
+            value={values[f.name] ?? ""}
+            onChange={(e) => setValues((v) => ({ ...v, [f.name]: e.target.value }))}
+            onKeyDown={(e) => e.key === "Enter" && filled && !saving && save()}
+          />
+        </label>
+      ))}
+      {problem && <p className="text-[12.5px] text-destructive">{problem}</p>}
+      <div className="flex gap-2">
+        <Button onClick={save} disabled={!filled || saving}>
+          {saving ? "Checking…" : service.keys.length ? "Add key" : "Connect"}
+        </Button>
+        {onCancel && (
+          <Button variant="ghost" onClick={onCancel}>
+            Cancel
           </Button>
         )}
       </div>
-
-      <AlertDialog open={!!removing} onOpenChange={(o) => !o && setRemoving(null)}>
-        <AlertDialogContent className="data-[size=default]:sm:max-w-md">
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              Remove {service.label} key {removing?.n}?
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              It is deleted from .env on this computer. The account itself is not touched, and you can add the key again later.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <Button
-              variant="destructive"
-              onClick={async () => {
-                if (removing) await api.removeKey(service.id, removing.slot)
-                setRemoving(null)
-                await onChange()
-              }}
-            >
-              Remove key
-            </Button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </section>
-  )
-}
-
-/** What is left on this key today, from the same limits the steps use. */
-function KeyStatus({ service, fingerprint, limits }: { service: KeyService["id"]; fingerprint: string; limits: State["limits"] }) {
-  if (!limits || (service !== "gemini" && service !== "cloudflare")) return null
-  if (service === "cloudflare") {
-    const k = limits.pictures.keys?.[fingerprint]
-    if (!k) return null
-    return k.used_up ? (
-      <StatusDot status="stale">Used up today, back {back(limits.pictures).time}</StatusDot>
-    ) : (
-      <StatusDot status="ok">~{k.left} pictures left today</StatusDot>
-    )
-  }
-  const out = (["writing", "voices"] as const).filter((p) => limits[p].keys?.[fingerprint]?.used_up)
-  if (!out.length) return <StatusDot status="ok">Available today</StatusDot>
-  return (
-    <StatusDot status="stale">
-      {out.length === 2 ? "Writing and voices" : out[0] === "writing" ? "Writing" : "Voices"} used up, back {back(limits.writing).time}
-    </StatusDot>
+    </div>
   )
 }

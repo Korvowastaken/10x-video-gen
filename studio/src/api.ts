@@ -121,6 +121,8 @@ export type Consent = { characters: ConsentCharacter[]; records: ConsentRecord[]
 export type ConsentConfirm = { character: string; self: boolean; read_out: boolean; agreed: boolean; recording_kept: boolean; how: string; evidence: string }
 /** One story: its own film in its own folder (pipeline/stories.py). */
 export type StoryItem = { id: string; name: string; current: boolean; written: boolean; drafted: boolean }
+/** What a revision job hands back: the proposal to review, what is still wrong with it, and who wrote it. */
+export type Revision<T> = { proposal: T; errors: string[]; model: string }
 /** One model call a job made: which service and model, for what, how it went, how long, what it cost. */
 export type CallInfo = { stage: string; item: string; provider: string; model: string; status: "ok" | "error" | "stopped"; seconds?: number; usd?: number; attempt?: number; error?: string }
 /** One line of a job's log, `at` seconds after it started (pipeline/jobs.py). */
@@ -137,6 +139,8 @@ export type Job = {
   /** Stop was asked for; the job ends at its next safe point. */
   stopping?: boolean
   totals?: { calls: number; failed: number; usd: number }
+  /** What the job made, for jobs that hand something back (a revision's proposal). */
+  result?: unknown
   /** The stage of the last model call. */
   step?: string
 }
@@ -232,8 +236,8 @@ export const api = {
   run: (stage: string, body: Record<string, unknown> = {}) => call<Job>("POST", `/api/run/${stage}`, body),
   saveShot: (shot: Shot) => call("PUT", `/api/shots/${shot.id}`, shot),
   saveCharacter: (c: Character) => call("PUT", `/api/characters/${c.id}`, c),
-  feedback: (id: string, text: string) =>
-    call<{ proposal: Shot; errors: string[]; model: string }>("POST", `/api/shots/${id}/feedback`, { text }),
+  /** A scene revision, run as a job: the finished job's result is a Revision<Shot>. */
+  feedback: (id: string, text: string) => call<Job>("POST", `/api/shots/${id}/feedback`, { text }),
   redo: (id: string, parts: string[]) => call<Job>("POST", `/api/shots/${id}/redo`, { parts }),
   previewVoice: (item: string, tune: Tune) => call<{ audio: string; seconds: number; older: boolean }>("POST", "/api/voice/preview", { item, tune }),
   tuneVoices: (body: { characters?: Record<string, Tune | null>; lines?: Record<string, Tune | null> }) => call<Job>("PUT", "/api/voice", body),
@@ -251,7 +255,8 @@ export const api = {
   saveSettings: (s: Partial<Settings>) => call("PUT", "/api/settings", s),
   saveStoryText: (text: string) => call("PUT", "/api/story/text", { text }),
   draftScript: () => call<Job>("POST", "/api/script/draft"),
-  reviseScript: (text: string) => call<{ proposal: Storyboard; errors: string[]; model: string }>("POST", "/api/script/revise", { text }),
+  /** A script revision, run as a job: the finished job's result is a Revision<Storyboard>. */
+  reviseScript: (text: string) => call<Job>("POST", "/api/script/revise", { text }),
   acceptScript: (proposal: Storyboard) => call("PUT", "/api/script", proposal),
   drawSketch: () => call<Job>("POST", "/api/sketch"),
   reorder: (order: string[]) => call("POST", "/api/sketch/order", { order }),

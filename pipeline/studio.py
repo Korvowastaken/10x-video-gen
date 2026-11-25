@@ -78,7 +78,9 @@ def stop_job(job_id: str) -> dict[str, Any]:
     return job
 
 
-def start_job(kind: str, work: Callable[[], Any]) -> dict[str, Any]:
+def start_job(kind: str, work: Callable[[], Any], *, keep_result: bool = False) -> dict[str, Any]:
+    """Run `work` in the background as the one studio job. With keep_result, what it returns is
+    sent with the finished job (a revision's proposal, for the page to review)."""
     with _LOCK:
         busy = [j for j in JOBS.values() if j["status"] == "running"]
         if busy:
@@ -96,7 +98,9 @@ def start_job(kind: str, work: Callable[[], Any]) -> dict[str, Any]:
         ctx.add("info", f"Started {kind}")
         try:
             with contextlib.redirect_stdout(_Tee()):
-                work()
+                result = work()
+            if keep_result:
+                job["result"] = result
             job["status"] = "done"
             ctx.add("done", f"Done in {_took(job)}")
         except jobs.Cancelled:
@@ -376,12 +380,12 @@ class Feedback(BaseModel):
 
 @app.post("/api/shots/{shot_id}/feedback")
 def post_feedback(shot_id: str, body: Feedback) -> dict[str, Any]:
-    try:
-        return revise.propose(PROJECT, shot_id, body.text)
-    except StopIteration:
+    """Revise one scene from feedback, as a job with a log; the finished job carries the proposal."""
+    project = PROJECT
+    if not any(s["id"] == shot_id for s in sbmod.load(project)["shots"]):
         raise HTTPException(404, "no such scene")
-    except Exception as exc:
-        raise HTTPException(502, f"could not revise: {exc}")
+    return start_job(f"revise {shot_id}", lambda: revise.logged(revise.propose, project, shot_id, body.text,
+                                                              what=f"scene {shot_id}"), keep_result=True)
 
 
 @app.post("/api/references/{owner_id}")

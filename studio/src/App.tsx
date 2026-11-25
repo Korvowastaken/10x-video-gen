@@ -32,8 +32,10 @@ export type Studio = {
   /** The six steps: what is approved, stale or locked, prices and the budget (pipeline/flow.py). */
   flow: Flow
   refresh: () => Promise<void>
-  /** Start a pipeline job; the shell follows its log and refreshes when it ends. */
-  track: (start: Promise<Job>) => Promise<void>
+  /** Start a pipeline job; the shell follows its log and refreshes when it ends. Gives the started job. */
+  track: (start: Promise<Job>) => Promise<Job | null>
+  /** Start a job and wait for it to end: the finished job (with its `result`), or null if it never started. */
+  finish: (start: Promise<Job>) => Promise<Job | null>
   busy: boolean
   job: Job | null
   /** Open a step, and optionally one scene in it. */
@@ -66,6 +68,8 @@ export default function App() {
   const [scene, setScene] = useState(() => read("scene") ?? "")
   const [job, setJob] = useState<Job | null>(null)
   const poll = useRef<number | null>(null)
+  /** Who waits for which job to end (see finish). */
+  const waiters = useRef(new Map<string, (job: Job) => void>())
   /** Set once the page has opened on a step it can work in; cleared when another story opens. */
   const landed = useRef(false)
 
@@ -89,6 +93,8 @@ export default function App() {
         if (current.status !== "running") {
           window.clearInterval(poll.current!)
           poll.current = null
+          waiters.current.get(id)?.(current)
+          waiters.current.delete(id)
           if (current.status === "done") toast.success(`${current.kind}: done`)
           else if (current.status === "cancelled") toast(`${current.kind}: stopped`, { description: "What finished before the stop is kept." })
           else toast.error(`${current.kind}: ${current.error ?? "failed"}`)
@@ -105,11 +111,21 @@ export default function App() {
         const started = await start
         setJob(started)
         follow(started.id)
+        return started
       } catch (err) {
         toast.error((err as Error).message)
+        return null
       }
     },
     [follow],
+  )
+
+  const finish = useCallback(
+    async (start: Promise<Job>) => {
+      const started = await track(start)
+      return started && new Promise<Job>((resolve) => waiters.current.set(started.id, resolve))
+    },
+    [track],
   )
 
   const go = useCallback((v: View, s?: string) => {
@@ -149,7 +165,7 @@ export default function App() {
     setJob(null)
     await refresh()
   }, [refresh])
-  const studio: Studio | null = state && flow ? { state, flow, refresh, track, busy, job, go, scene } : null
+  const studio: Studio | null = state && flow ? { state, flow, refresh, track, finish, busy, job, go, scene } : null
 
   return (
     <LimitsContext.Provider value={state?.limits}>

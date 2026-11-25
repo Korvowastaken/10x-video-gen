@@ -157,13 +157,14 @@ class Note(BaseModel):
 
 @router.post("/script/revise")
 def post_script_revise(body: Note) -> dict[str, Any]:
+    """Revise the whole script from feedback, as a job with a log; the finished job carries the proposal."""
+    project = _project()
     try:
-        flow.require(_project(), "script")
-        return revise.propose_script(_project(), body.text)
+        flow.require(project, "script")
     except flow.GateError as exc:
         raise HTTPException(409, str(exc))
-    except Exception as exc:
-        raise HTTPException(502, f"could not revise: {exc}")
+    return _studio().start_job("revise the script", lambda: revise.logged(revise.propose_script, project, body.text,
+                                                                          what="the script"), keep_result=True)
 
 
 @router.put("/script")

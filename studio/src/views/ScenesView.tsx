@@ -2,7 +2,7 @@ import { ArrowRight, AudioLines, Check, ChevronDown, ChevronUp, Sparkles, X } fr
 import { createContext, useContext, useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
 
-import { ApiError, api, diff, MODES, type Flow, type Shot, type ShotState } from "@/api"
+import { ApiError, api, diff, MODES, type Flow, type Revision, type Shot, type ShotState } from "@/api"
 import type { Studio, View } from "@/App"
 import { ProvidersPanel, TaskPicker } from "@/components/providers-panel"
 import { useTaskCost, useTaskCosts } from "@/lib/models"
@@ -436,19 +436,20 @@ function FeedbackPanel({
   async function ask() {
     setLoading(true)
     setFailed(null)
-    try {
-      const res = await api.feedback(shot.id, text)
+    // Runs as a job: the log along the bottom shows each model call, and it can be stopped there.
+    const job = await studio.finish(api.feedback(shot.id, text))
+    if (job?.status === "done") {
+      const res = job.result as Revision<Shot>
       setProposal({ shot: res.proposal, errors: res.errors })
-    } catch (err) {
-      const message = (err as Error).message
+    } else if (job?.status === "error") {
+      const message = job.error ?? "the revision failed"
       setFailed(
         /quota/i.test(message)
           ? `${writer}'s free writing limit is used up for today.${limits?.writing ? ` It comes back ${back(limits.writing).text}.` : ""} Until then you can edit the scene by hand.`
           : message,
       )
-    } finally {
-      setLoading(false)
     }
+    setLoading(false)
   }
 
   async function accept(redo: Part[]) {

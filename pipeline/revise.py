@@ -52,6 +52,18 @@ def writers(project: Project, sb: dict[str, Any]) -> list[str]:
     return sbmod.model_list(catalog.chain(project, "revise", sb))
 
 
+def logged(propose_fn: Any, *args: Any, what: str) -> dict[str, Any]:
+    """Run a revision for a studio job, saying in its log what was asked and what came back."""
+    feedback = args[-1]
+    print(f"Revising {what}: \"{' '.join(feedback.split())[:200]}\"")
+    out = propose_fn(*args)
+    print(f"  {out['model']} answered" + (f"; {len(out['errors'])} problem(s) to fix before it can be saved"
+                                          if out["errors"] else "; ready to review"))
+    for e in out["errors"][:5]:
+        print(f"    error: {e}")
+    return out
+
+
 def propose(project: Project, shot_id: str, feedback: str) -> dict[str, Any]:
     sb = sbmod.load(project)
     shot = next(s for s in sb["shots"] if s["id"] == shot_id)

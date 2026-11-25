@@ -2,7 +2,7 @@ import { Sparkles } from "lucide-react"
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
 
-import { api, diff, type Shot, type Storyboard } from "@/api"
+import { api, diff, type Revision, type Shot, type Storyboard } from "@/api"
 import type { Studio } from "@/App"
 import { PeopleConsent } from "@/components/people-consent"
 import { ProvidersPanel, TaskPicker } from "@/components/providers-panel"
@@ -71,7 +71,7 @@ export function ScriptView({ studio }: { studio: Studio }) {
 }
 
 function Revise({ studio, sb }: { studio: Studio; sb: Storyboard }) {
-  const { refresh, busy } = studio
+  const { refresh, busy, finish } = studio
   const [text, setText] = useState("")
   const [writing, setWriting] = useState(false)
   const [proposal, setProposal] = useState<{ sb: Storyboard; errors: string[] } | null>(null)
@@ -80,14 +80,11 @@ function Revise({ studio, sb }: { studio: Studio; sb: Storyboard }) {
 
   async function ask() {
     setWriting(true)
-    try {
-      const res = await api.reviseScript(text)
-      setProposal({ sb: res.proposal, errors: res.errors })
-    } catch (err) {
-      toast.error((err as Error).message)
-    } finally {
-      setWriting(false)
-    }
+    // Runs as a job: the log along the bottom shows each model call, and it can be stopped there.
+    const job = await finish(api.reviseScript(text))
+    const res = job?.status === "done" ? (job.result as Revision<Storyboard>) : null
+    if (res) setProposal({ sb: res.proposal, errors: res.errors })
+    setWriting(false)
   }
 
   async function accept() {

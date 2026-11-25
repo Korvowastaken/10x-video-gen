@@ -81,3 +81,26 @@ def test_a_request_beside_a_stopping_job_is_not_stopped_or_logged_into_it(projec
     _wait(job)
     assert job["status"] == "cancelled"
     assert not any(e.get("call") for e in job["log"]) and job["totals"]["calls"] == 0
+
+
+def test_a_revision_runs_as_a_job_that_hands_back_its_proposal(project, monkeypatch):
+    from fastapi.testclient import TestClient
+    from pipeline import revise
+
+    def fake(project_, shot_id, text):
+        with runlog.model_call(project_, stage="studio", item=f"{shot_id}-revise", provider="groq", model="m", key="k"):
+            pass
+        return {"proposal": {"id": shot_id}, "errors": ["lines/0: too long"], "model": "m"}
+
+    monkeypatch.setattr(revise, "propose", fake)
+    monkeypatch.setattr(studio.sbmod, "load", lambda p: {"shots": [{"id": "S01"}]})
+    client = TestClient(studio.app)
+    started = client.post("/api/shots/S01/feedback", json={"text": "make it warmer"}).json()
+    job = _wait(studio.JOBS[started["id"]])
+    assert job["status"] == "done" and job["kind"] == "revise S01"
+    assert job["result"]["proposal"] == {"id": "S01"}
+    texts = [e["text"] for e in job["log"]]
+    assert any('Revising scene S01: "make it warmer"' in t for t in texts)
+    assert any(e["level"] == "error" and "too long" in e["text"] for e in job["log"])
+    assert job["totals"]["calls"] == 1
+    assert client.post("/api/shots/S99/feedback", json={"text": "x"}).status_code == 404

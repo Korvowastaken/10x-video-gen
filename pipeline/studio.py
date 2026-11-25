@@ -31,6 +31,7 @@ from .cache import StageCache, key_for, sha256_bytes
 from .config import ROOT, Project, load_env
 from .costs import summarise
 from .engines import MODES, VIDEO_ENGINES
+from .limits import free_limits
 
 load_env()
 PROJECT = Project(Path(os.environ.get("STUDIO_PROJECT", ROOT)).resolve())
@@ -167,7 +168,9 @@ def _stale_or_unknown(sb: dict[str, Any], shot: dict[str, Any], kf: StageCache, 
 def state() -> dict[str, Any]:
     story = PROJECT.story.read_text("utf-8") if PROJECT.story.exists() else ""
     if not PROJECT.storyboard.exists():
-        return {"story": story, "storyboard": None, "errors": [], "jobs": list(JOBS.values())[-5:]}
+        from .script import SCRIPT_MODELS
+        return {"story": story, "storyboard": None, "errors": [], "jobs": list(JOBS.values())[-5:],
+                "limits": free_limits(PROJECT, {"script": SCRIPT_MODELS})}
     sb = sbmod.load(PROJECT)
     errors = sbmod.schema_errors(sb) or sbmod.rule_errors(sb, PROJECT)
     kf, raw, comp = (StageCache(PROJECT, s) for s in ("keyframes", "shots/raw", "shots"))
@@ -227,6 +230,7 @@ def state() -> dict[str, Any]:
     story_changed = sha256_bytes(story.encode("utf-8")) != sb.get("source", {}).get("story_sha256")
     return {"story": story, "story_changed": story_changed, "storyboard": sb, "errors": errors, "shots": shots, "sheets": sheets, "sheets_stale": sheets_stale, "photos": photos,
             "film": film, "music": candidates, "music_price": round(music_price, 3),
+            "limits": free_limits(PROJECT, sb.get("models", {})),
             "spent": round(sum(s["usd_list"] for k, s in costs.items() if k in ("shots", "music")), 4),
             "calls": int(sum(s["calls"] for s in costs.values())), "jobs": list(JOBS.values())[-5:]}
 
@@ -386,6 +390,13 @@ def redo_shot(shot_id: str, body: dict[str, Any]) -> dict[str, Any]:
         elif "keyframe" in parts:
             run_stage("shots", PROJECT, only=only, max_paid=0)  # depth, masks for the new still
     return start_job(f"redo {shot_id}: {', '.join(sorted(parts)) or 'nothing'}", work)
+
+
+# ---------------------------------------------------------------- the six steps
+
+from .flow_api import router as flow_router  # noqa: E402  (flow_api reads PROJECT and start_job from here)
+
+app.include_router(flow_router)
 
 
 # ---------------------------------------------------------------- files

@@ -24,20 +24,20 @@ MUSIC_ENGINES = {
     "kaggle-ace-step-1.5": {"provider": "kaggle", "model": "ACE-Step/Ace-Step1.5"},
 }
 
-# paid: needs a generated clip. subject: decides the slow-motion cap (research 3c).
+# label: the name people see. paid: needs a generated clip. subject: decides the slow-motion cap (research 3c).
 MODES = {
-    "full_i2v": {"paid": True, "subject": "character",
+    "full_i2v": {"label": "Full motion", "paid": True, "subject": "character",
                  "about": "the whole keyframe animated by image-to-video"},
-    "flf_inbetween": {"paid": True, "subject": "character",
+    "flf_inbetween": {"label": "In-between", "paid": True, "subject": "character",
                       "about": "a move from this keyframe to motion.end_keyframe (the model's last_image)"},
-    "masked_i2v": {"paid": True, "subject": "character",
+    "masked_i2v": {"label": "Masked motion", "paid": True, "subject": "character",
                    "about": "one clip composited onto the still inside motion.mask; the rest stays still"},
-    "cinemagraph": {"paid": True, "subject": "ambient",
+    "cinemagraph": {"label": "Cinemagraph", "paid": True, "subject": "ambient",
                     "about": "a masked clip whose region ping-pongs to fill any length"},
-    "parallax": {"paid": False, "subject": "ambient",
+    "parallax": {"label": "Parallax", "paid": False, "subject": "ambient",
                  "about": "a 2.5D camera move from a depth map (Depth Anything V2 Small, local)"},
-    "still_kenburns": {"paid": False, "subject": "ambient", "about": "a slow pan or zoom over the still"},
-    "still": {"paid": False, "subject": "ambient", "about": "the still, held"},
+    "still_kenburns": {"label": "Ken Burns", "paid": False, "subject": "ambient", "about": "a slow pan or zoom over the still"},
+    "still": {"label": "Still", "paid": False, "subject": "ambient", "about": "the still, held"},
 }
 
 STRETCH_CAP = {"character": 1.25, "ambient": 1.6}

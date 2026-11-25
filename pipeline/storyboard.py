@@ -108,7 +108,7 @@ def rule_errors(sb: dict[str, Any], project: Project | None = None) -> list[str]
         ref = character.get("reference")
         if ref and ref.get("chosen", 0) >= len(ref["seeds"]):
             errors.append(f"characters/{character['id']}: reference.chosen is past the end of seeds")
-    errors += motion_errors(sb)
+    errors += motion_errors(sb) + budget_errors(sb)
     music = sb.get("music", {})
     if music.get("chosen") is not None and music["chosen"] >= len(music.get("seeds", [])):
         errors.append("music: chosen is past the end of seeds")
@@ -157,6 +157,42 @@ def motion_errors(sb: dict[str, Any]) -> list[str]:
             if region["x"] + region["w"] > 1.001 or region["y"] + region["h"] > 1.001:
                 errors.append(f"{shot['id']}: a mask region runs past the edge of the frame")
     return errors
+
+
+def budget_errors(sb: dict[str, Any]) -> list[str]:
+    """Scenes use only the allowed motion modes, and the paid ones fit the film's budget."""
+    from .engines import MODES, VIDEO_ENGINES
+
+    video = sb.get("video", {})
+    allowed = video.get("allowed_modes")
+    errors = [f"{s['id']}: motion mode '{s['motion']['mode']}' is not one of the allowed modes ({', '.join(allowed)})"
+              for s in sb.get("shots", []) if allowed and s["motion"]["mode"] not in allowed]
+    total = 0.0
+    for s in sb.get("shots", []):
+        if MODES.get(s["motion"]["mode"], {}).get("paid"):
+            engine = VIDEO_ENGINES.get(s["motion"].get("engine") or sb.get("models", {}).get("video"), {})
+            total += engine.get("usd", {}).get(s["motion"].get("clip_s", 5), 0.0)
+    if "budget_usd" in video and total > video["budget_usd"] + 1e-9:
+        errors.append(f"video: the paid scenes cost ${total:.2f}, over the film's budget of ${video['budget_usd']:.2f}; "
+                      "pick a free mode for some scenes or raise the budget")
+    return errors
+
+
+def reorder(sb: dict[str, Any], order: list[str]) -> dict[str, Any]:
+    """The storyboard with its scenes in a new order, renumbered S01, S02, ... (music cues
+    and final-cut choices follow their scene)."""
+    ids = [s["id"] for s in sb["shots"]]
+    if sorted(order) != sorted(ids):
+        raise StoryboardError("the new order must list every scene once")
+    by_id = {s["id"]: s for s in sb["shots"]}
+    renamed = {old: f"S{n:02d}" for n, old in enumerate(order, 1)}
+    out = json.loads(json.dumps(sb))
+    out["shots"] = [dict(json.loads(json.dumps(by_id[old])), id=renamed[old]) for old in order]
+    for cue in out.get("music", {}).get("cues", []):
+        cue["at"] = renamed.get(cue["at"], cue["at"])
+    if out.get("edit", {}).get("use"):
+        out["edit"]["use"] = {renamed[k]: v for k, v in out["edit"]["use"].items() if k in renamed}
+    return out
 
 
 def paid_clips(sb: dict[str, Any]) -> list[dict[str, Any]]:

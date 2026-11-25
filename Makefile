@@ -1,5 +1,5 @@
-# One command: `make film`. Every target wraps `python -m pipeline <command>`,
-# so on Windows without make you can run `uv run python -m pipeline film`.
+# Every target wraps `uv run python -m pipeline <command>`; make is optional.
+# The usual way in is the studio: `make studio`. `make flow` shows where the film is.
 #
 #   make film                  story.md -> outputs/final/heritage_short_9x16.mp4 + _16x9.mp4
 #   make radio                 narration + placeholder music on black (first audience test)
@@ -13,8 +13,12 @@ ONLY  ?=
 FORCE ?=
 SEL    = $(if $(ONLY),--only $(ONLY)) $(if $(FORCE),--force)
 
-.PHONY: film radio rough script keyframes narration music shots assemble validate status smoke costs prune test setup site studio
+.PHONY: flow sketch references cut film radio rough script keyframes narration music shots assemble validate status smoke costs prune test setup site studio
 
+flow:      ; $(PY) flow
+sketch:    ; $(PY) sketch
+references: ; $(PY) references
+cut:       ; $(PY) cut
 film:      ; $(PY) film $(SEL)
 radio:     ; $(PY) radio $(SEL)
 rough:     ; $(PY) rough $(SEL)

@@ -1,5 +1,19 @@
-"""Command line: `python -m pipeline <command>` (the Makefile wraps these).
+"""Command line: `python -m pipeline <command>`.
 
+The six steps, each approved before the next unlocks (the studio runs the same ones):
+  studio     the web app for all six steps: http://127.0.0.1:8765
+  flow       where the film is: each step approved, stale or locked, and what is next
+  approve STEP [SCENE]    accept a step as it is now (scenes one at a time: approve scenes S03)
+  unapprove STEP [SCENE]
+  1 story    write story.md in plain words, then: approve story
+  2 script   draft the script from the story; revise script "make the ending shorter"
+  3 sketch   draw the shape storyboard and its animatic (free, local)
+  4 references   draw the reference sheets (free tier); pick one with reference.chosen
+  5 scene S03    draw the picture, record the voice and preview free motion; --buy buys its clip
+             revise S03 "she should smile here"
+  6 cut      the final cut, 9:16 and 16:9
+
+Stages without the gates (for scripting and experiments):
   film       every stage in order -> outputs/final/*_9x16.mp4 and *_16x9.mp4
   radio      story -> narration -> radio cut (voice + placeholder music, black screen)
   rough      story -> keyframes + narration + music -> slow pans over stills
@@ -73,6 +87,22 @@ def main(argv: list[str] | None = None) -> int:
             sp.add_argument("--max-paid", type=int, help="most paid clips this run may buy (overrides video.max_paid_clips)")
         if name == "shots":
             sp.add_argument("--kaggle", action="store_true", help="render kaggle-wan22-ti2v-5b shots in one Kaggle job")
+    sub.add_parser("flow")
+    for name in ("approve", "unapprove"):
+        sp = sub.add_parser(name)
+        sp.add_argument("step", help="story | script | sketch | references | scenes | final")
+        sp.add_argument("scene", nargs="?", help="scene id, for scenes")
+    sub.add_parser("sketch").add_argument("--force", action="store_true")
+    sub.add_parser("references").add_argument("--force", action="store_true")
+    sp = sub.add_parser("scene")
+    sp.add_argument("scene", help="scene id, e.g. S03")
+    sp.add_argument("--redo", help="comma-separated parts to remake: keyframe,voice,clip")
+    sp.add_argument("--buy", action="store_true", help="buy this scene's clip if its mode is paid (one clip)")
+    sp = sub.add_parser("revise")
+    sp.add_argument("target", help="'script' or a scene id")
+    sp.add_argument("feedback", help="what to change, in plain words")
+    sp.add_argument("--accept", action="store_true", help="save the revision (otherwise it is only shown)")
+    sub.add_parser("cut")
     sub.add_parser("validate")
     sub.add_parser("status")
     smoke = sub.add_parser("smoke")
@@ -107,6 +137,9 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command in STAGES:
             run_stage(args.command, project, only=only, force=force, mode=getattr(args, "mode", "final"),
                       max_paid=max_paid, kaggle=getattr(args, "kaggle", False))
+        elif args.command in ("flow", "approve", "unapprove", "sketch", "references", "scene", "revise", "cut"):
+            from . import steps
+            return steps.run(args, project)
         elif args.command == "validate":
             from . import storyboard
             sb = storyboard.load_valid(project)
@@ -130,7 +163,7 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "prune":
             from . import status
             status.prune(project)
-    except ConfigError as exc:
+    except ConfigError as exc:  # includes a locked step (flow.GateError)
         print(f"\nconfig error: {exc}", file=sys.stderr)
         return 2
     return 0

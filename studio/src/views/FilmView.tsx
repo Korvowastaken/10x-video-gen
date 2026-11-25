@@ -3,6 +3,7 @@ import { toast } from "sonner"
 
 import { api, MODES } from "@/api"
 import type { Studio } from "@/App"
+import { ProvidersPanel } from "@/components/providers-panel"
 import { RunButton } from "@/components/run-button"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -54,6 +55,7 @@ export function FilmView({ studio }: { studio: Studio }) {
   return (
     <Page>
       <StepHeader n={6} title="Film" lead="Choose what each scene uses, pick the score, then make the final cut in 9:16 and 16:9. Making a cut is free: it only uses what is already made." />
+      <ProvidersPanel studio={studio} step="film" />
       <ApproveBar studio={studio} step="final" what="the final cut" />
 
       <div className="grid grid-cols-[minmax(0,1fr)_340px] gap-10">

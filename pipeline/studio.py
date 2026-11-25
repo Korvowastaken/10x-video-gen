@@ -25,12 +25,12 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import keys, revise
+from . import accounts, keys, revise
 from . import storyboard as sbmod
 from .cache import StageCache, key_for, sha256_bytes
 from .config import ROOT, Project, load_env
 from .costs import summarise
-from .engines import MODES, VIDEO_ENGINES
+from .engines import MODES, MUSIC_ENGINES, VIDEO_ENGINES
 from .limits import free_limits
 
 load_env()
@@ -75,6 +75,7 @@ def start_job(kind: str, work: Callable[[], Any]) -> dict[str, Any]:
             job["error"] = f"{type(exc).__name__}: {exc}"
             job["log"].append(job["error"])
         job["ended"] = time.time()
+        accounts.forget()  # a job may have spent balance or used up a limit
 
     threading.Thread(target=target, daemon=True).start()
     return job
@@ -378,6 +379,7 @@ def post_key(service: str, body: NewKey) -> dict[str, Any]:
     except ValueError as exc:
         raise HTTPException(422, str(exc))
     keys.new_run()  # a new key may bring back models skipped as used up
+    accounts.forget()
     return {"ok": True, "slot": slot}
 
 
@@ -393,6 +395,46 @@ def use_key(service: str, slot: int) -> dict[str, Any]:
     if slot not in keys.slots(_service(service)):
         raise HTTPException(404, "no such key")
     keys.use(service, slot)
+    return {"ok": True}
+
+
+@app.get("/api/providers")
+def get_providers() -> dict[str, Any]:
+    """Per purpose (writing, voices, pictures, clips, music): the provider, the choices, the
+    saved keys (masked) with what is left on each, and which key it starts with."""
+    sb = sbmod.load(PROJECT) if PROJECT.storyboard.exists() else None
+    models = (sb or {}).get("models") or {}
+    if not sb:
+        from .script import SCRIPT_MODELS
+        models = {"script": SCRIPT_MODELS}
+    return accounts.overview(sb, free_limits(PROJECT, models))
+
+
+class ProviderChoice(BaseModel):
+    slot: int | None = None
+    engine: str | None = None
+    set_slot: bool = False  # slot may be null on purpose: back to the service's default key
+
+
+@app.put("/api/providers/{purpose}")
+def put_provider(purpose: str, body: ProviderChoice) -> dict[str, Any]:
+    if purpose not in keys.PURPOSES:
+        raise HTTPException(404, "no such purpose")
+    if body.engine is not None:
+        if purpose not in ("clips", "music"):
+            raise HTTPException(400, f"{purpose} has one provider")
+        table = VIDEO_ENGINES if purpose == "clips" else MUSIC_ENGINES
+        if body.engine not in table:
+            raise HTTPException(422, "no such engine")
+        sb = sbmod.load(PROJECT)
+        sb.setdefault("models", {})["video" if purpose == "clips" else "music"] = body.engine
+        _save_or_422(sb)
+    if body.set_slot:
+        overview = get_providers()[purpose]
+        if body.slot is not None and body.slot not in keys.slots(overview["service"]):
+            raise HTTPException(404, "no such key")
+        keys.prefer(purpose, body.slot)
+    accounts.forget()
     return {"ok": True}
 
 

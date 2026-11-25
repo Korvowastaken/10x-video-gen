@@ -14,6 +14,8 @@ def no_keys(tmp_path, monkeypatch):
                 monkeypatch.setenv(keys._name(field, slot), "")
         for alias in spec.get("aliases", {}).values():
             monkeypatch.setenv(alias, "")
+    for name in [*keys.SERVICES, *keys.PURPOSES]:  # which key each purpose starts with
+        monkeypatch.setenv(keys._pref_name(name), "")
     monkeypatch.setattr(keys, "_env_path", lambda: tmp_path / ".env")
     keys._ACTIVE.clear()
     keys._OUT.clear()

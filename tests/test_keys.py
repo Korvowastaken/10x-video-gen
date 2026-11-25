@@ -76,3 +76,47 @@ def test_pictures_left_adds_up_across_accounts(tmp_path):
     assert pictures["keys"][first]["used_up"] is True
     assert pictures["used_up"] is False
     assert pictures["left"] == 10_000 // NEURONS_PER_STILL
+
+
+def test_each_purpose_can_start_on_its_own_key():
+    keys.save("gemini", {"GEMINI_API_KEY": "one-aaaa"})
+    keys.save("gemini", {"GEMINI_API_KEY": "two-bbbb"})
+    keys.prefer("voices", 2)
+    with keys.using("voices"):
+        assert config.env("GEMINI_API_KEY") == "two-bbbb"
+    with keys.using("writing"):
+        assert config.env("GEMINI_API_KEY") == "one-aaaa"
+    keys.use("gemini", 2)  # the service default moves writing too
+    with keys.using("writing"):
+        assert config.env("GEMINI_API_KEY") == "two-bbbb"
+
+
+def test_a_switch_lasts_for_the_run_and_only_for_that_purpose():
+    keys.save("gemini", {"GEMINI_API_KEY": "one-aaaa"})
+    keys.save("gemini", {"GEMINI_API_KEY": "two-bbbb"})
+    with keys.using("voices"):
+        assert keys.switch("gemini", "tts") == 2
+        assert config.env("GEMINI_API_KEY") == "two-bbbb"
+    with keys.using("writing"):
+        assert config.env("GEMINI_API_KEY") == "one-aaaa"
+    keys.new_run()
+    with keys.using("voices"):
+        assert config.env("GEMINI_API_KEY") == "one-aaaa"
+
+
+def test_choices_are_kept_in_env_across_restarts(tmp_path):
+    keys.save("cloudflare", {"CLOUDFLARE_ACCOUNT_ID": "a1", "CLOUDFLARE_API_TOKEN": "t1"})
+    keys.save("cloudflare", {"CLOUDFLARE_ACCOUNT_ID": "a2", "CLOUDFLARE_API_TOKEN": "t2"})
+    keys.prefer("pictures", 2)
+    assert "STUDIO_KEY_PICTURES=2" in (tmp_path / ".env").read_text("utf-8")
+    keys.prefer("pictures", None)
+    assert "STUDIO_KEY_PICTURES" not in (tmp_path / ".env").read_text("utf-8")
+
+
+def test_kaggle_quota_is_read_from_its_raw_answer(monkeypatch):
+    from pipeline import accounts
+    from pipeline.providers import kaggle_runner
+    raw = '{"timeUsed": "17.654.0s", "totalTimeAllowed": "21600s"}'
+    monkeypatch.setattr(kaggle_runner, "api", lambda: object())
+    monkeypatch.setattr(kaggle_runner, "gpu_quota", lambda _: {"refresh": "2026-11-28 00:00:00", "raw": raw})
+    assert accounts.kaggle_hours() == {"hours_left": 1.1, "refresh": "2026-11-28 00:00:00"}

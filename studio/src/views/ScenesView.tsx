@@ -4,6 +4,7 @@ import { toast } from "sonner"
 
 import { ApiError, api, diff, MODES, type Flow, type Shot, type ShotState } from "@/api"
 import type { Studio } from "@/App"
+import { ProvidersPanel } from "@/components/providers-panel"
 import { CostTag, RunButton } from "@/components/run-button"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -171,6 +172,7 @@ function SceneWorkspace({
   const flowScene = studio.flow.scenes.find((s) => s.id === shot.id)
   return (
     <div className="min-w-0 px-10 pt-8 pb-28">
+      <ProvidersPanel studio={studio} step="scenes" />
       <header className="mb-6 flex items-start gap-6">
         <div className="min-w-0 flex-1">
           <div className="font-mono text-[12px] text-subtle">

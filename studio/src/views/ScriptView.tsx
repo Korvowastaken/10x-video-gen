@@ -4,6 +4,7 @@ import { toast } from "sonner"
 
 import { api, diff, type Shot, type Storyboard } from "@/api"
 import type { Studio } from "@/App"
+import { ProvidersPanel } from "@/components/providers-panel"
 import { RunButton } from "@/components/run-button"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -47,6 +48,7 @@ export function ScriptView({ studio }: { studio: Studio }) {
           )}
         </div>
       </StepHeader>
+      <ProvidersPanel studio={studio} step="script" />
       <ApproveBar studio={studio} step="script" what="the script" />
       {!sb ? (
         <p className="text-muted-foreground">No script yet. Draft it from the story; it takes about a minute.</p>

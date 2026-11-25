@@ -97,6 +97,7 @@ def estimate_cost(model: str, width: int, height: int, steps: int,
     return {"unit": "neurons", "neurons": round(usd * NEURONS_PER_USD, 1), "usd_list": round(usd, 6)}
 
 
+@keys.for_purpose("pictures")
 def generate_image(project: Project, *, stage: str, item: str, model: str, prompt: str, seed: int,
                    width: int, height: int, steps: int | None = None,
                    references: list[Path] | None = None, timeout: float = 240) -> tuple[bytes, str]:

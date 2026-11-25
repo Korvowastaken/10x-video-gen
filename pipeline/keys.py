@@ -14,12 +14,15 @@ what is left today.
 """
 from __future__ import annotations
 
+import contextvars
+import functools
 import hashlib
 import os
 import re
 import threading
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable, Iterator, TypeVar
 
 import httpx
 
@@ -55,9 +58,46 @@ SERVICES: dict[str, dict[str, Any]] = {
     },
 }
 
+# What a call is for. The person picks a key per purpose in the studio (each step shows
+# the purposes it uses), so voices can run on one Google project and writing on another.
+PURPOSES = {"writing": "gemini", "voices": "gemini", "pictures": "cloudflare", "clips": "wavespeed",
+            "music": "wavespeed"}
+
 _LOCK = threading.Lock()
-_ACTIVE: dict[str, int] = {}  # service -> slot in use; unset means the first saved slot
+_ACTIVE: dict[tuple[str, str], int] = {}  # (service, purpose) -> slot switched to during this run
 _OUT: dict[str, set[tuple[int, str]]] = {}  # service -> {(slot, scope)} that ran out this run
+_PURPOSE: contextvars.ContextVar[str] = contextvars.ContextVar("purpose", default="")
+F = TypeVar("F", bound=Callable[..., Any])
+
+
+@contextmanager
+def using(purpose: str) -> Iterator[None]:
+    token = _PURPOSE.set(purpose)
+    try:
+        yield
+    finally:
+        _PURPOSE.reset(token)
+
+
+def for_purpose(purpose: str) -> Callable[[F], F]:
+    """Decorate a provider entry point: its calls use the key chosen for `purpose`."""
+    def wrap(fn: F) -> F:
+        @functools.wraps(fn)
+        def inner(*args: Any, **kwargs: Any) -> Any:
+            with using(purpose):
+                return fn(*args, **kwargs)
+        return inner  # type: ignore[return-value]
+    return wrap
+
+
+def _pref_name(name: str) -> str:
+    return f"STUDIO_KEY_{name.upper()}"
+
+
+def preferred(name: str) -> int | None:
+    """The slot chosen for a purpose or a service (kept in .env), if any."""
+    value = os.environ.get(_pref_name(name), "").strip()
+    return int(value) if value.isdigit() else None
 
 
 def _name(field: str, slot: int) -> str:
@@ -70,6 +110,11 @@ def _value(service: str, field: str, slot: int) -> str:
     if not value and slot == 1 and alias:
         value = os.environ.get(alias, "").strip()
     return value
+
+
+def value(service: str, field: str, slot: int) -> str:
+    """A saved key's value, for this machine's own calls. Never sent to the browser."""
+    return _value(service, field, slot)
 
 
 def slots(service: str) -> list[int]:
@@ -86,12 +131,17 @@ def fingerprint(service: str, slot: int) -> str:
     return hashlib.sha256(joined.encode("utf-8")).hexdigest()[:10]
 
 
-def active(service: str) -> int | None:
+def active(service: str, purpose: str | None = None) -> int | None:
+    """The key a call uses now: one switched to in this run, else the one chosen for the
+    purpose, else the one chosen for the service, else the first saved."""
     saved = slots(service)
     if not saved:
         return None
-    slot = _ACTIVE.get(service)
-    return slot if slot in saved else saved[0]
+    purpose = _PURPOSE.get() if purpose is None else purpose
+    for slot in (_ACTIVE.get((service, purpose)), purpose and preferred(purpose), preferred(service)):
+        if slot in saved:
+            return slot
+    return saved[0]
 
 
 def current(field: str) -> str | None:
@@ -109,8 +159,18 @@ def active_fingerprint(provider: str) -> str | None:
 
 
 def use(service: str, slot: int) -> None:
+    """Make `slot` the service's default key, kept across restarts."""
     with _LOCK:
-        _ACTIVE[service] = slot
+        _write_env({_pref_name(service): str(slot)})
+        for key in [k for k in _ACTIVE if k[0] == service]:
+            _ACTIVE.pop(key)
+
+
+def prefer(purpose: str, slot: int | None) -> None:
+    """Choose the key a purpose starts with (None: the service default), kept across restarts."""
+    with _LOCK:
+        _write_env({_pref_name(purpose): str(slot) if slot else None})
+        _ACTIVE.pop((PURPOSES[purpose], purpose), None)
 
 
 def switch(service: str, scope: str = "") -> int | None:
@@ -126,7 +186,7 @@ def switch(service: str, scope: str = "") -> int | None:
         order = saved[saved.index(now) + 1:] + saved[:saved.index(now)]
         for slot in order:
             if (slot, scope) not in out:
-                _ACTIVE[service] = slot
+                _ACTIVE[(service, _PURPOSE.get())] = slot
                 print(f"    keys: {SERVICES[service]['label']} key {saved.index(now) + 1} is out of its limit; "
                       f"switching to key {saved.index(slot) + 1}")
                 return slot
@@ -215,8 +275,8 @@ def remove(service: str, slot: int) -> None:
         if slot == 1:
             for alias in SERVICES[service].get("aliases", {}).values():
                 _write_env({alias: None})
-        if _ACTIVE.get(service) == slot:
-            _ACTIVE.pop(service)
+        for key in [k for k, v in _ACTIVE.items() if k[0] == service and v == slot]:
+            _ACTIVE.pop(key)
 
 
 def check(service: str, values: dict[str, str]) -> str | None:
@@ -245,4 +305,5 @@ def new_run() -> None:
     from . import retry
     with _LOCK:
         _OUT.clear()
+        _ACTIVE.clear()
     retry.EXHAUSTED.clear()

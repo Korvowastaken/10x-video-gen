@@ -83,6 +83,7 @@ def _models(model: str | list[str]) -> list[str]:
     return [model] if isinstance(model, str) else list(model)
 
 
+@keys.for_purpose("writing")
 def generate_text(project: Project, *, stage: str, item: str, model: str | list[str], prompt: str,
                   system: str | None = None, json_mode: bool = False, temperature: float = 0.8,
                   seed: int | None = None, timeout: float = 240, image: Path | None = None) -> tuple[str, str]:
@@ -126,6 +127,7 @@ def _generate_text_once(project: Project, *, stage: str, item: str, model: str, 
     return with_retries(attempt, attempts=3, label=f"{stage}/{item}")
 
 
+@keys.for_purpose("voices")
 def tts(project: Project, *, stage: str, item: str, model: str | list[str], text: str, voice: str,
         direction: str | None = None, seed: int | None = None, language: str | None = None,
         timeout: float = 180) -> tuple[bytes, int, str]:
@@ -196,6 +198,7 @@ def _tts_once(project: Project, *, stage: str, item: str, model: str, text: str,
     return with_retries(attempt, attempts=3, label=f"{stage}/{item}")
 
 
+@keys.for_purpose("voices")
 def transcribe(project: Project, *, stage: str, item: str, model: str | list[str], wav_bytes: bytes,
                language: str, timeout: float = 120) -> tuple[str, str]:
     """Listen back to a TTS line and write down what was actually said. Returns (text, model used).

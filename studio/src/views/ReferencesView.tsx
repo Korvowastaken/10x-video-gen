@@ -4,6 +4,7 @@ import { toast } from "sonner"
 
 import { api, type Character, type Place } from "@/api"
 import type { Studio } from "@/App"
+import { ProvidersPanel } from "@/components/providers-panel"
 import { RunButton } from "@/components/run-button"
 import {
   AlertDialog,
@@ -52,6 +53,7 @@ export function ReferencesView({ studio }: { studio: Studio }) {
           )}
         </div>
       </StepHeader>
+      <ProvidersPanel studio={studio} step="references" />
       <ApproveBar studio={studio} step="references" what="the references" />
 
       <h2 className="mb-1 text-[13px] font-semibold">People</h2>

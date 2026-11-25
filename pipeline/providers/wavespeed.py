@@ -131,6 +131,7 @@ def _download(url: str) -> bytes:
     return with_retries(attempt, attempts=4, label="download")
 
 
+@keys.for_purpose("clips")
 def image_to_video(project: Project, *, stage: str, item: str, model: str, price_usd: float, image: Path,
                    prompt: str, negative: str, seed: int, clip_s: int,
                    last_image: Path | None = None) -> tuple[bytes, dict[str, Any]]:
@@ -158,6 +159,7 @@ def image_to_video(project: Project, *, stage: str, item: str, model: str, price
         return video, {"task": task_id, "inference_s": inference_s, "url": outputs[0]}
 
 
+@keys.for_purpose("music")
 def music(project: Project, *, stage: str, item: str, model: str, usd_per_s: float, tags: str,
           duration: float, seed: int, lyrics: str | None = None) -> tuple[bytes, str, dict[str, Any]]:
     """One ACE-Step 1.5 track. The model page says only tags are required and empty lyrics

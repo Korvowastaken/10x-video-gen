@@ -1,6 +1,7 @@
 """Stage 1, script: story.md -> storyboard.json.
 
-Gemini reads the family story and drafts the creative half of the storyboard:
+Gemini reads the family story (plain words, any language; the settings block at
+the top of story.md is optional) and drafts the creative half of the storyboard:
 the cast (as many characters as the story needs), the shots and why each one
 exists, the spoken lines in the film's language with English subtitles, and a
 music brief. Code fills the technical half (models, seeds, defaults), validates
@@ -23,11 +24,11 @@ from .cache import sha256_bytes
 from .config import DEFAULT_MODELS, ConfigError, Project
 from .engines import LEGACY_MODES, MODES
 from .presets import LANGUAGES, STYLES, VOICES
+from .providers import gemini
+from .runlog import now_iso
 
 PARALLAX_MOVES = ("push-in", "pull-out", "slide-left", "slide-right", "rise")
 KENBURNS = ("zoom-in", "zoom-out", "pan-left", "pan-right", "pan-up", "pan-down")
-from .providers import gemini
-from .runlog import now_iso
 
 PROMPT_VERSION = "script-v1"
 SCRIPT_MODELS = DEFAULT_MODELS["script"]
@@ -124,20 +125,40 @@ class ScriptError(ConfigError):
     pass
 
 
+# Settings a story may set; everything has a default, so plain text is a whole story.
+SETTINGS_DEFAULTS = {"language": "am", "look": "low-poly-3d", "target_seconds": 75, "seed": 1,
+                     "audience": "", "feel": "", "people": []}
+
+
+def split_story(text: str) -> tuple[dict[str, Any], str]:
+    """story.md as (settings, story). The settings block between --- lines is optional."""
+    match = re.match(r"^﻿?---\s*\n(.*?)\n---\s*\n?(.*)$", text, re.DOTALL)
+    try:
+        meta = (yaml.safe_load(match.group(1)) or {}) if match else {}
+    except yaml.YAMLError as exc:
+        raise ScriptError(f"story.md: the settings block between --- lines has a typo ({exc})") from exc
+    if not isinstance(meta, dict):
+        raise ScriptError("story.md: the settings block between --- lines is not a list of settings")
+    settings = {k: meta[k] if meta.get(k) is not None else v for k, v in SETTINGS_DEFAULTS.items()}
+    settings.update({k: v for k, v in meta.items() if k not in settings})
+    return settings, (match.group(2) if match else text).strip()
+
+
+def join_story(settings: dict[str, Any], body: str) -> str:
+    """Write story.md back: a settings block only when something differs from the defaults
+    (keys this code does not know, such as `placeholder`, are kept)."""
+    changed = {k: v for k, v in settings.items() if k not in SETTINGS_DEFAULTS or v != SETTINGS_DEFAULTS[k]}
+    if not changed:
+        return body.strip() + "\n"
+    block = yaml.safe_dump(changed, allow_unicode=True, sort_keys=False).strip()
+    return f"---\n{block}\n---\n\n{body.strip()}\n"
+
+
 def parse_story(text: str) -> tuple[dict[str, Any], str]:
-    """Split story.md into its YAML settings block and the story itself."""
-    match = re.match(r"^---\s*\n(.*?)\n---\s*\n(.*)$", text, re.DOTALL)
-    if not match:
-        raise ScriptError("story.md must start with a settings block between --- lines (see the template)")
-    meta = yaml.safe_load(match.group(1)) or {}
-    body = match.group(2).strip()
+    """Settings and story, checked: a story in any language, settings from the block or the defaults."""
+    meta, body = split_story(text)
     if len(body) < 80:
         raise ScriptError("story.md: the story is too short; write a few sentences: who, where, what happened")
-    meta.setdefault("language", "am")
-    meta.setdefault("look", "low-poly-3d")
-    meta.setdefault("target_seconds", 75)
-    meta.setdefault("seed", 1)
-    meta["people"] = meta.get("people") or []
     if meta["language"] not in LANGUAGES:
         raise ScriptError(f"story.md: unknown language '{meta['language']}' (use one of {sorted(LANGUAGES)})")
     if meta["look"] not in STYLES:
@@ -162,8 +183,8 @@ def build_prompt(meta: dict[str, Any], body: str) -> str:
                          language=lang["name"], script=lang["script"], wps=wps,
                          words=int(target * wps * 0.8), voices=voices,
                          template=TEMPLATE.replace("LANGUAGE", lang["name"]))
-    audience = f"Audience (from the author): {meta.get('audience', 'not given; infer it')}. " \
-               f"What they should feel at the end: {meta.get('feel', 'not given; infer it')}."
+    audience = f"Audience (from the author): {meta.get('audience') or 'not given; infer it'}. " \
+               f"What they should feel at the end: {meta.get('feel') or 'not given; infer it'}."
     return f"{audience}\n\nThe family story, in the author's words:\n\"\"\"\n{body}\n\"\"\"\n\n{rules}"
 
 

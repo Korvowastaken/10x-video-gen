@@ -442,6 +442,23 @@
             }
           },
           "description": "Settings for the kaggle-wan22-ti2v-5b fallback engine."
+        },
+        "allowed_modes": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "full_i2v",
+              "flf_inbetween",
+              "masked_i2v",
+              "cinemagraph",
+              "parallax",
+              "still_kenburns",
+              "still"
+            ]
+          },
+          "uniqueItems": true,
+          "minItems": 1,
+          "description": "Motion modes a scene may use. The studio offers only these; leave out to allow every mode."
         }
       }
     },
@@ -479,6 +496,41 @@
           "type": "integer",
           "minimum": 20,
           "maximum": 60
+        },
+        "use": {
+          "type": "object",
+          "description": "Final cut: per scene id, the motion mode to use instead of the scene's own (e.g. a free mode in place of a bought clip).",
+          "propertyNames": {
+            "pattern": "^S[0-9]{2}$"
+          },
+          "additionalProperties": {
+            "enum": [
+              "full_i2v",
+              "flf_inbetween",
+              "masked_i2v",
+              "cinemagraph",
+              "parallax",
+              "still_kenburns",
+              "still"
+            ]
+          }
+        },
+        "grade": {
+          "description": "One colour grade across scenes: true (default) matches every scene to the film's look, false turns it off, or an object with a fixed target.",
+          "oneOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "object"
+            }
+          ]
+        },
+        "grade_strength": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "How far each scene moves toward the film's look (0 none, 1 all the way)."
         }
       }
     }
@@ -962,6 +1014,26 @@
         },
         "music_cue": {
           "type": "string"
+        },
+        "sketch": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "The shape storyboard: where each character stands in this scene's sketch frame.",
+          "properties": {
+            "positions": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "array",
+                "items": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "minItems": 2,
+                "maxItems": 2
+              }
+            }
+          }
         }
       }
     }

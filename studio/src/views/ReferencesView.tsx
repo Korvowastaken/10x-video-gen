@@ -18,10 +18,11 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { FREE } from "@/lib/progress"
 import { cn } from "@/lib/utils"
-import { Page, StatusDot, StepHeader } from "@/views/parts"
+import { ApproveBar, Page, StatusDot, StepHeader } from "@/views/parts"
 
 export function ReferencesView({ studio }: { studio: Studio }) {
-  const { state, track, busy, go } = studio
+  const { state, flow, track, busy, go } = studio
+  const step = flow.steps.find((s) => s.id === "references")!
   const sb = state.storyboard
   if (!sb) return <Page>Draft the scenes from your story first.</Page>
   const people = sb.characters.filter((c) => c.visible)
@@ -30,9 +31,9 @@ export function ReferencesView({ studio }: { studio: Studio }) {
   return (
     <Page>
       <StepHeader
-        n={2}
-        title="Look"
-        lead="Every scene is drawn from the approved sheet of each person and place. Add a photo or change the look here, then redraw."
+        n={4}
+        title="References"
+        lead="Every scene is drawn from the chosen sheet of each person and place. Add the photos you have, draw the sheets, pick one per person, then approve."
       >
         <div className="flex items-center gap-3">
           {(old > 0 || undrawn > 0) && (
@@ -41,14 +42,17 @@ export function ReferencesView({ studio }: { studio: Studio }) {
           {state.limits?.pictures && !state.limits.pictures.used_up && state.limits.pictures.left != null && (
             <span className="text-[12px] text-subtle">~{state.limits.pictures.left} pictures left today</span>
           )}
-          <RunButton cost={FREE("Cloudflare", "pictures")} disabled={busy} onRun={() => track(api.run("keyframes"))}>
-            Redraw sheets and stills
+          <RunButton cost={FREE("Cloudflare", "pictures")} disabled={busy || step.locked} onRun={() => track(api.drawSheets())}>
+            {undrawn ? "Draw sheets" : "Redraw what changed"}
           </RunButton>
-          <Button variant="ghost" onClick={() => go("scenes")}>
-            Go to Scenes
-          </Button>
+          {step.state === "approved" && (
+            <Button variant="ghost" onClick={() => go("scenes")}>
+              Go to Scenes
+            </Button>
+          )}
         </div>
       </StepHeader>
+      <ApproveBar studio={studio} step="references" what="the references" />
 
       <h2 className="mb-1 text-[13px] font-semibold">People</h2>
       <div className="divide-y border-y">
@@ -67,7 +71,7 @@ export function ReferencesView({ studio }: { studio: Studio }) {
 }
 
 function Owner({ studio, id, name, sub, character, place }: { studio: Studio; id: string; name: string; sub?: string; character?: Character; place?: Place }) {
-  const { state, refresh } = studio
+  const { state, refresh, track, busy } = studio
   const input = useRef<HTMLInputElement>(null)
   const [text, setText] = useState(character?.look ?? place?.look ?? "")
   const [pending, setPending] = useState<File | null>(null)
@@ -171,7 +175,7 @@ function Owner({ studio, id, name, sub, character, place }: { studio: Studio; id
         </div>
 
         <div>
-          <div className="mb-1.5 text-[12px] text-subtle">{character && sheets.length > 1 ? "Pick the sheet to approve" : "Sheet"}</div>
+          <div className="mb-1.5 text-[12px] text-subtle">{character && sheets.length > 1 ? "Pick the sheet every scene copies" : "Sheet"}</div>
           <div className="flex gap-2">
             {sheets.map((url, i) => {
               const on = !!character && i === chosen
@@ -201,6 +205,21 @@ function Owner({ studio, id, name, sub, character, place }: { studio: Studio; id
               )
             })}
           </div>
+          {character && sheets.every(Boolean) && (
+            <RunButton
+              size="sm"
+              variant="ghost"
+              className="mt-1.5 text-subtle"
+              cost={FREE("Cloudflare", "pictures")}
+              disabled={busy}
+              onRun={async () => {
+                await api.anotherSheet(id)
+                await track(api.drawSheets())
+              }}
+            >
+              Draw another
+            </RunButton>
+          )}
         </div>
       </div>
 

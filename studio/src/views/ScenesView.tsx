@@ -1,12 +1,13 @@
 import { ArrowRight, Check, ChevronDown, ChevronUp, Sparkles, X } from "lucide-react"
-import { useContext, useEffect, useMemo, useState } from "react"
+import { createContext, useContext, useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
 
-import { ApiError, api, diff, MODES, type Shot, type ShotState } from "@/api"
+import { ApiError, api, diff, MODES, type Flow, type Shot, type ShotState } from "@/api"
 import type { Studio } from "@/App"
 import { CostTag, RunButton } from "@/components/run-button"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -15,7 +16,10 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { LimitsContext } from "@/lib/limits"
 import { affected, back, blocked, FREE, fieldLabel, LIMIT_OF, PAID, PART_LABEL, scene, usd, type Part } from "@/lib/progress"
 import { cn } from "@/lib/utils"
-import { StatusDot } from "@/views/parts"
+import { ApproveBar, StatusDot } from "@/views/parts"
+
+/** The flow, for the motion picker deep in the editor: prices and the allowed modes. */
+const FlowContext = createContext<Flow | null>(null)
 
 export function ScenesView({ studio, onScene }: { studio: Studio; onScene: (id: string) => void }) {
   const sb = studio.state.storyboard
@@ -24,6 +28,7 @@ export function ScenesView({ studio, onScene }: { studio: Studio; onScene: (id: 
   const media = studio.state.shots.find((s) => s.id === shot.id)!
   const i = sb.shots.indexOf(shot)
   return (
+    <FlowContext.Provider value={studio.flow}>
     <div className="grid min-h-full grid-cols-[272px_minmax(0,1fr)]">
       <SceneList studio={studio} selected={shot.id} onSelect={onScene} />
       <SceneWorkspace
@@ -36,6 +41,7 @@ export function ScenesView({ studio, onScene }: { studio: Studio; onScene: (id: 
         onScene={onScene}
       />
     </div>
+    </FlowContext.Provider>
   )
 }
 
@@ -49,14 +55,17 @@ function SceneList({ studio, selected, onSelect }: { studio: Studio; selected: s
   const work = rows.filter((r) => r.status.needsWork).length
   const toBuy = rows.filter((r) => r.status.toBuy)
   const shown = filter === "work" ? rows.filter((r) => r.status.needsWork) : rows
+  const approval = Object.fromEntries(studio.flow.scenes.map((s) => [s.id, s.state]))
+  const approved = studio.flow.scenes.filter((s) => s.state === "approved").length
   return (
     <nav className="sticky top-0 flex h-screen flex-col border-r">
       <div className="border-b px-4 pt-8 pb-3">
-        <div className="text-[12px] text-subtle">Step 3 of 4</div>
+        <div className="text-[12px] text-subtle">Step 5 of 6</div>
         <h1 className="text-lg font-semibold tracking-tight">Scenes</h1>
         <p className="mt-0.5 text-[12px] text-subtle">
-          {sb.shots.length} scenes · {toBuy.length ? `${toBuy.length} clips to buy (${usd(toBuy.reduce((n, r) => n + r.m.price, 0))})` : "all clips bought"}
+          {approved} of {sb.shots.length} approved · {toBuy.length ? `${toBuy.length} clips to buy (${usd(toBuy.reduce((n, r) => n + r.m.price, 0))})` : "all clips bought"}
         </p>
+        <BudgetButton studio={studio} />
         <ToggleGroup
           value={[filter]}
           onValueChange={(v) => v[0] && setFilter(v[0] as "all" | "work")}
@@ -87,6 +96,8 @@ function SceneList({ studio, selected, onSelect }: { studio: Studio; selected: s
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
                 <span className="font-mono text-[12px] font-semibold">{s.id}</span>
+                {approval[s.id] === "approved" && <Check className="size-3 text-free" strokeWidth={3} aria-label="Approved" />}
+                {approval[s.id] === "stale" && <span className="size-1.5 rounded-full bg-warn" title="Changed since you approved it" />}
                 <span className={cn("text-[11.5px]", MODES[s.motion.mode]?.paid ? "text-paid" : "text-subtle")}>{MODES[s.motion.mode]?.label ?? s.motion.mode}</span>
               </div>
               <p className="mt-0.5 line-clamp-2 text-[12.5px] leading-snug text-muted-foreground">{s.lines[0]?.en ?? s.beat}</p>
@@ -157,6 +168,7 @@ function SceneWorkspace({
   }
 
   const status = scene(media)
+  const flowScene = studio.flow.scenes.find((s) => s.id === shot.id)
   return (
     <div className="min-w-0 px-10 pt-8 pb-28">
       <header className="mb-6 flex items-start gap-6">
@@ -167,7 +179,15 @@ function SceneWorkspace({
           <h2 className="mt-0.5 text-xl font-semibold tracking-tight">{shot.beat}</h2>
           <p className="mt-1 max-w-3xl text-muted-foreground">{shot.reason}</p>
         </div>
-        <div className="flex gap-1">
+        <div className="flex items-center gap-1">
+          <RunButton
+            variant="secondary"
+            cost={FREE("Cloudflare", "pictures")}
+            disabled={busy || dirty || studio.flow.steps[4].locked}
+            onRun={() => track(api.makeScene(shot.id))}
+          >
+            {flowScene?.preview ? "Make again" : "Make this scene"}
+          </RunButton>
           <Button variant="outline" size="icon-sm" disabled={!prev} onClick={() => prev && onScene(prev)} aria-label="Previous scene">
             <ChevronUp />
           </Button>
@@ -176,6 +196,9 @@ function SceneWorkspace({
           </Button>
         </div>
       </header>
+
+      <ApproveBar studio={studio} step="scenes" scene={shot.id} what={shot.id} />
+      {flowScene && flowScene.history.length > 1 && <Versions studio={studio} id={shot.id} history={flowScene.history} />}
 
       <div className="grid grid-cols-[280px_minmax(0,1fr)] gap-10">
         <Preview studio={studio} shot={shot} media={media} />
@@ -251,12 +274,14 @@ function WillMakeStale({ parts, prefix }: { parts: Part[]; prefix: string }) {
 
 function Preview({ studio, shot, media }: { studio: Studio; shot: Shot; media: ShotState }) {
   const names = useMemo(() => Object.fromEntries(studio.state.storyboard!.characters.map((c) => [c.id, c.name])), [studio.state.storyboard])
+  const made = studio.flow.scenes.find((s) => s.id === shot.id)?.preview ?? null
   const views = [
+    ...(made ? [{ id: "preview", label: "Preview", url: made, stale: false }] : []),
     { id: "still", label: "Still", url: media.keyframe, stale: media.stale.keyframe },
     ...(media.end ? [{ id: "end", label: "End frame", url: media.end, stale: media.stale.keyframe }] : []),
     ...(media.paid ? [{ id: "clip", label: "Clip", url: media.clip, stale: media.stale.clip }] : []),
   ]
-  const [view, setView] = useState(media.clip ? "clip" : "still")
+  const [view, setView] = useState(made ? "preview" : media.clip ? "clip" : "still")
   const current = views.find((v) => v.id === view) ?? views[0]
   const mode = MODES[shot.motion.mode] ?? { label: shot.motion.mode, paid: false }
 
@@ -272,7 +297,8 @@ function Preview({ studio, shot, media }: { studio: Studio; shot: Shot; media: S
         </ToggleGroup>
       )}
       <div className="relative aspect-[9/16] overflow-hidden rounded-lg bg-secondary ring-1 ring-border">
-        {current.url && current.id !== "clip" && <img src={current.url} alt={current.label} className="size-full object-cover" />}
+        {current.url && current.id === "preview" && <video key={current.url} src={current.url} className="size-full object-cover" controls playsInline />}
+        {current.url && current.id !== "clip" && current.id !== "preview" && <img src={current.url} alt={current.label} className="size-full object-cover" />}
         {current.url && current.id === "clip" && <video src={current.url} className="size-full object-cover" autoPlay loop muted playsInline />}
         {!current.url && (
           <div className="grid size-full place-items-center px-6 text-center text-[12.5px] text-subtle">
@@ -648,7 +674,15 @@ function Field({ label, hint, changed, children }: { label: string; hint?: strin
 
 function MotionEditor({ draft, set }: { draft: Shot; set: Draft }) {
   const mode = draft.motion.mode
-  const items = Object.entries(MODES).map(([value, m]) => ({ value, label: m.label, paid: m.paid }))
+  const flow = useContext(FlowContext)
+  const allowed = flow?.budget?.allowed_modes ?? Object.keys(MODES)
+  const items = Object.entries(flow?.catalog.modes ?? MODES).map(([value, m]) => ({
+    value,
+    label: m.label,
+    paid: m.paid,
+    usd: "usd" in m ? (m.usd as number) : 0,
+    allowed: allowed.includes(value),
+  }))
   return (
     <div className="grid gap-3">
       <div className="flex flex-wrap items-center gap-2">
@@ -669,9 +703,11 @@ function MotionEditor({ draft, set }: { draft: Shot; set: Draft }) {
           </SelectTrigger>
           <SelectContent>
             {items.map((i) => (
-              <SelectItem key={i.value} value={i.value}>
+              <SelectItem key={i.value} value={i.value} disabled={!i.allowed}>
                 {i.label}
-                <span className={cn("ml-auto pl-3 text-[11px]", i.paid ? "text-paid" : "text-free")}>{i.paid ? "paid" : "free"}</span>
+                <span className={cn("ml-auto pl-3 text-[11px] tabular-nums", !i.allowed ? "text-subtle" : i.paid ? "text-paid" : "text-free")}>
+                  {!i.allowed ? "not allowed" : i.paid ? usd(i.usd) : "free"}
+                </span>
               </SelectItem>
             ))}
           </SelectContent>
@@ -735,5 +771,104 @@ function Choices({ value, options, onChange }: { value: string; options: string[
         </ToggleGroupItem>
       ))}
     </ToggleGroup>
+  )
+}
+
+/** Which motion modes scenes may use, and what the whole film may spend on clips. */
+function BudgetButton({ studio }: { studio: Studio }) {
+  const { flow, refresh } = studio
+  const b = flow.budget
+  const [open, setOpen] = useState(false)
+  const [modes, setModes] = useState<string[]>(b?.allowed_modes ?? [])
+  const [budget, setBudget] = useState(String(b?.budget_usd ?? 0.6))
+  useEffect(() => {
+    if (!open || !b) return
+    setModes(b.allowed_modes)
+    setBudget(String(b.budget_usd))
+  }, [open, b])
+  if (!b) return null
+
+  async function save() {
+    try {
+      await api.setVideo({ allowed_modes: modes, budget_usd: Number(budget) })
+      toast.success("Modes and budget saved")
+      setOpen(false)
+      await refresh()
+    } catch (err) {
+      toast.error((err as Error).message)
+    }
+  }
+
+  const over = b.planned_usd > b.budget_usd
+  return (
+    <>
+      <button onClick={() => setOpen(true)} className="mt-2 w-full rounded-md border px-2.5 py-1.5 text-left text-[12px] transition-colors hover:bg-muted">
+        <span className="flex justify-between">
+          <span className="text-muted-foreground">Film budget</span>
+          <span className={cn("tabular-nums", over ? "text-warn" : "text-secondary-foreground")}>
+            {usd(b.planned_usd)} of {usd(b.budget_usd)}
+          </span>
+        </span>
+        <span className="mt-0.5 block text-subtle">
+          {b.allowed_modes.length} of {Object.keys(flow.catalog.modes).length} motion modes allowed · spent {usd(b.spent_usd)}
+        </span>
+      </button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Motion modes and budget</DialogTitle>
+            <DialogDescription>Each scene can only pick an allowed mode, and the paid ones together must fit the budget.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-1.5">
+            {Object.entries(flow.catalog.modes).map(([id, m]) => (
+              <label key={id} className="flex items-center gap-2.5 rounded-md px-1 py-1 text-[13px] hover:bg-muted/60">
+                <Checkbox checked={modes.includes(id)} onCheckedChange={(on) => setModes(on ? [...modes, id] : modes.filter((x) => x !== id))} />
+                <span className="flex-1">{m.label}</span>
+                <span className={cn("text-[12px] tabular-nums", m.paid ? "text-paid" : "text-free")}>{m.paid ? `${usd(m.usd)} a clip` : "free"}</span>
+              </label>
+            ))}
+          </div>
+          <label className="mt-2 flex items-center gap-3 text-[13px]">
+            <span className="flex-1">Most the film may spend on clips</span>
+            <span className="text-subtle">$</span>
+            <Input type="number" min={0} max={10} step={0.05} value={budget} onChange={(e) => setBudget(e.target.value)} className="w-24" />
+          </label>
+          <p className="text-[12px] text-subtle">
+            The scenes' chosen modes add up to {usd(b.planned_usd)}; {usd(b.to_buy_usd)} of that is not bought yet.
+          </p>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={save} disabled={!modes.length}>
+              Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  )
+}
+
+/** Earlier approved versions of a scene. Putting one back costs nothing: its files are still cached. */
+function Versions({ studio, id, history }: { studio: Studio; id: string; history: Flow["scenes"][number]["history"] }) {
+  async function restore(i: number) {
+    try {
+      await api.restoreScene(id, i)
+      toast.success(`${id}: version ${i + 1} is back`)
+      await studio.refresh()
+    } catch (err) {
+      toast.error((err as Error).message)
+    }
+  }
+  return (
+    <div className="-mt-3 mb-6 flex flex-wrap items-center gap-1.5 text-[12px]">
+      <span className="mr-1 text-subtle">Approved versions</span>
+      {history.map((v, i) => (
+        <Button key={v.hash} size="xs" variant="outline" disabled={studio.busy} onClick={() => restore(i)} title={`Approved ${new Date(v.at).toLocaleString()}`}>
+          v{i + 1} · {MODES[v.mode]?.label ?? v.mode}
+        </Button>
+      ))}
+    </div>
   )
 }

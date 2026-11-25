@@ -120,6 +120,21 @@ def put_settings(body: Settings) -> dict[str, Any]:
     return {"ok": True}
 
 
+class StoryText(BaseModel):
+    text: str
+
+
+@router.put("/story/text")
+def put_story_text(body: StoryText) -> dict[str, Any]:
+    """Save the story itself; its settings block stays as it is."""
+    from .script import join_story, split_story
+
+    project = _project()
+    settings, _ = split_story(project.story.read_text("utf-8") if project.story.exists() else "")
+    project.story.write_text(join_story(settings, body.text), "utf-8")
+    return {"ok": True}
+
+
 @router.get("/choices")
 def get_choices() -> dict[str, Any]:
     from .presets import LANGUAGES, STYLES

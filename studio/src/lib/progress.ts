@@ -1,8 +1,15 @@
 // Where the film stands: each step's status, each scene's parts, and the one next step.
 
-import { api, diff, MODES, type Job, type Limit, type LimitId, type Shot, type ShotState, type State } from "@/api"
+import { api, diff, MODES, type Flow, type FlowStepId, type Job, type Limit, type LimitId, type Shot, type ShotState, type State } from "@/api"
 
-export type StepId = "story" | "references" | "scenes" | "film"
+/** The studio's pages for the six steps. "film" is the final cut (flow step "final"). */
+export type StepId = "story" | "script" | "sketch" | "references" | "scenes" | "film"
+export const VIEW_OF: Record<FlowStepId, StepId> = {
+  story: "story", script: "script", sketch: "sketch", references: "references", scenes: "scenes", final: "film",
+}
+export const STEP_OF: Record<StepId, FlowStepId> = {
+  story: "story", script: "script", sketch: "sketch", references: "references", scenes: "scenes", film: "final",
+}
 export type StepState = "done" | "todo" | "stale" | "locked"
 export type Step = { id: StepId; label: string; state: StepState; note: string }
 
@@ -87,43 +94,24 @@ export function fieldLabel(path: string) {
   return FIELD[path] ?? path
 }
 
-export function steps(state: State): Step[] {
-  const sb = state.storyboard
-  if (!sb)
-    return [
-      { id: "story", label: "Story", state: "todo", note: state.story.trim() ? "Ready to draft scenes" : "Write the story" },
-      { id: "references", label: "Look", state: "locked", note: "After the story" },
-      { id: "scenes", label: "Scenes", state: "locked", note: "After the story" },
-      { id: "film", label: "Film", state: "locked", note: "After the scenes" },
-    ]
-  const sheets = Object.entries(state.sheets)
-  const undrawn = sheets.filter(([, urls]) => urls.some((u) => !u)).length
-  const oldSheets = sheets.filter(([id]) => state.sheets_stale?.[id]).length
-  const scenes = state.shots.map(scene)
-  const staleScenes = scenes.filter((s) => s.stale.length).length
-  const unmade = scenes.filter((s) => s.missing.length).length
-  const cut = state.film.vertical ?? state.film.rough ?? state.film.radio
-  return [
-    state.story_changed
-      ? { id: "story", label: "Story", state: "stale", note: "Changed since the draft" }
-      : { id: "story", label: "Story", state: "done", note: `${sb.shots.length} scenes drafted` },
-    undrawn
-      ? { id: "references", label: "Look", state: "todo", note: `${undrawn} sheet${undrawn > 1 ? "s" : ""} to draw` }
-      : oldSheets
-        ? { id: "references", label: "Look", state: "stale", note: `${oldSheets} out of date` }
-        : { id: "references", label: "Look", state: "done", note: "Sheets approved" },
-    staleScenes
-      ? { id: "scenes", label: "Scenes", state: "stale", note: `${staleScenes} need a redo` }
-      : unmade
-        ? { id: "scenes", label: "Scenes", state: "todo", note: `${unmade} not made yet` }
-        : { id: "scenes", label: "Scenes", state: "done", note: `${sb.shots.length} ready` },
-    !cut
-      ? { id: "film", label: "Film", state: "todo", note: "No cut yet" }
-      : state.film.stale
-        ? { id: "film", label: "Film", state: "stale", note: "Older than your edits" }
-        : { id: "film", label: "Film", state: "done", note: state.film.vertical ? "Final cut made" : "Rough cut made" },
-  ]
+const LABEL: Record<FlowStepId, string> = {
+  story: "Story", script: "Script", sketch: "Sketch", references: "References", scenes: "Scenes", final: "Film",
 }
+
+/** The six steps as the server sees them: approved, stale (with why), to do, or locked. */
+export function steps(flow: Flow): Step[] {
+  return flow.steps.map((s, i) => {
+    const before = flow.steps[i - 1]
+    if (s.locked) return { id: VIEW_OF[s.id], label: LABEL[s.id], state: "locked", note: `After ${LABEL[before.id]}` }
+    if (s.state === "approved") return { id: VIEW_OF[s.id], label: LABEL[s.id], state: "done", note: "Approved" }
+    if (s.state === "stale") return { id: VIEW_OF[s.id], label: LABEL[s.id], state: "stale", note: `Changed: ${s.changed.join(", ")}` }
+    if (s.id === "scenes")
+      return { id: "scenes", label: LABEL.scenes, state: "todo", note: `${flow.scenes.filter((x) => x.state === "approved").length} of ${flow.scenes.length} approved` }
+    return { id: VIEW_OF[s.id], label: LABEL[s.id], state: "todo", note: s.blockers[0] ? upper(s.blockers[0]) : "Ready to approve" }
+  })
+}
+
+export const upper = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
 
 export type Next = {
   step: StepId
@@ -134,7 +122,27 @@ export type Next = {
   run?: () => Promise<Job>
 }
 
-export function next(state: State): Next {
+const GATE_ACTION: Partial<Record<FlowStepId, { title: string; detail: string; label: string; cost: Cost; run?: () => Promise<Job> }>> = {
+  story: { title: "Approve your story", detail: "Check the settings, then approve to open the script.", label: "Open Story", cost: FREE() },
+  script: { title: "Draft and approve the script", detail: "Gemini writes the scenes, lines and subtitles. Edit them, then approve.", label: "Open Script", cost: FREE("Gemini", "writing") },
+  sketch: { title: "Draw and approve the sketch", detail: "A quick shape frame per scene, drawn on this computer. Check order and framing.", label: "Draw sketch", cost: FREE(), run: () => api.drawSketch() },
+  references: { title: "Draw and approve the references", detail: "One sheet per person and place, which every scene copies.", label: "Draw sheets", cost: FREE("Cloudflare", "pictures"), run: () => api.drawSheets() },
+}
+
+export function next(state: State, flow?: Flow): Next {
+  const gate = flow?.current && GATE_ACTION[flow.current]
+  if (flow?.current && gate) {
+    const step = flow.steps.find((s) => s.id === flow.current)!
+    const ready = !step.blockers.length
+    return {
+      step: VIEW_OF[flow.current],
+      title: step.state === "stale" ? `${step.title} changed: approve it again` : gate.title,
+      detail: step.state === "stale" ? `Changed since you approved it: ${step.changed.join(", ")}.` : ready ? "It is ready. Have a look and approve it." : gate.detail,
+      label: ready ? `Open ${step.title}` : gate.label,
+      cost: ready ? FREE() : gate.cost,
+      run: ready ? undefined : gate.run,
+    }
+  }
   const sb = state.storyboard
   if (!sb)
     return {

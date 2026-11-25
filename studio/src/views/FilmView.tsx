@@ -6,13 +6,15 @@ import type { Studio } from "@/App"
 import { RunButton } from "@/components/run-button"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { FREE, PAID, usd } from "@/lib/progress"
 import { cn } from "@/lib/utils"
-import { Page, Section, StatusDot, StepHeader } from "@/views/parts"
+import { ApproveBar, Page, Section, StatusDot, StepHeader } from "@/views/parts"
 
 export function FilmView({ studio }: { studio: Studio }) {
-  const { state, track, busy, refresh, go } = studio
+  const { state, flow, track, busy, refresh, go } = studio
+  const locked = flow.steps[5].locked
   const sb = state.storyboard
   const [reason, setReason] = useState(sb?.music.chosen_reason ?? "")
   const report = state.film.report as { duration_s?: number; sources?: Record<string, { used: string; wanted?: string }> }
@@ -51,7 +53,8 @@ export function FilmView({ studio }: { studio: Studio }) {
 
   return (
     <Page>
-      <StepHeader n={4} title="Film" lead="Cut the scenes together and watch. Every cut here is free: it only uses what is already made." />
+      <StepHeader n={6} title="Film" lead="Choose what each scene uses, pick the score, then make the final cut in 9:16 and 16:9. Making a cut is free: it only uses what is already made." />
+      <ApproveBar studio={studio} step="final" what="the final cut" />
 
       <div className="grid grid-cols-[minmax(0,1fr)_340px] gap-10">
         <div className="min-w-0">
@@ -76,8 +79,8 @@ export function FilmView({ studio }: { studio: Studio }) {
                 <RunButton
                   variant={c.id === "rough" ? "default" : "secondary"}
                   cost={c.cost}
-                  disabled={busy || !sb}
-                  onRun={() => track(api.run(c.id))}
+                  disabled={busy || !sb || (c.id === "final" && locked)}
+                  onRun={() => track(c.id === "final" ? api.makeCut() : api.run(c.id))}
                 >
                   {c.url ? "Make again" : "Make"}
                 </RunButton>
@@ -93,6 +96,8 @@ export function FilmView({ studio }: { studio: Studio }) {
                 : "Every scene got its planned motion."}
             </p>
           )}
+
+          {sb && <CutChoices studio={studio} />}
 
           <Section
             title="Paid clips"
@@ -205,5 +210,57 @@ export function FilmView({ studio }: { studio: Studio }) {
         </aside>
       </div>
     </Page>
+  )
+}
+
+/** Per scene, what goes into the cut: its own mode, or a free one instead (a bought clip is kept either way). */
+function CutChoices({ studio }: { studio: Studio }) {
+  const { state, flow, refresh, busy } = studio
+  const sb = state.storyboard!
+  const use = sb.edit?.use ?? {}
+  const free = Object.entries(flow.catalog.modes).filter(([, m]) => !m.paid)
+
+  async function choose(id: string, mode: string) {
+    try {
+      await api.setCut({ ...use, [id]: mode })
+      toast.success(`${id} will use ${flow.catalog.modes[mode]?.label ?? mode} in the cut`)
+      await refresh()
+    } catch (err) {
+      toast.error((err as Error).message)
+    }
+  }
+
+  return (
+    <Section title="What each scene uses" aside={<span className="text-[12px] text-subtle">Only approved scenes go in; free modes never cost anything</span>} className="mt-10">
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-2">
+        {sb.shots.map((s) => {
+          const own = s.motion.mode
+          const current = use[s.id] ?? own
+          const fs = flow.scenes.find((x) => x.id === s.id)
+          const items = [
+            { value: own, label: `${flow.catalog.modes[own]?.label ?? own} (planned)` },
+            ...free.filter(([id]) => id !== own).map(([id, m]) => ({ value: id, label: m.label })),
+          ]
+          return (
+            <div key={s.id} className="flex items-center gap-2 rounded-md border px-2.5 py-1.5">
+              <span className="font-mono text-[12px] font-medium">{s.id}</span>
+              <span className={cn("size-1.5 shrink-0 rounded-full", fs?.state === "approved" ? "bg-free" : fs?.state === "stale" ? "bg-warn" : "border border-subtle")} title={fs?.state === "approved" ? "Approved" : "Not approved yet"} />
+              <Select items={items} value={current} disabled={busy} onValueChange={(v) => choose(s.id, String(v))}>
+                <SelectTrigger size="sm" className="ml-auto h-7 min-w-0 flex-1 border-none text-[12px] shadow-none">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {items.map((i) => (
+                    <SelectItem key={i.value} value={i.value}>
+                      {i.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )
+        })}
+      </div>
+    </Section>
   )
 }

@@ -48,6 +48,8 @@ export type Storyboard = {
   shots: Shot[]
   music: { caption: string; seeds: number[]; chosen: number | null; chosen_reason?: string }
   audience: { who: string; where: string; feel: string }
+  video?: { budget_usd?: number; allowed_modes?: string[]; max_paid_clips?: number }
+  edit?: { use?: Record<string, string> }
 }
 export type ShotState = {
   id: string
@@ -105,6 +107,45 @@ export type State = {
   jobs: Job[]
 }
 
+/** The six steps, from pipeline/flow.py. "final" is the final cut. */
+export type FlowStepId = "story" | "script" | "sketch" | "references" | "scenes" | "final"
+export type FlowState = "approved" | "stale" | "todo"
+export type FlowStep = {
+  id: FlowStepId
+  title: string
+  state: FlowState
+  /** What changed since the approval, in words ("the script"). */
+  changed: string[]
+  locked: boolean
+  /** What has to happen before it can be approved. */
+  blockers: string[]
+}
+export type FlowScene = {
+  id: string
+  state: FlowState
+  changed: string[]
+  blockers: string[]
+  clip_bought: boolean
+  price: number
+  preview: string | null
+  used: string | null
+  history: { at: string; mode: string; hash: string }[]
+}
+export type Settings = { language: string; look: string; target_seconds: number; audience: string; feel: string; [k: string]: unknown }
+export type ModeInfo = { label: string; paid: boolean; about: string; usd: number }
+export type Flow = {
+  steps: FlowStep[]
+  scenes: FlowScene[]
+  current: FlowStepId | null
+  errors: string[]
+  budget: { budget_usd: number; planned_usd: number; to_buy_usd: number; spent_usd: number; music_usd: number; allowed_modes: string[] } | null
+  settings: Settings
+  story_text: string
+  catalog: { modes: Record<string, ModeInfo>; default_engine: string; music_usd: number | null }
+  sketch?: { frames: Record<string, string | null>; animatic: string | null }
+}
+export type Choices = { languages: Record<string, string>; looks: string[]; defaults: Settings }
+
 export class ApiError extends Error {
   errors: string[]
   constructor(message: string, errors: string[] = []) {
@@ -147,6 +188,24 @@ export const api = {
   },
   removePhoto: (owner: string) => call("DELETE", `/api/references/${owner}`),
   chooseMusic: (chosen: number, reason: string) => call("PUT", "/api/music", { chosen, reason }),
+  flow: () => call<Flow>("GET", "/api/flow"),
+  choices: () => call<Choices>("GET", "/api/choices"),
+  approve: (step: FlowStepId, scene?: string) => call<Flow>("POST", "/api/approve", { step, scene }),
+  unapprove: (step: FlowStepId, scene?: string) => call<Flow>("POST", "/api/unapprove", { step, scene }),
+  saveSettings: (s: Partial<Settings>) => call("PUT", "/api/settings", s),
+  saveStoryText: (text: string) => call("PUT", "/api/story/text", { text }),
+  draftScript: () => call<Job>("POST", "/api/script/draft"),
+  reviseScript: (text: string) => call<{ proposal: Storyboard; errors: string[]; model: string }>("POST", "/api/script/revise", { text }),
+  acceptScript: (proposal: Storyboard) => call("PUT", "/api/script", proposal),
+  drawSketch: () => call<Job>("POST", "/api/sketch"),
+  reorder: (order: string[]) => call("POST", "/api/sketch/order", { order }),
+  drawSheets: () => call<Job>("POST", "/api/sheets/draw"),
+  anotherSheet: (owner: string) => call("POST", `/api/sheets/${owner}/another`),
+  setVideo: (v: { allowed_modes?: string[]; budget_usd?: number }) => call("PUT", "/api/video", v),
+  makeScene: (id: string, body: { redo?: string[]; buy?: boolean; confirm_usd?: number } = {}) => call<Job>("POST", `/api/scenes/${id}/make`, body),
+  restoreScene: (id: string, version: number) => call("POST", `/api/scenes/${id}/restore`, { version }),
+  setCut: (use: Record<string, string>) => call("PUT", "/api/cut", { use }),
+  makeCut: () => call<Job>("POST", "/api/cut"),
   keys: () => call<KeyService[]>("GET", "/api/keys"),
   addKey: (service: string, values: Record<string, string>) => call("POST", `/api/keys/${service}`, { values }),
   removeKey: (service: string, slot: number) => call("DELETE", `/api/keys/${service}/${slot}`),

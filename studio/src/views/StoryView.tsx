@@ -1,100 +1,149 @@
-import { AlertTriangle } from "lucide-react"
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
 
-import { api } from "@/api"
+import { api, type Choices, type Settings } from "@/api"
 import type { Studio } from "@/App"
-import { RunButton } from "@/components/run-button"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { FREE } from "@/lib/progress"
-import { Page, StepHeader } from "@/views/parts"
+import { ApproveBar, Page, StepHeader } from "@/views/parts"
+
+const LOOK_LABEL: Record<string, string> = { "low-poly-3d": "Low-poly 3D", "painted-2d": "Painted 2D", claymation: "Claymation" }
 
 export function StoryView({ studio }: { studio: Studio }) {
-  const { state, refresh, track, busy, go } = studio
-  const sb = state.storyboard
-  const [text, setText] = useState(state.story)
-  const dirty = text !== state.story
-  useEffect(() => setText(state.story), [state.story])
+  const { flow, refresh, go } = studio
+  const [text, setText] = useState(flow.story_text)
+  const dirty = text !== flow.story_text
+  useEffect(() => setText(flow.story_text), [flow.story_text])
 
   async function save() {
-    await api.saveStory(text)
+    await api.saveStoryText(text)
     toast.success("Story saved")
     await refresh()
   }
 
-  async function draft() {
-    if (dirty) await api.saveStory(text)
-    await track(api.run("script", { force: true }))
-  }
-
   return (
     <Page>
-      <StepHeader n={1} title="Story" lead="Write the family story in any language. Gemini turns it into scenes, lines and pictures." />
+      <StepHeader n={1} title="Story" lead="Write or paste the family story in plain words, in any language. Change the settings on the right only if the defaults don't fit.">
+        {flow.steps[0].state === "approved" && (
+          <Button variant="ghost" onClick={() => go("script")}>
+            Go to Script
+          </Button>
+        )}
+      </StepHeader>
+      <ApproveBar studio={studio} step="story" what="the story" />
       <div className="grid grid-cols-[minmax(0,1fr)_280px] gap-8">
         <div>
           <Textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
-            spellCheck={false}
-            className="min-h-[calc(100vh-260px)] font-mono text-[13px] leading-6"
+            placeholder="Every Saturday when she was a girl, my grandmother walked to the market…"
+            className="min-h-[calc(100vh-300px)] text-[14px] leading-7"
           />
-          <p className="mt-2 text-[12px] text-subtle">
-            Settings go between the <code className="font-mono">---</code> lines at the top (language, look, length). The story follows.
-          </p>
-        </div>
-        <aside className="space-y-6">
-          {sb && state.story_changed && !dirty && (
-            <div className="flex gap-2.5 rounded-lg border border-warn/30 bg-warn/8 p-3 text-[13px]">
-              <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warn" />
-              <span>The story changed since the scenes were drafted. Redraft to bring the changes in.</span>
-            </div>
-          )}
-          <div className="space-y-2">
-            {dirty && (
-              <Button variant="secondary" className="w-full" onClick={save}>
-                Save story
-              </Button>
-            )}
-            <RunButton
-              className="w-full"
-              cost={FREE("Gemini", "writing")}
-              disabled={busy || !text.trim()}
-              onRun={draft}
-              confirm={
-                sb
-                  ? {
-                      title: "Redraft every scene?",
-                      body: "Gemini writes the scenes again from the story. Edits you made to scenes are replaced. The old storyboard is kept as a backup in outputs/script.",
-                      action: "Redraft",
-                    }
-                  : undefined
-              }
-            >
-              {sb ? "Redraft scenes" : "Draft scenes"}
-            </RunButton>
-            {sb && (
-              <Button variant="ghost" className="w-full" onClick={() => go("references")}>
-                Go to Look
-              </Button>
-            )}
+          <div className="mt-2 flex items-center gap-3">
+            <Button onClick={save} disabled={!dirty}>
+              Save story
+            </Button>
+            <span className="text-[12px] text-subtle">
+              {dirty ? "Unsaved changes" : `${text.trim().split(/\s+/).filter(Boolean).length} words`}
+            </span>
           </div>
-          {sb && (
-            <dl className="space-y-4 border-t pt-5">
-              <div>
-                <dt className="text-[12px] text-subtle">Logline</dt>
-                <dd className="mt-0.5 text-[13px] text-secondary-foreground">{sb.logline}</dd>
-              </div>
-              {(["who", "where", "feel"] as const).map((k) => (
-                <div key={k}>
-                  <dt className="text-[12px] text-subtle">{k === "who" ? "Who watches" : k === "where" ? "Where" : "How it should feel"}</dt>
-                  <dd className="mt-0.5 text-[13px] text-secondary-foreground">{sb.audience[k]}</dd>
-                </div>
-              ))}
-            </dl>
-          )}
-        </aside>
+        </div>
+        <SettingsPanel studio={studio} />
       </div>
     </Page>
+  )
+}
+
+function SettingsPanel({ studio }: { studio: Studio }) {
+  const { flow, refresh } = studio
+  const [choices, setChoices] = useState<Choices | null>(null)
+  const [draft, setDraft] = useState<Settings>(flow.settings)
+  useEffect(() => void api.choices().then(setChoices), [])
+  useEffect(() => setDraft(flow.settings), [flow.settings])
+  const changed = (["language", "look", "target_seconds", "audience", "feel"] as const).some((k) => draft[k] !== flow.settings[k])
+
+  async function save() {
+    try {
+      await api.saveSettings({
+        language: draft.language,
+        look: draft.look,
+        target_seconds: Number(draft.target_seconds),
+        audience: draft.audience,
+        feel: draft.feel,
+      })
+      toast.success("Settings saved")
+      await refresh()
+    } catch (err) {
+      toast.error((err as Error).message)
+    }
+  }
+
+  if (!choices) return <aside />
+  const languages = Object.entries(choices.languages).map(([value, label]) => ({ value, label }))
+  const looks = choices.looks.map((value) => ({ value, label: LOOK_LABEL[value] ?? value }))
+  return (
+    <aside className="space-y-4">
+      <h2 className="text-[13px] font-semibold">Settings</h2>
+      <Setting label="Spoken language" hint="Subtitles are always English">
+        <Select items={languages} value={draft.language} onValueChange={(v) => setDraft({ ...draft, language: String(v) })}>
+          <SelectTrigger className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {languages.map((l) => (
+              <SelectItem key={l.value} value={l.value}>
+                {l.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </Setting>
+      <Setting label="Look">
+        <Select items={looks} value={draft.look} onValueChange={(v) => setDraft({ ...draft, look: String(v) })}>
+          <SelectTrigger className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {looks.map((l) => (
+              <SelectItem key={l.value} value={l.value}>
+                {l.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </Setting>
+      <Setting label="Length" hint="60 to 90 seconds">
+        <Input
+          type="number"
+          min={60}
+          max={90}
+          value={draft.target_seconds}
+          onChange={(e) => setDraft({ ...draft, target_seconds: Number(e.target.value) })}
+        />
+      </Setting>
+      <Setting label="Who watches">
+        <Input value={draft.audience} placeholder="Gemini guesses from the story" onChange={(e) => setDraft({ ...draft, audience: e.target.value })} />
+      </Setting>
+      <Setting label="How it should feel at the end">
+        <Input value={draft.feel} placeholder="Gemini guesses from the story" onChange={(e) => setDraft({ ...draft, feel: e.target.value })} />
+      </Setting>
+      <Button variant="secondary" className="w-full" disabled={!changed} onClick={save}>
+        Save settings
+      </Button>
+    </aside>
+  )
+}
+
+function Setting({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+  return (
+    <label className="block">
+      <span className="mb-1 flex items-baseline justify-between gap-2">
+        <span className="text-[12.5px] text-secondary-foreground">{label}</span>
+        {hint && <span className="text-[11.5px] text-subtle">{hint}</span>}
+      </span>
+      {children}
+    </label>
   )
 }

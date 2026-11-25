@@ -2,7 +2,7 @@ import { Check, ChevronDown, KeyRound, Loader2, Lock, RefreshCw } from "lucide-r
 import { useCallback, useEffect, useRef, useState } from "react"
 import { Toaster, toast } from "sonner"
 
-import { api, type Job, type State } from "@/api"
+import { api, type Flow, type Job, type State } from "@/api"
 import { RunButton } from "@/components/run-button"
 import { Button } from "@/components/ui/button"
 import { LimitsContext } from "@/lib/limits"
@@ -10,12 +10,16 @@ import { back, blocked, next, steps, usd, type Step, type StepId } from "@/lib/p
 import { cn } from "@/lib/utils"
 import { FilmView } from "@/views/FilmView"
 import { KeysView } from "@/views/KeysView"
+import { ScriptView } from "@/views/ScriptView"
+import { SketchView } from "@/views/SketchView"
 import { ReferencesView } from "@/views/ReferencesView"
 import { ScenesView } from "@/views/ScenesView"
 import { StoryView } from "@/views/StoryView"
 
 export type Studio = {
   state: State
+  /** The six steps: what is approved, stale or locked, prices and the budget (pipeline/flow.py). */
+  flow: Flow
   refresh: () => Promise<void>
   /** Start a pipeline job; the shell follows its log and refreshes when it ends. */
   track: (start: Promise<Job>) => Promise<void>
@@ -41,11 +45,12 @@ const write = (key: string, value: string) => {
   }
 }
 
-/** The four steps, plus the Keys page beside them. */
+/** The six steps, plus the Keys page beside them. */
 export type View = StepId | "keys"
 
 export default function App() {
   const [state, setState] = useState<State | null>(null)
+  const [flow, setFlow] = useState<Flow | null>(null)
   const [view, setView] = useState<View>(() => (read("view") as View) || "scenes")
   const [scene, setScene] = useState(() => read("scene") ?? "")
   const [job, setJob] = useState<Job | null>(null)
@@ -53,7 +58,9 @@ export default function App() {
 
   const refresh = useCallback(async () => {
     try {
-      setState(await api.state())
+      const [s, f] = await Promise.all([api.state(), api.flow()])
+      setState(s)
+      setFlow(f)
     } catch (err) {
       toast.error(`Could not reach the studio API: ${(err as Error).message}`)
     }
@@ -117,7 +124,7 @@ export default function App() {
   useEffect(() => write("scene", scene), [scene])
 
   const busy = job?.status === "running"
-  const studio: Studio | null = state ? { state, refresh, track, busy, job, go, scene } : null
+  const studio: Studio | null = state && flow ? { state, flow, refresh, track, busy, job, go, scene } : null
 
   return (
     <LimitsContext.Provider value={state?.limits}>
@@ -128,8 +135,8 @@ export default function App() {
           <span className="text-[13px] font-semibold tracking-tight">{state?.storyboard?.title ?? "10x video gen"}</span>
         </div>
         <nav className="flex flex-col gap-0.5">
-          {state &&
-            steps(state).map((s, i) => (
+          {flow &&
+            steps(flow).map((s, i) => (
               <StepLink key={s.id} step={s} n={i + 1} active={view === s.id} onClick={() => s.state !== "locked" && setView(s.id)} />
             ))}
         </nav>
@@ -154,6 +161,8 @@ export default function App() {
       <main className="relative min-w-0 overflow-y-auto">
         {!studio && <div className="p-10 text-muted-foreground">Loading the project…</div>}
         {studio && view === "story" && <StoryView studio={studio} />}
+        {studio && view === "script" && <ScriptView studio={studio} />}
+        {studio && view === "sketch" && <SketchView studio={studio} />}
         {studio && view === "references" && <ReferencesView studio={studio} />}
         {studio && view === "scenes" && <ScenesView studio={studio} onScene={setScene} />}
         {studio && view === "film" && <FilmView studio={studio} />}
@@ -198,7 +207,7 @@ function StepLink({ step, n, active, onClick }: { step: Step; n: number; active:
 
 function NextStep({ studio, onGo }: { studio: Studio; onGo: (v: View) => void }) {
   const { state, track, busy, job } = studio
-  const n = next(state)
+  const n = next(state, studio.flow)
   const out = blocked(n.cost, state.limits)
   return (
     <div className="mt-auto rounded-lg border bg-background p-3">

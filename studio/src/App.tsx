@@ -1,12 +1,11 @@
-import { Check, ChevronDown, KeyRound, Loader2, Lock, RefreshCw } from "lucide-react"
+import { ChevronDown, KeyRound, Loader2 } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { Toaster, toast } from "sonner"
 
 import { api, type Flow, type Job, type State } from "@/api"
-import { RunButton } from "@/components/run-button"
 import { Button } from "@/components/ui/button"
 import { LimitsContext } from "@/lib/limits"
-import { back, blocked, next, steps, usd, type Step, type StepId } from "@/lib/progress"
+import { back, steps, usd, type Step, type StepId } from "@/lib/progress"
 import { cn } from "@/lib/utils"
 import { FilmView } from "@/views/FilmView"
 import { KeysView } from "@/views/KeysView"
@@ -128,22 +127,21 @@ export default function App() {
 
   return (
     <LimitsContext.Provider value={state?.limits}>
-    <div className="grid h-screen grid-cols-[240px_minmax(0,1fr)] overflow-hidden">
-      <aside className="flex h-screen flex-col border-r bg-card/40 px-3 py-4">
-        <div className="mb-4 px-2">
-          <div className="text-[11px] font-medium tracking-wide text-subtle uppercase">Your film</div>
-          <div className="mt-0.5 truncate text-[13px] font-semibold tracking-tight" title={state?.storyboard?.title}>
-            {state?.storyboard?.title ?? "Not drafted yet"}
-          </div>
+    <div className="grid h-screen grid-cols-[288px_minmax(0,1fr)] overflow-hidden">
+      <aside className="relative flex h-screen flex-col border-r bg-card">
+        <div className="flex h-[68px] items-center gap-2.5 border-b pr-10 pl-6">
+          <img src="/logo.png" alt="" className="size-7 rounded-[5px]" />
+          <span className="text-[15px] font-semibold tracking-tight">TenX Heritage Short</span>
         </div>
-        <nav className="flex flex-col gap-0.5">
+        <nav aria-label="Steps" className="relative">
           {flow &&
             steps(flow).map((s, i) => (
               <StepLink key={s.id} step={s} n={i + 1} active={view === s.id} onClick={() => s.state !== "locked" && setView(s.id)} />
             ))}
         </nav>
-        {studio && <NextStep studio={studio} onGo={setView} />}
-        {state && <Account state={state} active={view === "keys"} onKeys={() => setView("keys")} />}
+        {/* the undyed warp under the band, so locked steps still show the cloth's edge */}
+        <span aria-hidden className="pointer-events-none absolute inset-y-0 right-0 w-3.5 border-x border-thread" />
+        {state && <Account state={state} flow={flow} active={view === "keys"} onKeys={() => setView("keys")} />}
       </aside>
       <main className="relative min-w-0 overflow-y-auto">
         {!studio && <div className="p-10 text-muted-foreground">Loading the project…</div>}
@@ -162,111 +160,76 @@ export default function App() {
   )
 }
 
+/** The band segment and number colour for each step state: woven green when approved, gold where the maker is, red when it changed. */
+const WEAVE: Record<Step["state"], string> = { done: "weave-done", todo: "weave-current", stale: "weave-stale", locked: "weave-locked" }
+
 function StepLink({ step, n, active, onClick }: { step: Step; n: number; active: boolean; onClick: () => void }) {
   const locked = step.state === "locked"
   return (
     <button
       onClick={onClick}
       disabled={locked}
+      aria-current={active ? "page" : undefined}
       title={locked ? step.note : undefined}
       className={cn(
-        "group flex gap-2.5 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:hover:bg-transparent",
-        locked ? "items-center" : "items-start",
-        active && "bg-muted",
+        "relative z-10 flex h-[60px] w-full items-center gap-3 border-b pr-10 pl-6 text-left transition-colors duration-150 hover:bg-secondary disabled:cursor-not-allowed disabled:hover:bg-transparent",
+        active && "bg-background hover:bg-background",
       )}
     >
       <span
         className={cn(
-          !locked && "mt-0.5",
-          "grid size-[18px] shrink-0 place-items-center rounded-full border text-[10.5px] font-semibold tabular-nums",
-          step.state === "done" && "border-free/40 bg-free/12 text-free",
-          step.state === "stale" && "border-warn/40 bg-warn/12 text-warn",
-          step.state === "todo" && "border-primary/50 text-primary",
-          locked && "text-subtle",
+          "grid size-6 shrink-0 place-items-center rounded-full border text-[12px] font-semibold tabular-nums",
+          step.state === "done" && "border-free bg-free text-white",
+          step.state === "todo" && "border-gold bg-gold text-foreground",
+          step.state === "stale" && "border-warn bg-warn text-white",
+          locked && "border-thread text-subtle",
         )}
       >
-        {step.state === "done" ? <Check className="size-3" strokeWidth={3} /> : step.state === "stale" ? <RefreshCw className="size-2.5" strokeWidth={3} /> : locked ? <Lock className="size-2.5" /> : n}
+        {n}
       </span>
       <span className="min-w-0">
-        <span className={cn("block text-[13px] font-medium", locked ? "text-subtle" : active ? "text-foreground" : "text-secondary-foreground")}>{step.label}</span>
-        {!locked && <span className={cn("block truncate text-[12px]", step.state === "stale" ? "text-warn" : "text-subtle")}>{step.note}</span>}
+        <span className={cn("block text-[14px] font-medium", locked ? "text-subtle" : "text-foreground", active && "font-semibold")}>{step.label}</span>
+        <span className={cn("block truncate text-[12px]", locked ? "text-subtle" : step.state === "stale" ? "text-warn" : step.state === "done" ? "text-free" : "text-muted-foreground")}>
+          {locked ? `Opens after ${step.note.replace(/^After /, "")}` : step.note}
+        </span>
       </span>
+      <span aria-hidden className={cn("absolute inset-y-0 right-0 w-3.5", WEAVE[step.state])} />
     </button>
   )
 }
 
-function NextStep({ studio, onGo }: { studio: Studio; onGo: (v: View) => void }) {
-  const { state, track, busy, job } = studio
-  const n = next(state, studio.flow)
-  const out = blocked(n.cost, state.limits)
-  return (
-    <div className="mt-auto rounded-lg border bg-background p-3">
-      <div className="mb-1 text-[11px] font-medium tracking-wide text-primary uppercase">Next step</div>
-      {busy ? (
-        <div className="flex items-center gap-2 text-[13px] text-muted-foreground">
-          <Loader2 className="size-3.5 animate-spin text-primary" />
-          <span className="truncate">{job?.kind} is running…</span>
-        </div>
-      ) : (
-        <>
-          <div className="text-[13px] leading-snug font-medium">{n.title}</div>
-          {out ? (
-            <p className="mt-1 mb-3 text-[12px] leading-snug text-warn">
-              {out.label} is used up for today. It comes back {back(out).text}, or{" "}
-              <button className="text-foreground underline-offset-2 hover:underline" onClick={() => onGo("keys")}>
-                add a key
-              </button>{" "}
-              from another account to go on now.
-            </p>
-          ) : (
-            <p className="mt-1 mb-3 text-[12px] leading-snug text-muted-foreground">{n.detail}</p>
-          )}
-          {n.run ? (
-            <RunButton size="sm" className="w-full" cost={n.cost} spent={state.spent} onRun={() => (onGo(n.step), track(n.run!()))}>
-              {n.label}
-            </RunButton>
-          ) : (
-            <Button size="sm" variant="secondary" className="w-full" onClick={() => onGo(n.step)}>
-              {n.label}
-            </Button>
-          )}
-        </>
-      )}
-    </div>
-  )
-}
-
-/** Keys, what is left of each free limit today (and when a used-up one comes back), and what has been spent. */
-function Account({ state, active, onKeys }: { state: State; active: boolean; onKeys: () => void }) {
+/** Free limits today (and when a used-up one comes back), what the film has spent of its budget, and the keys. */
+function Account({ state, flow, active, onKeys }: { state: State; flow: Flow | null; active: boolean; onKeys: () => void }) {
   const limits = Object.entries(state.limits ?? {})
+  const budget = flow?.budget?.budget_usd ?? 0
+  const share = budget ? Math.min(1, state.spent / budget) : 0
   return (
-    <div className="mt-3 border-t pt-3">
+    <div className="relative z-10 mt-auto border-t bg-card pt-4 pr-10 pb-5 pl-6 text-[12px]">
+      <h2 className="mb-1.5 text-[12px] text-subtle">Free limits today</h2>
+      {limits.map(([id, l]) => (
+        <div key={id} className="flex justify-between gap-3 py-0.5" title={l.used_up ? `Back ${back(l).text}` : undefined}>
+          <span className="truncate">{l.label}</span>
+          <span className={cn("shrink-0 tabular-nums", l.used_up ? "text-warn" : "text-muted-foreground")}>
+            {l.used_up ? `Used up · back ${back(l).time}` : l.left != null ? `~${l.left} left` : "Free"}
+          </span>
+        </div>
+      ))}
+      <h2 className="mt-3.5 text-[12px] text-subtle">Spending</h2>
+      <div className="mt-2 mb-1.5 h-1 bg-border" title={`${state.calls} paid calls so far`}>
+        <div className="h-1 bg-free" style={{ width: `${Math.max(share * 100, state.spent ? 2 : 0)}%` }} />
+      </div>
+      <div className="flex justify-between tabular-nums">
+        <span>{usd(state.spent)} spent</span>
+        {budget > 0 && <span className="text-muted-foreground">of {usd(budget)} film budget</span>}
+      </div>
       <button
         onClick={onKeys}
-        className={cn(
-          "flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-[12px] font-medium text-secondary-foreground transition-colors hover:bg-muted",
-          active && "bg-muted text-foreground",
-        )}
+        aria-current={active ? "page" : undefined}
+        className={cn("mt-3 inline-flex items-center gap-1.5 text-link hover:underline", active && "font-semibold")}
       >
-        <KeyRound className="size-3.5 text-subtle" />
-        Keys and free limits
+        <KeyRound className="size-3.5" />
+        Keys and providers
       </button>
-      <div className="mt-1 space-y-0.5 px-2">
-        {limits.map(([id, l]) => (
-          <div key={id} className="flex items-center gap-2 text-[12px]" title={l.used_up ? `Back ${back(l).text}` : undefined}>
-            <span className={cn("size-1.5 shrink-0 rounded-full", l.used_up ? "bg-warn" : "bg-free")} />
-            <span className="truncate text-muted-foreground">{l.label}</span>
-            <span className={cn("ml-auto shrink-0 tabular-nums", l.used_up ? "text-warn" : "text-subtle")}>
-              {l.used_up ? `back ${back(l).time}` : l.left != null ? `~${l.left} left` : "free"}
-            </span>
-          </div>
-        ))}
-        <div className="flex items-center gap-2 text-[12px]" title={`${state.calls} paid calls so far`}>
-          <span className="size-1.5 shrink-0 rounded-full bg-paid" />
-          <span className="text-muted-foreground">Spent at WaveSpeed</span>
-          <span className="ml-auto text-subtle tabular-nums">{usd(state.spent)}</span>
-        </div>
-      </div>
     </div>
   )
 }
@@ -275,8 +238,8 @@ function JobBar({ job, onClose }: { job: Job; onClose: () => void }) {
   const [open, setOpen] = useState(false)
   const last = job.log[job.log.length - 1] ?? "starting…"
   return (
-    <div className="fixed right-4 bottom-4 left-[256px] z-20">
-      <div className="mx-auto max-w-3xl rounded-xl border bg-popover/95 shadow-2xl backdrop-blur">
+    <div className="fixed right-6 bottom-5 left-[312px] z-20">
+      <div className="mx-auto max-w-3xl rounded-lg border bg-popover shadow-[0_8px_24px_-8px_rgb(29_29_27/0.25)]">
         <div className="flex items-center gap-3 px-4 py-2.5">
           {job.status === "running" ? (
             <Loader2 className="size-4 animate-spin text-primary" />

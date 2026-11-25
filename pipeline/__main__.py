@@ -28,7 +28,7 @@ def _only(value: str | None) -> set[str] | None:
 
 
 def run_stage(name: str, project: Project, *, only: set[str] | None = None, force: bool = False,
-              mode: str = "final") -> None:
+              mode: str = "final", max_paid: int | None = None, kaggle: bool = False) -> None:
     started = time.perf_counter()
     print(f"\n== {name} ==")
     if name == "script":
@@ -45,7 +45,10 @@ def run_stage(name: str, project: Project, *, only: set[str] | None = None, forc
         music.run(project, force=force)
     elif name == "shots":
         from . import shots
-        shots.run(project, only=only, force=force)
+        if kaggle:
+            shots.kaggle_batch(project, only=only)
+        else:
+            shots.run(project, only=only, force=force, max_paid=max_paid)
     elif name == "assemble":
         from . import assemble
         assemble.run(project, mode=mode)
@@ -66,6 +69,10 @@ def main(argv: list[str] | None = None) -> int:
         sp.add_argument("--force", action="store_true", help="ignore the cache for the selected items")
         if name == "assemble":
             sp.add_argument("--mode", choices=("final", "radio", "rough"), default="final")
+        if name in ("shots", "film"):
+            sp.add_argument("--max-paid", type=int, help="most paid clips this run may buy (overrides video.max_paid_clips)")
+        if name == "shots":
+            sp.add_argument("--kaggle", action="store_true", help="render kaggle-wan22-ti2v-5b shots in one Kaggle job")
     sub.add_parser("validate")
     sub.add_parser("status")
     smoke = sub.add_parser("smoke")
@@ -81,11 +88,12 @@ def main(argv: list[str] | None = None) -> int:
     project = Project(Path(args.project).resolve())
     only = _only(getattr(args, "only", None))
     force = getattr(args, "force", False)
+    max_paid = getattr(args, "max_paid", None)
     try:
         if args.command == "film":
             for stage in STAGES:
                 run_stage(stage, project, only=only if stage in ("keyframes", "narration", "shots") else None,
-                          force=force if stage != "script" else False)
+                          force=force if stage != "script" else False, max_paid=max_paid)
         elif args.command == "radio":
             run_stage("script", project)
             run_stage("narration", project, only=only, force=force)
@@ -95,7 +103,8 @@ def main(argv: list[str] | None = None) -> int:
                 run_stage(stage, project, only=only if stage != "music" else None, force=False)
             run_stage("assemble", project, mode="rough")
         elif args.command in STAGES:
-            run_stage(args.command, project, only=only, force=force, mode=getattr(args, "mode", "final"))
+            run_stage(args.command, project, only=only, force=force, mode=getattr(args, "mode", "final"),
+                      max_paid=max_paid, kaggle=getattr(args, "kaggle", False))
         elif args.command == "validate":
             from . import storyboard
             sb = storyboard.load_valid(project)

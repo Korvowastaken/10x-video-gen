@@ -27,14 +27,14 @@ from typing import Any
 
 from PIL import Image, ImageDraw, ImageFont
 
-from . import motion
+from . import grade, motion
 from . import storyboard as sbmod
 from .cache import StageCache, key_for, sha256_file
 from .engines import FALLBACK, MODES, stretch_cap
 from .config import FONTS, Project
 from .media import measure_loudness, probe_duration, probe_video, run_ffmpeg
 
-ASSEMBLE_VERSION = 4
+ASSEMBLE_VERSION = 5
 TRIM_HEAD = 0.12          # many generated clips have a weak first frames
 MIN_FILM, MAX_FILM = 60.0, 90.0
 FORMATS = {"9x16": (1080, 1920), "16x9": (1920, 1080)}
@@ -225,14 +225,19 @@ def kenburns_filter(mode: str, frames: int, w: int, h: int, fps: int) -> str:
 
 
 def render_segment(source: dict[str, Any], duration: float, out: Path, *, w: int, h: int, fps: int,
-                   interpolation: str = "rife") -> None:
+                   interpolation: str = "rife", lut: Path | None = None) -> None:
     """One shot's picture at its exact length. Sources:
     clip      a generated clip: RIFE to 24 fps, slowed at most to its cap, then the last frame held;
     loop      a composited ping-pong cycle, retimed to 24 fps and looped to fill the shot;
     parallax  a camera move over the still from its depth map;
     image     a slow pan or zoom over the still (kenburns "still" holds it);
-    black     nothing yet (the radio cut)."""
+    black     nothing yet (the radio cut).
+    `lut` is a .cube file (grade.py) applied to every frame; FFmpeg runs in its folder so the
+    filter needs no drive colon."""
     kind = source["kind"]
+    lut = None if kind == "black" else lut
+    graded = f"lut3d={lut.name}," if lut else ""
+    cwd = lut.parent if lut else None
     frames = int(round(duration * fps))
     common = ["-an", "-r", str(fps), "-frames:v", str(frames), "-c:v", "libx264", "-preset", "veryfast",
               "-crf", "18", "-pix_fmt", "yuv420p", str(out)]
@@ -248,17 +253,22 @@ def render_segment(source: dict[str, Any], duration: float, out: Path, *, w: int
         motion.write_frames(motion.retime(src, src_fps, out_fps=fps, stretch=stretch, interpolator=interpolator),
                             timed, fps, crf=14)
         if kind == "loop":
-            run_ffmpeg(["-stream_loop", "-1", "-i", str(timed), "-vf", f"{fit},format=yuv420p", *common])
+            run_ffmpeg(["-stream_loop", "-1", "-i", str(timed), "-vf", f"{fit},{graded}format=yuv420p", *common],
+                       cwd=cwd)
         else:
             run_ffmpeg(["-i", str(timed), "-vf", f"{fit},tpad=stop_mode=clone:stop_duration={duration:.3f},"
-                        "format=yuv420p", *common])
+                        f"{graded}format=yuv420p", *common], cwd=cwd)
         timed.unlink(missing_ok=True)
     elif kind == "parallax":
-        motion.render_parallax(source["path"], source["depth"], out, duration=frames / fps, fps=fps, size=(w, h),
+        moved = out.with_name(out.stem + ".parallax.mp4") if lut else out
+        motion.render_parallax(source["path"], source["depth"], moved, duration=frames / fps, fps=fps, size=(w, h),
                                move=source["move"], amount=source["amount"])
+        if lut:  # one extra pass to grade the frames
+            run_ffmpeg(["-i", str(moved), "-vf", f"{graded}format=yuv420p", *common], cwd=cwd)
+            moved.unlink(missing_ok=True)
     elif kind == "image":
-        run_ffmpeg(["-i", str(source["path"]), "-vf",
-                    kenburns_filter(source.get("kenburns", "zoom-in"), frames, w, h, fps), *common])
+        run_ffmpeg(["-i", str(source["path"]), "-vf", graded +
+                    kenburns_filter(source.get("kenburns", "zoom-in"), frames, w, h, fps), *common], cwd=cwd)
     else:  # black
         run_ffmpeg(["-f", "lavfi", "-i", f"color=c=black:s={w}x{h}:r={fps}", *common])
 
@@ -396,6 +406,7 @@ def _source_for(project: Project, sb: dict[str, Any], shot: dict[str, Any], mode
 
 def shot_source(project: Project, sb: dict[str, Any], shot: dict[str, Any], mode: str) -> dict[str, Any]:
     """Walk the shot's fallback chain (engines.FALLBACK) and say which source it ended on.
+    storyboard edit.use can swap the mode the chain starts from for this cut.
     The rough cut skips paid modes, so it shows what the film looks like for free."""
     if mode == "radio":
         return {"kind": "black", "used": "black"}
@@ -403,7 +414,7 @@ def shot_source(project: Project, sb: dict[str, Any], shot: dict[str, Any], mode
     if keyframe is None:
         print(f"  {shot['id']}: no keyframe yet, using black")
         return {"kind": "black", "used": "black"}
-    wanted = shot["motion"]["mode"]
+    wanted = sbmod.edit_settings(sb).get("use", {}).get(shot["id"]) or shot["motion"]["mode"]
     chain = [wanted] + FALLBACK[wanted]
     if mode == "rough":
         chain = [m for m in chain if not MODES[m]["paid"]]
@@ -412,6 +423,33 @@ def shot_source(project: Project, sb: dict[str, Any], shot: dict[str, Any], mode
         if source is not None:
             return {**source, "used": candidate, "wanted": wanted}
     return {"kind": "image", "path": keyframe, "kenburns": "zoom-in", "used": "still_kenburns", "wanted": wanted}
+
+
+def grade_luts(project: Project, sb: dict[str, Any], mode: str) -> dict[str, Path]:
+    """One .cube per shot that moves its keyframe toward the film's look (grade.py), or none
+    for the radio cut or edit.grade false. The look is edit.grade.target if fixed, otherwise
+    the median of all current keyframes."""
+    edit = sbmod.edit_settings(sb)
+    setting = edit.get("grade", True)
+    if mode == "radio" or setting is False:
+        return {}
+    cache = StageCache(project, "keyframes")
+    stills = {s["id"]: cache.current(s["id"]) for s in sb["shots"]}
+    stills = {sid: p for sid, p in stills.items() if p}
+    if not stills:
+        return {}
+    look = setting["target"] if isinstance(setting, dict) and "target" in setting else grade.target(list(stills.values()))
+    strength = edit.get("grade_strength", grade.STRENGTH)
+    folder = project.outputs / "assemble" / "grade"
+    luts = {}
+    for sid, still in stills.items():
+        text = grade.cube_text(grade.lut(grade.stats(still), look, strength), sid)
+        path = folder / f"{sid}__{key_for({'cube': text})}.cube"
+        if not path.exists():
+            folder.mkdir(parents=True, exist_ok=True)
+            path.write_text(text, "ascii")
+        luts[sid] = path
+    return luts
 
 
 def chosen_music(project: Project, sb: dict[str, Any]) -> Path | None:
@@ -452,20 +490,23 @@ def run(project: Project, *, mode: str = "final") -> dict[str, Any]:
     interpolation = sb.get("video", {}).get("interpolation", "rife")
     segments, used = [], {}
     rendered = 0
+    luts = grade_luts(project, sb, mode)
     for timing, shot in zip(shots, sb["shots"]):
         source = shot_source(project, sb, shot, mode)
+        lut = luts.get(shot["id"]) if source["kind"] != "black" else None
         used[shot["id"]] = {k: source.get(k) for k in ("used", "wanted")}
         spec = {"v": ASSEMBLE_VERSION, "kind": source["kind"],
                 "src": sha256_file(source["path"]) if source.get("path") else None,
                 "depth": sha256_file(source["depth"]) if source.get("depth") else None,
                 "dur": timing.duration, "w": w, "h": h, "fps": fps,
                 **{k: source.get(k) for k in ("kenburns", "move", "amount", "cap")},
-                "interp": f"{interpolation}:{motion.RIFE_MODEL}" if source["kind"] in ("clip", "loop") else None}
+                "interp": f"{interpolation}:{motion.RIFE_MODEL}" if source["kind"] in ("clip", "loop") else None,
+                "grade": lut.stem.split("__")[1] if lut else None}
         key = key_for(spec)
         seg = seg_cache.hit(shot["id"], key, ".mp4")
         if not seg:
             seg = seg_cache.path(shot["id"], key, ".mp4")
-            render_segment(source, timing.duration, seg, w=w, h=h, fps=fps, interpolation=interpolation)
+            render_segment(source, timing.duration, seg, w=w, h=h, fps=fps, interpolation=interpolation, lut=lut)
             seg_cache.record(shot["id"], key, seg, spec)
             rendered += 1
         segments.append(seg)
@@ -532,3 +573,56 @@ def run(project: Project, *, mode: str = "final") -> dict[str, Any]:
               f"{report[fmt]['lufs']} LUFS  TP {report[fmt]['true_peak_db']} dB  {report[fmt]['size_mb']} MB")
     (out_dir / f"{slug}.report.json").write_text(json.dumps(report, indent=2) + "\n", "utf-8")
     return report
+
+
+# ---------------------------------------------------------------- one scene
+
+PREVIEW_SIZE = (540, 960)
+
+
+def preview(project: Project, shot_id: str) -> dict[str, Any]:
+    """One scene as it would play in the final cut, small and with its voice: the studio's
+    scene preview. Uses only what exists (free motion until a clip is bought), cached."""
+    sb = sbmod.load_valid(project)
+    shot = next(s for s in sb["shots"] if s["id"] == shot_id)
+    edit = sbmod.edit_settings(sb)
+    fps, (w, h) = edit["fps"], PREVIEW_SIZE
+    from .narration import spec_for
+    cache = StageCache(project, "narration")
+    lines = []
+    for n, line in enumerate(shot["lines"], 1):
+        path = cache.hit(f"{shot_id}_L{n}", key_for(spec_for(sb, line)), ".wav")
+        if path:
+            lines.append((path, probe_duration(path), line["en"]))
+    speech = sum(d for _, d, _ in lines) + edit["gap_s"] * max(0, len(lines) - 1)
+    duration = max(edit["lead_s"] + speech + edit["tail_s"], shot["duration_s"] * 0.7, 2.5) if lines \
+        else shot["duration_s"]
+    duration = round(duration * fps) / fps
+    source = shot_source(project, sb, shot, "final")
+    lut = grade_luts(project, sb, "final").get(shot_id) if source["kind"] != "black" else None
+    spec = {"v": ASSEMBLE_VERSION, "kind": source["kind"], "dur": duration, "w": w, "h": h,
+            "src": sha256_file(source["path"]) if source.get("path") else None,
+            "depth": sha256_file(source["depth"]) if source.get("depth") else None,
+            **{k: source.get(k) for k in ("kenburns", "move", "amount", "cap")},
+            "lines": [sha256_file(p) for p, _, _ in lines], "grade": lut.stem.split("__")[1] if lut else None}
+    previews = StageCache(project, "preview")
+    key = key_for(spec)
+    out = previews.hit(shot_id, key, ".mp4")
+    if out is None:
+        out = previews.path(shot_id, key, ".mp4")
+        picture = out.with_name(out.stem + ".picture.mp4")
+        render_segment(source, duration, picture, w=w, h=h, fps=fps, lut=lut,
+                       interpolation=sb.get("video", {}).get("interpolation", "rife"))
+        timing = ShotTime(shot_id, 0.0, duration)
+        cursor = edit["lead_s"]
+        for path, d, en in lines:
+            timing.lines.append(LineEvent(path.stem, "", cursor, cursor + d, en, path))
+            cursor += d + edit["gap_s"]
+        bed = out.with_suffix(".wav")
+        narration_bed([timing], duration, bed)
+        run_ffmpeg(["-i", str(picture), "-i", str(bed), "-map", "0:v", "-map", "1:a", "-c:v", "copy",
+                    "-c:a", "aac", "-b:a", "128k", "-shortest", "-movflags", "+faststart", str(out)])
+        picture.unlink(missing_ok=True)
+        bed.unlink(missing_ok=True)
+        previews.record(shot_id, key, out, spec, used=source["used"])
+    return {"file": out, "used": source["used"], "wanted": source.get("wanted"), "seconds": duration}

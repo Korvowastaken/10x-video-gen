@@ -134,3 +134,19 @@ The test the research asked for before building on it.
 
 - **Result:** 7 paid clips, $0.38 at list price. `video.max_paid_clips` (7) and `video.budget_usd` ($0.60) stop a run from spending more. Anything over the limit falls back, and the log says which shot fell back.
 - **Status:** one of the seven bought (E7). The rest wait for the real story.
+
+## E14. Does one colour grade make the scenes look like one film?
+
+- **Hypothesis:** each keyframe is drawn on its own, so scenes drift in warmth and brightness. Moving every scene part of the way toward the film's median look evens that out without flattening the scenes.
+- **Change:** `pipeline/grade.py`. The film's look is the median Lab mean and spread of the 11 current keyframes. Each scene gets a 33³ `.cube` LUT that shifts its Lab mean and spread toward that look (spread ratio clamped to 0.7–1.4, blended by `edit.grade_strength`). Assembly applies it with FFmpeg's `lut3d` to every frame of the scene's segment; the LUT's hash is in the segment's cache key. Measured with `grade.measure(project)`. Distance is the mean per-channel Bhattacharyya distance of Lab histograms (0 same colours, 1 none shared).
+- **Result:** on the 11 keyframes, S01–S11 in order:
+
+| | Before | Strength 0.6 | Strength 1.0 |
+|---|---|---|---|
+| Neighbouring scenes, mean distance | 0.186 | 0.130 | 0.118 |
+| Neighbouring scenes, max distance | 0.312 | 0.241 | 0.214 |
+| Spread of scene means, L / a / b (std) | 2.77 / 2.83 / 2.01 | 1.11 / 1.11 / 0.80 | 0.02 / 0.04 / 0.02 |
+
+  - A before/after strip of all 11 stills shows no muddy or tinted scenes at 0.6; the interiors lose a little of their blue cast.
+  - FFmpeg's `lut3d` and the numpy path used for the measurement agree within 0.5 levels of 255.
+- **Decision:** grade every cut except the radio cut, at strength 0.6. It gets most of the gain (0.186 to 0.130) and leaves each scene some of its own light; 1.0 makes every scene's averages identical. `edit.grade: false` turns it off, and `edit.grade: {"target": ...}` fixes the look.

@@ -3,9 +3,16 @@
 ## Consent records
 
 The pipeline does not generate the face, likeness or voice of a real person
-until that person's row is in the table below. In `storyboard.json` a real
-person carries `"real_person": true` and `"consent": "C<n>"`. `make validate`,
-and every stage that calls it, fails if the matching row is missing here. The
+until their consent is recorded. In `storyboard.json` a real person carries
+`"real_person": true` and `"consent": "C<n>"`. `make validate`, and every stage
+that calls it, fails until that id is confirmed.
+
+Consent is confirmed in the studio, on the Script step's People list: it shows
+the request below and the person's lines, asks that they were read out and
+agreed to and that the recording is kept, and writes the record to the story's
+`consent.json` (who, how they are shown and voiced, the lines they heard, how
+the answer was recorded, the date). A withdrawn consent blocks the person
+again. Rows in the table below count too, for records written by hand. The
 test `tests/test_storyboard.py::test_real_person_without_consent_record_is_blocked`
 keeps that rule in place.
 

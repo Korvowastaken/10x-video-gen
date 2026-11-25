@@ -25,7 +25,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import accounts, catalog, jobs, keys, revise, stories
+from . import accounts, catalog, consent, jobs, keys, revise, stories
 from . import storyboard as sbmod
 from .cache import StageCache, key_for, sha256_bytes
 from .config import ROOT, Project, load_env
@@ -611,6 +611,7 @@ from .flow_api import router as flow_router  # noqa: E402  (flow_api reads PROJE
 
 app.include_router(flow_router)
 app.include_router(stories.router)
+app.include_router(consent.router)
 
 
 # ---------------------------------------------------------------- files

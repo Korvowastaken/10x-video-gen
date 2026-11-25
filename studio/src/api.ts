@@ -101,6 +101,24 @@ export type KeyService = {
   keys: { slot: number; n: number; active: boolean; fingerprint: string; masked: Record<string, string> }[]
 }
 export type LimitId = "writing" | "voices" | "pictures"
+/** Consent for real people (pipeline/consent.py). */
+export type ConsentStatus = "fictional" | "agreed" | "needs consent" | "withdrawn"
+export type ConsentCharacter = {
+  id: string
+  name: string
+  role: string
+  visible: boolean
+  voice?: string
+  real_person: boolean
+  consent?: string
+  status: ConsentStatus
+  lines: { shot: string; text: string; en: string }[]
+  /** They agreed to other words than these: they hear the new lines first. */
+  lines_changed: boolean
+}
+export type ConsentRecord = { id: string; character: string; person: string; status: "agreed" | "withdrawn" | "fictional"; self: boolean; how: string; evidence: string; date: string; withdrawn?: string }
+export type Consent = { characters: ConsentCharacter[]; records: ConsentRecord[]; wording: { label: string; note: string; text: string }[] }
+export type ConsentConfirm = { character: string; self: boolean; read_out: boolean; agreed: boolean; recording_kept: boolean; how: string; evidence: string }
 /** One story: its own film in its own folder (pipeline/stories.py). */
 export type StoryItem = { id: string; name: string; current: boolean; written: boolean; drafted: boolean }
 /** One model call a job made: which service and model, for what, how it went, how long, what it cost. */
@@ -248,6 +266,10 @@ export const api = {
   addKey: (service: string, values: Record<string, string>) => call("POST", `/api/keys/${service}`, { values }),
   removeKey: (service: string, slot: number) => call("DELETE", `/api/keys/${service}/${slot}`),
   useKey: (service: string, slot: number) => call("POST", `/api/keys/${service}/${slot}/use`),
+  consent: () => call<Consent>("GET", "/api/consent"),
+  confirmConsent: (body: ConsentConfirm) => call<Consent>("POST", "/api/consent", body),
+  withdrawConsent: (id: string) => call<Consent>("POST", `/api/consent/${id}/withdraw`),
+  notRealPerson: (id: string) => call<Consent>("POST", `/api/consent/${id}/fictional`),
   stories: () => call<StoryItem[]>("GET", "/api/stories"),
   newStory: (name: string) => call<StoryItem[]>("POST", "/api/stories", { name }),
   openStory: (id: string) => call<StoryItem[]>("PUT", "/api/stories/current", { id }),

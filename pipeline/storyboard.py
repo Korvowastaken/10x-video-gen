@@ -52,10 +52,10 @@ def schema_errors(sb: dict[str, Any]) -> list[str]:
 
 
 def consent_ids(project: Project) -> set[str]:
-    """IDs from the consent table in ETHICS.md: rows that start with | C<n> |."""
-    if not project.ethics.exists():
-        return set()
-    return set(re.findall(r"^\|\s*(C\d+)\s*\|", project.ethics.read_text("utf-8"), re.MULTILINE))
+    """Consent ids that let a real person be generated: the story's agreed records (consent.json,
+    confirmed in the studio) and rows of the ETHICS.md consent table that start with | C<n> |."""
+    from .consent import ids
+    return ids(project)
 
 
 # Unicode blocks for languages written in Ge'ez (Ethiopic) script. A line may also
@@ -122,8 +122,8 @@ def rule_errors(sb: dict[str, Any], project: Project | None = None, *, check_scr
             if character.get("real_person") and character.get("consent") not in recorded:
                 errors.append(
                     f"characters/{character['id']}: portrays a real person but consent "
-                    f"'{character.get('consent', '?')}' has no row in the ETHICS.md consent table. "
-                    "Record consent first; nothing of a real person is generated without it.")
+                    f"'{character.get('consent', '?')}' is not confirmed. Confirm their consent in the "
+                    "studio's Script step first; nothing of a real person is generated without it.")
     return errors
 
 

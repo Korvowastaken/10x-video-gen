@@ -670,7 +670,7 @@
         "consent": {
           "type": "string",
           "pattern": "^C[0-9]+$",
-          "description": "ID of this person's consent record in ETHICS.md. Required when real_person is true."
+          "description": "ID of this person's consent record: confirmed in the studio (the story's consent.json) or a row of the ETHICS.md table. Required when real_person is true."
         },
         "look": {
           "type": "string",

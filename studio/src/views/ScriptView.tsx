@@ -4,6 +4,7 @@ import { toast } from "sonner"
 
 import { api, diff, type Shot, type Storyboard } from "@/api"
 import type { Studio } from "@/App"
+import { PeopleConsent } from "@/components/people-consent"
 import { ProvidersPanel, TaskPicker } from "@/components/providers-panel"
 import { useTaskCost } from "@/lib/models"
 import { RunButton } from "@/components/run-button"
@@ -54,6 +55,7 @@ export function ScriptView({ studio }: { studio: Studio }) {
         <p className="text-muted-foreground">No script yet. Draft it from the story; it takes about a minute.</p>
       ) : (
         <>
+          <PeopleConsent studio={studio} />
           <Revise studio={studio} sb={sb} />
           <Section title={`${sb.shots.length} scenes`} aside={<span className="text-[12px] text-subtle">{sb.shots.reduce((n, s) => n + s.duration_s, 0)} s planned, plus the end card</span>}>
             <div className="divide-y border-y">

@@ -56,7 +56,7 @@ def test_real_person_without_consent_record_is_blocked(sb, tmp_path):
     person["consent"] = "C99"
     (tmp_path / "ETHICS.md").write_text("| ID | Person |\n|---|---|\n| C1 | someone |\n", "utf-8")
     errors = sbmod.rule_errors(broken, Project(tmp_path))
-    assert any("consent 'C99' has no row" in e for e in errors)
+    assert any("consent 'C99' is not confirmed" in e for e in errors)
 
 
 def test_prompt_composition_repeats_the_style_and_looks(sb):

@@ -29,7 +29,7 @@ from typing import Any
 
 import yaml
 
-from . import catalog
+from . import catalog, consent
 from . import storyboard as sbmod
 from .cache import sha256_bytes
 from .config import DEFAULT_MODELS, ConfigError, Project
@@ -434,6 +434,9 @@ def run(project: Project, *, force: bool = False) -> dict[str, Any]:
         print(f"  story.md changed: previous storyboard kept at {backup.relative_to(project.root)}")
 
     meta, body = parse_story(story_text)
+    # Real people confirmed in the studio keep their ids and their real-person mark in a new draft.
+    listed = {p["id"] for p in meta["people"]}
+    meta["people"] = [*meta["people"], *(p for p in consent.people(project) if p["id"] not in listed)]
     models = catalog.models_block(project, current)  # the pickers' choices carry into the new draft
     english = meta["language"] == "en"
     prompt = build_prompt(meta, body)

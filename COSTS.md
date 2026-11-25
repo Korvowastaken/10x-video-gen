@@ -57,6 +57,32 @@ chain, and each one a line in `runs.jsonl`.
 **Spent so far:** $0.053 at WaveSpeed (one $0.05 test clip, one $0.003 music
 test). Everything else ran on free tiers.
 
+## One shot in detail: S03, the only moving clip so far
+
+S03 ("the mother reaches out, the girl steps across the stream") is an
+`flf_inbetween` shot: a clear start state and a clear end state. It was the
+test for whether WaveSpeed's `last_image` pins the final frame (it does,
+EXPERIMENTS E7), and the only clip bought so far. The other six paid shots were
+left unbought on purpose and fell back to parallax in the test film.
+
+How it was made:
+1. **Start frame:** the S03 keyframe, with the mother reaching out.
+2. **End frame (S03_end):** drawn with the start frame as a reference, so only
+   the pose changes (now holding hands).
+3. **Clip:** Wan 2.2 got both frames and generated the 5 s movement between them.
+
+| Part | Service | Paid | List price |
+|---|---|---|---|
+| Moving clip, 5 s at 480p | WaveSpeed Wan 2.2 I2V Ultra Fast | $0.05 | $0.05 |
+| Start keyframe | Cloudflare FLUX.2 klein (free allowance) | $0 | ≈ $0.0025 |
+| End keyframe (232 neurons) | Cloudflare FLUX.2 klein (free allowance) | $0 | ≈ $0.0025 |
+| Depth map, RIFE retiming, edit | laptop | $0 | – |
+| **Total** | | **$0.05** | **≈ $0.055** |
+
+The clip took 55 s from request to download, 34 s of it generation. The
+character reference sheets are shared by every shot and are not counted here.
+The six remaining paid shots add about $0.33 (five at $0.05, S06 at $0.08).
+
 ## What one film costs at list price (balanced plan)
 
 | Item | Count | List price |

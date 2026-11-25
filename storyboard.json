@@ -192,9 +192,14 @@
         "seed": 1010
       },
       "motion": {
-        "mode": "video",
+        "mode": "parallax",
         "prompt": "The camera slowly pans right following the two figures walking down the misty trail as morning light warms the horizon.",
-        "seed": 1010
+        "seed": 1010,
+        "subject": "ambient",
+        "parallax": {
+          "move": "slide-right",
+          "amount": 0.025
+        }
       },
       "music_cue": "Gentle acoustic krar plucking enters softly with warm ambient pads."
     },
@@ -221,9 +226,11 @@
         "seed": 1020
       },
       "motion": {
-        "mode": "video",
+        "mode": "full_i2v",
         "prompt": "The camera moves slowly beside them as they step together along the dirt path, leaves brushing their clothes.",
-        "seed": 1020
+        "seed": 1020,
+        "clip_s": 5,
+        "subject": "character"
       },
       "music_cue": "Rhythmic, quiet shaker joins the soft string melody."
     },
@@ -250,9 +257,15 @@
         "seed": 1030
       },
       "motion": {
-        "mode": "video",
-        "prompt": "The camera slowly pushes in as the mother reaches out her hand and the girl steps forward across the stream.",
-        "seed": 1030
+        "mode": "flf_inbetween",
+        "prompt": "The mother reaches out her hand and the girl steps across the stream to her side. Static camera.",
+        "seed": 1030,
+        "clip_s": 5,
+        "subject": "character",
+        "end_keyframe": {
+          "prompt": "Same place, same camera and light: the girl now stands on the far bank of the stream holding her mother's hand, both smiling.",
+          "seed": 1031
+        }
       },
       "music_cue": "Music pauses softly, leaving gentle water sounds."
     },
@@ -278,9 +291,16 @@
         "seed": 1040
       },
       "motion": {
-        "mode": "video",
+        "mode": "masked_i2v",
         "prompt": "The girl gently brings the roasted bean close, closes her eyes happily, while smoke drifts slowly upward.",
-        "seed": 1040
+        "seed": 1040,
+        "clip_s": 5,
+        "subject": "character",
+        "loop": "pingpong",
+        "mask": {
+          "target": "the girl's face, hands and the coffee bean she holds",
+          "feather": 0.015
+        }
       },
       "music_cue": "Warm melodic motif swells gently."
     },
@@ -306,7 +326,7 @@
         "seed": 1050
       },
       "motion": {
-        "mode": "kenburns",
+        "mode": "still_kenburns",
         "prompt": "Slow camera zoom-in onto the child's delicate hand picking coffee beans.",
         "kenburns": "zoom-in",
         "seed": 1050
@@ -341,9 +361,11 @@
         "seed": 1060
       },
       "motion": {
-        "mode": "video",
+        "mode": "full_i2v",
         "prompt": "They walk slowly together in profile as camera pans alongside them through golden light.",
-        "seed": 1060
+        "seed": 1060,
+        "clip_s": 8,
+        "subject": "character"
       },
       "music_cue": "Theme plays softly, resting on a sustained warm chord."
     },
@@ -364,7 +386,7 @@
         "seed": 1070
       },
       "motion": {
-        "mode": "kenburns",
+        "mode": "still_kenburns",
         "prompt": "Slow pan-right tracking the feet walking step by step on dusty earth.",
         "kenburns": "pan-right",
         "seed": 1070
@@ -393,9 +415,16 @@
         "seed": 1080
       },
       "motion": {
-        "mode": "video",
+        "mode": "masked_i2v",
         "prompt": "The camera gently moves in as she rotates the pan slowly, smoke drifting across the sunlight.",
-        "seed": 1080
+        "seed": 1080,
+        "clip_s": 5,
+        "subject": "character",
+        "loop": "pingpong",
+        "mask": {
+          "target": "the grandmother's hands, the roasting pan and the smoke above it",
+          "feather": 0.015
+        }
       },
       "music_cue": "Main melody transforms into a warmer modern acoustic arrangement."
     },
@@ -421,9 +450,16 @@
         "seed": 1090
       },
       "motion": {
-        "mode": "video",
+        "mode": "cinemagraph",
         "prompt": "Dark coffee pours smoothly into the small cup as steam rises gently towards the lens.",
-        "seed": 1090
+        "seed": 1090,
+        "clip_s": 5,
+        "subject": "ambient",
+        "loop": "pingpong",
+        "mask": {
+          "target": "the stream of coffee pouring from the clay pot and the steam above the cups",
+          "feather": 0.012
+        }
       },
       "music_cue": "Full chord progression builds with soft percussion."
     },
@@ -449,9 +485,16 @@
         "seed": 1100
       },
       "motion": {
-        "mode": "video",
+        "mode": "masked_i2v",
         "prompt": "Grandmother tilts her head back in gentle laughter, her warm smile filling the frame.",
-        "seed": 1100
+        "seed": 1100,
+        "clip_s": 5,
+        "subject": "character",
+        "loop": "hold",
+        "mask": {
+          "target": "the grandmother's head and shoulders",
+          "feather": 0.02
+        }
       },
       "music_cue": "Music reaches its most joyful, heart-filling phrase."
     },
@@ -478,10 +521,14 @@
         "seed": 1110
       },
       "motion": {
-        "mode": "kenburns",
+        "mode": "parallax",
         "prompt": "Slow camera zoom-out from the mountain vista into golden evening glow.",
-        "kenburns": "zoom-out",
-        "seed": 1110
+        "seed": 1110,
+        "subject": "ambient",
+        "parallax": {
+          "move": "pull-out",
+          "amount": 0.03
+        }
       },
       "music_cue": "Theme finishes on a soft lingering acoustic resolution."
     }
@@ -540,5 +587,11 @@
     "gap_s": 0.35,
     "tail_s": 0.7,
     "caption_chars": 38
+  },
+  "video": {
+    "max_paid_clips": 7,
+    "budget_usd": 0.6,
+    "interpolation": "rife",
+    "rife_model": "rife-v4.25"
   }
 }

@@ -19,7 +19,7 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { FREE } from "@/lib/progress"
 import { cn } from "@/lib/utils"
-import { ApproveBar, Page, StatusDot, StepHeader } from "@/views/parts"
+import { ApproveBar, NextStep, Page, StatusDot, StepHeader } from "@/views/parts"
 
 export function ReferencesView({ studio }: { studio: Studio }) {
   const { state, flow, track, busy, go } = studio
@@ -36,22 +36,16 @@ export function ReferencesView({ studio }: { studio: Studio }) {
         title="References"
         lead="Every scene is drawn from the chosen sheet of each person and place. Add the photos you have, draw the sheets, pick one per person, then approve."
       >
-        <div className="flex items-center gap-3">
-          {(old > 0 || undrawn > 0) && (
-            <StatusDot status="stale">{[undrawn && `${undrawn} not drawn`, old && `${old} out of date`].filter(Boolean).join(" · ")}</StatusDot>
-          )}
-          {state.limits?.pictures && !state.limits.pictures.used_up && state.limits.pictures.left != null && (
-            <span className="text-[12px] text-subtle">~{state.limits.pictures.left} pictures left today</span>
-          )}
-          <RunButton cost={FREE("Cloudflare", "pictures")} disabled={busy || step.locked} onRun={() => track(api.drawSheets())}>
-            {undrawn ? "Draw sheets" : "Redraw what changed"}
-          </RunButton>
-          {step.state === "approved" && (
-            <Button onClick={() => go("scenes")}>
-              Go to Scenes
-            </Button>
-          )}
-        </div>
+        {(old > 0 || undrawn > 0) && (
+          <StatusDot status="stale">{[undrawn && `${undrawn} not drawn`, old && `${old} out of date`].filter(Boolean).join(" · ")}</StatusDot>
+        )}
+        {state.limits?.pictures && !state.limits.pictures.used_up && state.limits.pictures.left != null && (
+          <span className="text-[12px] text-subtle">~{state.limits.pictures.left} pictures left today</span>
+        )}
+        <RunButton cost={FREE("Cloudflare", "pictures")} disabled={busy || step.locked} onRun={() => track(api.drawSheets())}>
+          {undrawn ? "Draw sheets" : "Redraw what changed"}
+        </RunButton>
+        {step.state === "approved" && <NextStep to="Scenes" onClick={() => go("scenes")} />}
       </StepHeader>
       <ProvidersPanel studio={studio} step="references" />
       <ApproveBar studio={studio} step="references" what="the references" />

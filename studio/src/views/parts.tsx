@@ -1,5 +1,5 @@
-import { Check, Lock, RefreshCw } from "lucide-react"
-import { useState } from "react"
+import { ArrowRight, Check, Lock, RefreshCw } from "lucide-react"
+import { useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 
 import { api, type FlowStepId } from "@/api"
@@ -12,10 +12,30 @@ export function Page({ children, className }: { children: React.ReactNode; class
   return <div className={cn("mx-auto w-full max-w-6xl px-10 pt-8 pb-28", className)}>{children}</div>
 }
 
-/** Step number, title and one line on what this step is for. */
-export function StepHeader({ n, title, lead, flush, children }: { n: number; title: string; lead: string; flush?: boolean; children?: React.ReactNode }) {
+/**
+ * Step number, title and one line on what this step is for. It stays pinned to the top while the step scrolls,
+ * and publishes its height as --step-head so sticky side panels can sit just under it.
+ */
+export function StepHeader({ n, title, lead, className, children }: { n: number; title: string; lead: string; className?: string; children?: React.ReactNode }) {
+  const ref = useRef<HTMLElement>(null)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const root = document.documentElement
+    const set = () => root.style.setProperty("--step-head", `${el.offsetHeight}px`)
+    set()
+    const watch = new ResizeObserver(set)
+    watch.observe(el)
+    return () => {
+      watch.disconnect()
+      root.style.removeProperty("--step-head")
+    }
+  }, [])
   return (
-    <header className={cn("flex items-end gap-6", !flush && "mb-6 border-b pb-5")}>
+    <header
+      ref={ref}
+      className={cn("sticky top-0 z-30 -mt-8 mb-6 flex items-center gap-8 border-b bg-background/95 pt-8 pb-5 backdrop-blur", className)}
+    >
       <div className="min-w-0 flex-1">
         <h1 className="text-[28px] leading-tight font-semibold tracking-[-0.01em]">{title}</h1>
         <p className="mt-1 max-w-2xl text-muted-foreground">
@@ -23,8 +43,20 @@ export function StepHeader({ n, title, lead, flush, children }: { n: number; tit
           {lead}
         </p>
       </div>
-      {children}
+      {children && <div className="flex shrink-0 items-center gap-3">{children}</div>}
     </header>
+  )
+}
+
+/** The way on to the next step, set apart from the step's own buttons by a rule. */
+export function NextStep({ to, onClick }: { to: string; onClick: () => void }) {
+  return (
+    <>
+      <span aria-hidden className="mx-1 h-7 w-px bg-border" />
+      <Button onClick={onClick}>
+        Go to {to} <ArrowRight />
+      </Button>
+    </>
   )
 }
 

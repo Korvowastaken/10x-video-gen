@@ -188,7 +188,7 @@ export function FilmView({ studio }: { studio: Studio }) {
           )}
         </div>
 
-        <aside className="sticky top-8 self-start">
+        <aside className="sticky top-[calc(var(--step-head,0px)+24px)] self-start">
           {video ? (
             <>
               {videos.length > 1 && (

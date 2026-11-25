@@ -17,7 +17,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { LimitsContext } from "@/lib/limits"
 import { affected, back, blocked, FREE, fieldLabel, LIMIT_OF, PAID, PART_LABEL, scene, usd, type Part } from "@/lib/progress"
 import { cn } from "@/lib/utils"
-import { ApproveBar, StatusDot, StepHeader } from "@/views/parts"
+import { ApproveBar, NextStep, StatusDot, StepHeader } from "@/views/parts"
 import { VoicePanel } from "@/views/VoicePanel"
 
 /** The flow, for the motion picker deep in the editor: prices and the allowed modes. */
@@ -38,18 +38,16 @@ export function ScenesView({ studio, onScene }: { studio: Studio; onScene: (id: 
   const buying = toBuy.length ? `, ${toBuy.length} clips to buy (${usd(toBuy.reduce((n, m) => n + m.price, 0))})` : ""
   return (
     <FlowContext.Provider value={studio.flow}>
-    <div className="border-b px-10 pt-8 pb-5">
-      <StepHeader
-        n={5}
-        title="Scenes"
-        lead={`Approve each scene to open the Final cut. ${count("weave-done")} of ${sb.shots.length} approved, ${count("weave-stale")} need you${buying}.`}
-        flush
-      >
-        <div className="flex items-center gap-2">
-          <BudgetButton studio={studio} />
-          {step.locked && current && <Button onClick={() => studio.go(STEP_VIEW[current.id] ?? "story")}>Go to {current.title}</Button>}
-        </div>
-      </StepHeader>
+    <StepHeader
+      n={5}
+      title="Scenes"
+      lead={`Approve each scene to open the Final cut. ${count("weave-done")} of ${sb.shots.length} approved, ${count("weave-stale")} need you${buying}.`}
+      className="mt-0 mb-0 px-10"
+    >
+      <BudgetButton studio={studio} />
+      {step.locked && current && <NextStep to={current.title} onClick={() => studio.go(STEP_VIEW[current.id] ?? "story")} />}
+    </StepHeader>
+    <div className="border-b px-10 pt-3 pb-5">
       <SceneWeave tones={tones} ids={rows.map((r) => r.s.id)} />
       <div className="mt-2 flex gap-5 text-[12px] text-muted-foreground">
         <Legend tone="bg-free" label="Approved" n={count("weave-done")} />
@@ -85,7 +83,7 @@ function SceneList({ studio, selected, onSelect }: { studio: Studio; selected: s
   const shown = filter === "work" ? rows.filter((r) => r.status.needsWork) : rows
   const approval = Object.fromEntries(studio.flow.scenes.map((s) => [s.id, s.state]))
   return (
-    <nav aria-label="Scenes" className="sticky top-0 flex h-screen flex-col border-r">
+    <nav aria-label="Scenes" className="sticky top-[var(--step-head,0px)] flex h-[calc(100vh-var(--step-head,0px))] flex-col border-r">
       <div className="border-b px-3 pt-4 pb-3">
         <ToggleGroup
           value={[filter]}
@@ -189,6 +187,8 @@ function SceneWorkspace({
   }
 
   const status = scene(media)
+  const all = studio.state.storyboard?.shots ?? []
+  const place = `${all.findIndex((s) => s.id === shot.id) + 1} of ${all.length}`
   const flowScene = studio.flow.scenes.find((s) => s.id === shot.id)
   return (
     <div className="min-w-0 px-10 pt-8 pb-28">
@@ -207,7 +207,7 @@ function SceneWorkspace({
           )}
           <p className="mt-1 max-w-3xl text-muted-foreground">{shot.reason}</p>
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex shrink-0 items-center gap-4">
           <RunButton
             variant={flowScene?.blockers.length ? "default" : "secondary"}
             cost={FREE("Cloudflare", "pictures")}
@@ -216,12 +216,16 @@ function SceneWorkspace({
           >
             {flowScene?.preview ? "Make again" : "Make this scene"}
           </RunButton>
-          <Button variant="outline" size="icon-sm" disabled={!prev} onClick={() => prev && onScene(prev)} aria-label="Previous scene">
-            <ChevronUp />
-          </Button>
-          <Button variant="outline" size="icon-sm" disabled={!next} onClick={() => next && onScene(next)} aria-label="Next scene">
-            <ChevronDown />
-          </Button>
+          <span aria-hidden className="h-7 w-px bg-border" />
+          <nav aria-label="Move between scenes" className="flex items-center gap-2">
+            <Button variant="outline" size="icon-sm" disabled={!prev} onClick={() => prev && onScene(prev)} aria-label="Previous scene" title={prev && `Previous: ${prev}`}>
+              <ChevronUp />
+            </Button>
+            <span className="min-w-12 text-center text-[12px] text-subtle tabular-nums">{place}</span>
+            <Button variant="outline" size="icon-sm" disabled={!next} onClick={() => next && onScene(next)} aria-label="Next scene" title={next && `Next: ${next}`}>
+              <ChevronDown />
+            </Button>
+          </nav>
         </div>
       </header>
 
@@ -320,7 +324,7 @@ function Preview({ studio, shot, media }: { studio: Studio; shot: Shot; media: S
   const mode = MODES[shot.motion.mode] ?? { label: shot.motion.mode, paid: false }
 
   return (
-    <div className="sticky top-6 self-start">
+    <div className="sticky top-[calc(var(--step-head,0px)+24px)] self-start">
       {views.length > 1 && (
         <ToggleGroup value={[current.id]} onValueChange={(v) => v[0] && setView(v[0])} size="sm" variant="outline" spacing={0} className="mb-2 w-full">
           {views.map((v) => (

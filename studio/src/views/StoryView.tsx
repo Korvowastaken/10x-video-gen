@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { ApproveBar, Page, StepHeader } from "@/views/parts"
+import { ApproveBar, NextStep, Page, StepHeader } from "@/views/parts"
 
 const LOOK_LABEL: Record<string, string> = { "low-poly-3d": "Low-poly 3D", "painted-2d": "Painted 2D", claymation: "Claymation" }
 
@@ -26,11 +26,7 @@ export function StoryView({ studio }: { studio: Studio }) {
   return (
     <Page>
       <StepHeader n={1} title="Story" lead="Write or paste the family story in plain words, in any language. Change the settings on the right only if the defaults don't fit.">
-        {flow.steps[0].state === "approved" && (
-          <Button onClick={() => go("script")}>
-            Go to Script
-          </Button>
-        )}
+        {flow.steps[0].state === "approved" && <NextStep to="Script" onClick={() => go("script")} />}
       </StepHeader>
       <ApproveBar studio={studio} step="story" what="the story" />
       <div className="grid grid-cols-[minmax(0,1fr)_280px] gap-8">

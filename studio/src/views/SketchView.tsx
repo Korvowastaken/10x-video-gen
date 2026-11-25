@@ -7,7 +7,7 @@ import { RunButton } from "@/components/run-button"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { FREE } from "@/lib/progress"
-import { ApproveBar, Page, StepHeader } from "@/views/parts"
+import { ApproveBar, NextStep, Page, StepHeader } from "@/views/parts"
 
 const SIZES = [
   { value: "extreme-wide", label: "Extreme wide" },
@@ -53,21 +53,15 @@ export function SketchView({ studio }: { studio: Studio }) {
         title="Sketch"
         lead="A quick frame per scene drawn from shapes: who is where, how close the camera is, and how it moves. Fix the order and framing here, before any picture is drawn."
       >
-        <div className="flex items-center gap-2">
-          <RunButton cost={FREE()} disabled={busy || step.locked || !sb} onRun={draw}>
-            {animatic ? "Draw again" : "Draw the sketch"}
-          </RunButton>
-          {step.state === "approved" && (
-            <Button onClick={() => go("references")}>
-              Go to References
-            </Button>
-          )}
-        </div>
+        <RunButton cost={FREE()} disabled={busy || step.locked || !sb} onRun={draw}>
+          {animatic ? "Draw again" : "Draw the sketch"}
+        </RunButton>
+        {step.state === "approved" && <NextStep to="References" onClick={() => go("references")} />}
       </StepHeader>
       <ApproveBar studio={studio} step="sketch" what="the sketch" />
       {sb && (
         <div className="grid grid-cols-[260px_minmax(0,1fr)] gap-8">
-          <aside className="sticky top-8 self-start">
+          <aside className="sticky top-[calc(var(--step-head,0px)+24px)] self-start">
             {animatic ? (
               <video key={animatic} src={animatic} controls playsInline className="aspect-[9/16] w-full rounded-lg bg-black ring-1 ring-border" />
             ) : (

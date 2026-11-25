@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { FREE, fieldLabel } from "@/lib/progress"
 import { cn } from "@/lib/utils"
-import { ApproveBar, Page, Section, StepHeader } from "@/views/parts"
+import { ApproveBar, NextStep, Page, Section, StepHeader } from "@/views/parts"
 
 /** The words of a scene: what the script step covers. */
 const words = (s: Shot) => ({ beat: s.beat, duration_s: s.duration_s, lines: s.lines })
@@ -23,30 +23,24 @@ export function ScriptView({ studio }: { studio: Studio }) {
   return (
     <Page>
       <StepHeader n={2} title="Script" lead="The film in words: each scene, who speaks, the lines and their English subtitles. Edit lines here, or say what to change and let Gemini revise.">
-        <div className="flex items-center gap-2">
-          <RunButton
-            variant={sb ? "secondary" : "default"}
-            cost={FREE("Gemini", "writing")}
-            disabled={busy || step.locked}
-            onRun={() => track(api.draftScript())}
-            confirm={
-              sb
-                ? {
-                    title: "Draft the whole script again?",
-                    body: "Gemini writes every scene again from the story. Your edits to scenes are replaced; the old storyboard is kept as a backup in outputs/script.",
-                    action: "Draft again",
-                  }
-                : undefined
-            }
-          >
-            {sb ? "Draft again" : "Draft the script"}
-          </RunButton>
-          {step.state === "approved" && (
-            <Button onClick={() => go("sketch")}>
-              Go to Sketch
-            </Button>
-          )}
-        </div>
+        <RunButton
+          variant={sb ? "secondary" : "default"}
+          cost={FREE("Gemini", "writing")}
+          disabled={busy || step.locked}
+          onRun={() => track(api.draftScript())}
+          confirm={
+            sb
+              ? {
+                  title: "Draft the whole script again?",
+                  body: "Gemini writes every scene again from the story. Your edits to scenes are replaced; the old storyboard is kept as a backup in outputs/script.",
+                  action: "Draft again",
+                }
+              : undefined
+          }
+        >
+          {sb ? "Draft again" : "Draft the script"}
+        </RunButton>
+        {step.state === "approved" && <NextStep to="Sketch" onClick={() => go("sketch")} />}
       </StepHeader>
       <ProvidersPanel studio={studio} step="script" />
       <ApproveBar studio={studio} step="script" what="the script" />

@@ -40,8 +40,9 @@
   --radius: 6px;
 }
 
+/* Dark follows the system unless the maker picked Light or Dark in the sidebar (data-theme on <html>). */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --background: #121211;
     --foreground: #f2f0ea;
     --card: #1a1917;
@@ -69,6 +70,50 @@
     --gold-ink: #eab51f;
     --link: #8db0ee;
     --weft: #121211;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --background: #121211;
+  --foreground: #f2f0ea;
+  --card: #1a1917;
+  --card-foreground: #f2f0ea;
+  --popover: #1e1d1b;
+  --popover-foreground: #f2f0ea;
+  --primary: #f2f0ea;
+  --primary-foreground: #121211;
+  --secondary: #24231f;
+  --secondary-foreground: #e4e1d8;
+  --muted: #22211e;
+  --muted-foreground: #aeaba1;
+  --accent: #1d2533;
+  --accent-foreground: #f2f0ea;
+  --destructive: #e5675b;
+  --border: #2c2b27;
+  --input: #3a3833;
+  --ring: #7aa2e8;
+  --subtle: #95928a;
+  --thread: #4a4740;
+  --paid: #eb9a5c;
+  --free: #45a876;
+  --warn: #e5675b;
+  --gold: #eab51f;
+  --gold-ink: #eab51f;
+  --link: #8db0ee;
+  --weft: #121211;
+  color-scheme: dark;
+}
+:root[data-theme="light"] { color-scheme: light; }
+
+@custom-variant dark {
+  @media (prefers-color-scheme: dark) {
+    &:where(:root:not([data-theme="light"]) *) {
+      @slot;
+    }
+  }
+  &:where([data-theme="dark"] *) {
+    @slot;
   }
 }
 

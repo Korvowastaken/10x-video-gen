@@ -1,4 +1,4 @@
-import { ChevronDown, KeyRound, Loader2 } from "lucide-react"
+import { ChevronDown, KeyRound, Loader2, Monitor, Moon, Sun } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { Toaster, toast } from "sonner"
 
@@ -222,14 +222,17 @@ function Account({ state, flow, active, onKeys }: { state: State; flow: Flow | n
         <span>{usd(state.spent)} spent</span>
         {budget > 0 && <span className="text-muted-foreground">of {usd(budget)} film budget</span>}
       </div>
-      <button
-        onClick={onKeys}
-        aria-current={active ? "page" : undefined}
-        className={cn("mt-3 inline-flex items-center gap-1.5 text-link hover:underline", active && "font-semibold")}
-      >
-        <KeyRound className="size-3.5" />
-        Keys and providers
-      </button>
+      <div className="mt-3 flex items-center justify-between">
+        <button
+          onClick={onKeys}
+          aria-current={active ? "page" : undefined}
+          className={cn("inline-flex items-center gap-1.5 text-link hover:underline", active && "font-semibold")}
+        >
+          <KeyRound className="size-3.5" />
+          Connections
+        </button>
+        <ThemeSwitch />
+      </div>
     </div>
   )
 }
@@ -261,6 +264,39 @@ function JobBar({ job, onClose }: { job: Job; onClose: () => void }) {
           <pre className="max-h-64 overflow-auto border-t px-4 py-3 font-mono text-[12px] leading-5 text-muted-foreground">{job.log.join("\n") || "…"}</pre>
         )}
       </div>
+    </div>
+  )
+}
+
+type Theme = "system" | "light" | "dark"
+const THEMES: { id: Theme; label: string; Icon: typeof Sun }[] = [
+  { id: "system", label: "Follow the computer", Icon: Monitor },
+  { id: "light", label: "Light", Icon: Sun },
+  { id: "dark", label: "Dark", Icon: Moon },
+]
+
+/** Light, dark, or whatever the computer uses. Remembered in this browser. */
+function ThemeSwitch() {
+  const [theme, setTheme] = useState<Theme>(() => (read("theme") as Theme) || "system")
+  useEffect(() => {
+    if (theme === "system") delete document.documentElement.dataset.theme
+    else document.documentElement.dataset.theme = theme
+    write("theme", theme)
+  }, [theme])
+  return (
+    <div role="radiogroup" aria-label="Colours" className="flex rounded-md border p-0.5">
+      {THEMES.map(({ id, label, Icon }) => (
+        <button
+          key={id}
+          role="radio"
+          aria-checked={theme === id}
+          title={label}
+          onClick={() => setTheme(id)}
+          className={cn("grid size-6 place-items-center rounded-[4px] text-subtle transition-colors duration-150 hover:text-foreground", theme === id && "bg-secondary text-foreground")}
+        >
+          <Icon className="size-3.5" />
+        </button>
+      ))}
     </div>
   )
 }

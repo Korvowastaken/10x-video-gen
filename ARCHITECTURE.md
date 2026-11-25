@@ -6,8 +6,59 @@ against `schema/storyboard.schema.json` and the rules in
 storyboard, writes only its own folders under `outputs/`, and logs every model
 call to `runs.jsonl`.
 
+## Steps, approvals and staleness
+
+A person makes the film in six steps (`pipeline/flow.py`). Each step ends in an
+approval, and a step opens only when every step before it is approved and
+fresh:
+
+| Step | Made by | Approved when |
+|---|---|---|
+| 1. story | the person, in `story.md` (settings block optional) | the story is long enough and its settings are valid |
+| 2. script | `script` stage, `revise.propose_script`, inline edits | the storyboard passes the schema and rules |
+| 3. sketch | `sketch.py`: shapes per scene and an animatic, local | every frame matches the storyboard |
+| 4. references | `keyframes.references`: one sheet per character and place | every chosen sheet matches its look, photo and seed |
+| 5. scenes | `steps.make_scene`: keyframe, voice, motion, preview | each scene on its own, once its picture and lines exist |
+| 6. final | `assemble` (final mode) | the film exists |
+
+**Fingerprints.** For each step, and for each scene, `flow.fingerprints()`
+hashes what the approval covers, in named parts:
+
+| Fingerprint | Parts |
+|---|---|
+| story | the text of `story.md` |
+| script | the cast, places and scenes' words (order-free), and the story's fingerprint |
+| sketch | scene order, framing, figure positions, and the script's fingerprint |
+| references | style text, looks, reference prompts, seeds, photos, and the cache key of each chosen sheet |
+| scene | the scene's storyboard entry, the keys of its references, keyframe, lines and clip |
+| final | every scene's fingerprint, the cut choices (modes, grade, score), the film's report |
+
+Approving writes the fingerprint and its parts to `approvals.json`. A later
+status compares parts: the step is **approved** when the hash matches, and
+**stale** when it does not, with the changed parts as the reason ("the
+script", "the picture"). Nothing is deleted; the cache still holds every file.
+
+The parts follow real dependencies, the same way cache keys do. Editing a line
+reopens the script and the sketch (it shows the subtitle) but not the
+references. Reordering scenes changes the sketch but not the script. The order
+of the steps is enforced separately: a stale step locks every step after it
+until it is approved again. `flow.require()` refuses work on a locked step,
+from the studio and from the command line alike.
+
+**Versions.** Approving a scene also keeps a copy of its storyboard entry in
+`approvals.json` (`history`). Restoring a version writes that entry back and
+points the cache manifests at the files it made, so an old version comes back
+with no model calls.
+
+**Money.** `storyboard.rule_errors()` rejects a scene whose motion mode is not
+in `video.allowed_modes`, and any set of paid modes that costs more than
+`video.budget_usd` for the whole film. Paid API actions need `confirm_usd` at
+least the price; the command line needs `--buy` and buys one clip at most.
+
+## The stages under the steps
+
 ```
-story.md ──script──► storyboard.json ◄── edited by hand from here on
+story.md ──script──► storyboard.json ◄── edited in the studio or by hand from here on
                           │
    ┌──────────────┬───────┴────────┬────────────────┐
    ▼              ▼                ▼                ▼
@@ -63,6 +114,15 @@ each clip to 24 fps and, when a shot is longer than its clip, slows it down by
 at most 1.25x for characters or 1.6x for ambient motion (`motion.subject`).
 RIFE v4.25 synthesises the frames in between; the rest of the shot holds the
 last frame. Ping-pong loops fill a shot of any length.
+
+**Grade.** Assembly moves each scene's colours part of the way (`edit.grade_strength`,
+0.6) toward the film's look: the median Lab mean and spread of all keyframes,
+or a fixed `edit.grade.target`. `pipeline/grade.py` bakes this into a 33-point
+3D LUT per scene that FFmpeg applies to every frame; the LUT's hash is in the
+segment's cache key (EXPERIMENTS E14).
+
+**Cut choices.** `edit.use` maps a scene to the mode the final cut should use
+instead of its own, for example parallax instead of a bought clip.
 
 **Spending limits.** `video.max_paid_clips` (7) and `video.budget_usd` ($0.60)
 cap what one run may buy; `make shots` reports every clip it bought or
@@ -196,8 +256,11 @@ summarises the log per stage for `COSTS.md`.
 
 ## The studio
 
-`make studio` builds the React app in `studio/` and serves it with the API in
-`pipeline/studio.py` (FastAPI, 127.0.0.1:8765). The studio never holds its own
+`uv run python -m pipeline studio` builds the React app in `studio/` and serves
+it with the API in `pipeline/studio.py` and `pipeline/flow_api.py` (FastAPI,
+127.0.0.1:8765). `GET /api/flow` returns the steps, each scene's state, prices
+and the budget; the step actions run `pipeline/steps.py`, the same functions as
+the command line. The studio never holds its own
 state: every edit writes `story.md` or `storyboard.json` through the same schema
 and rule checks as `make validate`, and every button runs the same stage
 function the CLI runs, one job at a time, with its log streamed back. So a scene
@@ -212,11 +275,14 @@ they can show real people) and fed to FLUX next to the character sheet.
 ## Layout
 
 ```
-story.md                 the input: settings + the family story
-storyboard.json          the contract (generated, then hand-edited)
+story.md                 the input: the family story, with optional settings
+storyboard.json          the contract (generated, then edited in the studio or by hand)
+approvals.json           what was approved, and each scene's earlier versions
+GLOSSARY.md              the words for steps, scenes, sketches and so on
 schema/                  JSON Schema for the storyboard
 research/                the motion-on-a-budget study behind the motion modes
-pipeline/                one module per stage, plus engines.py, motion.py and the core
+pipeline/                one module per stage, plus engines.py, motion.py and the core;
+                         flow.py (steps, approvals), steps.py (step actions), sketch.py, grade.py
 pipeline/providers/      gemini.py, cloudflare.py, wavespeed.py, kaggle_runner.py
 pipeline/kaggle/         the scripts the Kaggle fallback engines run
 tests/                   contract, caching, motion and edit tests (`make test`)

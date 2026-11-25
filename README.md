@@ -1,140 +1,146 @@
 # 10x video gen: a heritage short, made in code
 
-A small studio in code. You write a family story in plain words in
-`story.md`; the pipeline turns it into a 60-90 second vertical short film with
-narration in your language, English subtitles, an original score ducked under
-the voice, and an end card saying it was made with AI. Every picture, voice
-and note comes from a model, and every model call is logged in `runs.jsonl`.
+You write a family story in plain words. The studio turns it into a 60-90
+second vertical film with narration in your language, English subtitles, an
+original score under the voice, and an end card that says it was made with AI.
+You go through six steps, and each one waits for your approval before the next
+one opens. Every model call is logged in `runs.jsonl`.
 
-The look follows a TikTok style we liked: toy-like low-poly 3D characters,
-warm light against deep blue, shallow focus, captions top-centre. The
-characters are our own.
-
-## One command
+## Quick start (one minute, Windows, no make)
 
 ```sh
-make film        # or, without make:  uv run python -m pipeline film
+uv sync                                  # Python 3.12 and every dependency, FFmpeg included
+copy .env.example .env                   # then fill in the keys below
+uv run python -m pipeline studio         # open http://127.0.0.1:8765
 ```
 
-That runs `script → keyframes → narration → music → shots → assemble` and
-writes:
+`uv` is installed in `%APPDATA%\Python\Python315\Scripts`, which is on the
+user PATH; open a new terminal if `uv` is not found. The first `studio` run
+builds the web app, which needs Node.js with pnpm or npm. After that it starts
+in a few seconds.
 
-- `outputs/final/heritage_short_9x16.mp4`: vertical, 1080x1920
-- `outputs/final/heritage_short_16x9.mp4`: horizontal, 1920x1080
-- `outputs/final/heritage_short.en.srt`: the English subtitles as a file
-- `outputs/final/heritage_short.report.json`: length, loudness, and which motion each shot ended up using
+## The six steps
 
-Everything the pipeline makes goes to `outputs/`, which is git-ignored: the
-films are shared as links, and `make film` rebuilds everything else from
-`story.md` and `storyboard.json`. On a fresh clone that means the keys below
-and about $0.45 of WaveSpeed credit. On your own machine every stage is
-cached, so a re-run regenerates only what changed.
+```
+ 1 Story ─► 2 Script ─► 3 Sketch ─► 4 References ─► 5 Scenes ─► 6 Final cut
+ plain      lines,      shapes,     character and   picture,    9:16 + 16:9,
+ words      subtitles   animatic    place sheets    voice,      captions, score,
+                                                    motion      end card
+     each step: work on it ─► approve ─► the next step opens
+     change something upstream ─► the steps after it turn stale (nothing is deleted)
+```
 
-## Setup
+| Step | What you do | Cost | Command line |
+|---|---|---|---|
+| 1. Story | Type or paste the story, in any language. Spoken language, look, length and audience have defaults; change them under Settings. | free | write `story.md`, then `approve story` |
+| 2. Script | Draft it: scenes, Amharic lines, English subtitles, who speaks. Edit lines in place, or ask for a revision in plain words. Accept it. | free (Gemini free tier) | `script --force`, `revise script "..." --accept`, `approve script` |
+| 3. Sketch | A quick frame per scene drawn from shapes: coloured figures, flat places, arrows for movement, size for framing. Play it as an animatic, change framing or order. Approve. | free (drawn on your computer) | `sketch`, `approve sketch` |
+| 4. References | Upload photos of the people and places you have. The pipeline draws a reference sheet for each character and place; pick one or draw another. Real people need a consent row in `ETHICS.md` first. | free (Cloudflare free tier) | `references`, `approve references` |
+| 5. Scenes | One scene at a time: tweak the picture prompt, choose a motion mode, preview, give feedback, redo, approve. Set which modes are allowed and the film's budget. | free, except paid motion modes ($0.05 a clip) | `scene S03`, `scene S03 --buy`, `revise S03 "..."`, `approve scenes S03` |
+| 6. Final cut | Choose which mode each scene uses in the cut and pick a score, then make the film. | free; the score is about $0.07 | `cut`, `approve final` |
 
-1. Install [uv](https://docs.astral.sh/uv/). `uv sync` installs Python 3.12
-   and every dependency, including an FFmpeg binary (`imageio-ffmpeg`), OpenCV,
-   ONNX Runtime and RIFE. A system FFmpeg is used first if one is on `PATH` or
-   set in `FFMPEG_BIN`. The RIFE and Depth Anything weights download into
-   `.models/` on first use.
-2. `cp .env.example .env` and fill in the keys you need:
+Every command is `uv run python -m pipeline <command>`. `flow` prints where the
+film is: each step approved, stale or locked, what is missing, and the budget.
+
+```
+$ uv run python -m pipeline flow
+  1. Story       ok
+  2. Script      ok
+  3. Sketch      STALE  ; changed: the script
+  4. References  locked
+  ...
+  budget $0.60: chosen modes $0.38, still to buy $0.33, spent so far $0.05
+  next: Sketch
+```
+
+Paid actions always show their price. The studio asks before spending, and the
+API refuses a paid action unless the price was confirmed. Nothing is bought
+from the command line without `--buy`, and then only one clip.
+
+### Motion modes
+
+| Mode | What moves | Cost |
+|---|---|---|
+| Still | nothing, the picture is held | free |
+| Ken Burns | a slow pan or zoom over the picture | free |
+| Parallax | a small 3D camera move from a depth map | free |
+| Full motion (`full_i2v`) | the whole frame: walking, a big gesture | $0.05 (5 s), $0.08 (8 s) |
+| In-between (`flf_inbetween`) | a move from this picture to an end picture | $0.05 |
+| Masked motion (`masked_i2v`) | only part of the frame, the rest stays still | $0.05 |
+| Cinemagraph | one looping detail: steam, pouring, leaves | $0.05, then loops for free |
+
+The budget (`video.budget_usd`, $0.60 by default) caps what the whole film may
+spend on clips, and `video.allowed_modes` limits what a scene may choose. A
+paid scene with no clip yet plays as parallax in previews and in the cut.
+`research/motion-on-a-budget.md` explains the plan: 7 paid clips, about $0.38
+a film.
+
+## Keeping it consistent
+
+Faces stay the same from scene to scene because each keyframe is drawn with
+the approved reference sheets as input images, with seeds fixed in
+`storyboard.json` and the same style text at the start of every picture prompt.
+The final cut also moves every scene's colours part of the way toward the
+film's average with a per-scene 3D LUT; neighbouring scenes came out 30% closer
+in colour (EXPERIMENTS E14). Lines are normalised to -18 LUFS and the film to
+-14 LUFS, and captions use one style, top-centre on vertical. Every file is
+cached under a hash of everything that made it, so a run with no changes makes
+no model calls and reuses every file.
+
+## Where things go
+
+| Path | What |
+|---|---|
+| `story.md` | your story, with an optional settings block at the top |
+| `storyboard.json` | the script, scenes, prompts, seeds, modes and limits: the contract between steps |
+| `approvals.json` | what you approved, and when, with every scene's earlier versions |
+| `references/` | uploaded photos (git-ignored: they can show real family members) |
+| `outputs/sketch/` | sketch frames, `contact_sheet.jpg`, `animatic.mp4` |
+| `outputs/refs/`, `outputs/keyframes/` | reference sheets and scene pictures |
+| `outputs/narration/`, `outputs/music/`, `outputs/shots/` | voices, score candidates, bought clips |
+| `outputs/preview/` | one preview per scene |
+| `outputs/final/` | `heritage_short_9x16.mp4`, `_16x9.mp4`, `.en.srt`, and a report with length, loudness and the mode each scene used |
+| `runs.jsonl` | one line per model call: model, latency, cost |
+
+`outputs/` is git-ignored. Everything in it can be rebuilt from `story.md` and
+`storyboard.json`, and on your own machine the cache only redoes what changed.
+
+## Keys
 
 | Key | Used for | Cost | Where |
 |---|---|---|---|
-| `GEMINI_API_KEY` | script, narration, listen-back, finding masks | free tier | aistudio.google.com/app/apikey |
-| `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN` | keyframes (FLUX.2 klein) | free 10,000 neurons a day | dash.cloudflare.com, then Profile, API Tokens, "Workers AI" template |
-| `WAVESPEED_API_KEY` | moving shots (Wan 2.2 I2V) and score (ACE-Step 1.5) | pay per use; new accounts may get $1 | wavespeed.ai |
-| `KAGGLE_API_TOKEN` | fallback engines only | free, 6 GPU hours a week on our account | kaggle.com/settings, then API |
+| `GEMINI_API_KEY` | script, revisions, narration, listen-back, masks | free tier | aistudio.google.com/app/apikey |
+| `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN` | reference sheets and keyframes (FLUX.2 klein) | free 10,000 neurons a day | dash.cloudflare.com, Profile, API Tokens, "Workers AI" template |
+| `WAVESPEED_API_KEY` | paid clips (Wan 2.2 I2V) and the score (ACE-Step 1.5) | pay per use | wavespeed.ai |
+| `KAGGLE_API_TOKEN` | fallback engines only | free GPU hours | kaggle.com/settings, API |
 
-3. `make smoke` calls each provider once, lists the models available today,
-   and logs latency. Add `GPU=1` to also run a one-minute Kaggle GPU job.
+`uv run python -m pipeline smoke` calls each provider once. When a free quota
+runs out the pipeline falls back instead of stopping: the next model in the
+list, then a free motion mode, then a placeholder.
 
-`.env` is git-ignored; no key ever goes into the repository.
+## Without the gates
 
-## Making your own film
-
-1. Write your story in `story.md`: keep the settings block (language, look,
-   length, audience, real people), then a few paragraphs in any language.
-2. If a real person appears or is voiced, add their consent row to
-   `ETHICS.md` first. The pipeline refuses to generate them without it.
-3. `make radio`: drafts the storyboard, speaks the lines, and writes
-   `outputs/cuts/radio_cut.mp4` (voice over placeholder music on black, with
-   subtitles and shot labels). Show it to three people from your audience and
-   write what they said in `DESIGN.md`.
-4. Edit `storyboard.json` (lines, prompts, voices, motion) based on what they
-   said, then `make rough`: every shot moves for free (parallax and pans), so
-   you can judge pacing before buying any clips.
-5. `make music`, listen to `outputs/music/`, then set `music.chosen` and
-   `music.chosen_reason`.
-6. `make film` buys the paid clips (within your limits) and exports the film.
-
-### How each shot moves
-
-Each shot's `motion.mode` decides; paid modes buy one 480p clip from
-WaveSpeed (Wan 2.2 I2V Ultra Fast), free modes run on your machine.
-
-| Mode | For | Cost |
-|---|---|---|
-| `full_i2v` | whole-body action, walking | $0.05 (5 s), $0.08 (8 s) |
-| `flf_inbetween` | a move from this keyframe to an end keyframe (`last_image`) | $0.05 |
-| `masked_i2v` | only part of the frame moves (`mask.target` in words) | $0.05 |
-| `cinemagraph` | one looping detail: steam, pouring, leaves | $0.05 |
-| `parallax` | establishing shots, landscapes (depth map + camera move) | free |
-| `still_kenburns`, `still` | inserts and details | free |
-
-`video.max_paid_clips` and `video.budget_usd` in the storyboard cap what one
-run may spend. A shot that gets no clip falls back to parallax, then to a slow
-pan, so the film is always complete. `research/motion-on-a-budget.md`
-explains the plan: 7 paid clips, about $0.38 per film at list price.
-
-### Regenerate one shot
-
-Change one `keyframe.prompt` (or one line's `text`) in `storyboard.json`, then:
-
-```sh
-make film          # or step by step: make keyframes ONLY=S03; make shots ONLY=S03; make assemble
-make status        # what is cached
-```
-
-Only that shot's keyframe, clip and edit segment are regenerated, or only that
-one line for a narration edit. The new lines at the end of `runs.jsonl` show
-the single model call.
-
-## Commands
+The stages under the steps also run on their own, for scripting and
+experiments. They ignore approvals.
 
 | Command | What it does |
 |---|---|
-| `make film` | every stage, then the final 9:16 and 16:9 films |
-| `make radio` / `make rough` | the two test cuts: voice on black, and free motion over the stills |
-| `make script` | draft `storyboard.json` from `story.md` (only when the story changed; `FORCE=1` to redraft) |
-| `make keyframes`, `narration`, `music`, `shots`, `assemble` | one stage; `ONLY=S03,S05` limits to shots, `FORCE=1` ignores the cache |
-| `uv run python -m pipeline shots --max-paid 1` | buy at most one clip this run |
-| `make validate` | check the storyboard against the schema, the engines, the consent and script rules |
-| `make status` | which shots have keyframes, lines and clips cached |
-| `make costs` | per-stage calls, latency, GPU time and list-price cost from `runs.jsonl` |
-| `make test` | the contract, caching, motion and edit tests |
-| `make site` | the design doc as one page in Linear's style: `outputs/site/index.html` (self-contained, shareable) |
-| `make studio`, or `uv run python -m pipeline studio` without make | the studio: a local web app at http://127.0.0.1:8765 to edit the story, add reference photos, edit each scene's lines, picture and motion, give Gemini feedback on a scene and redo its keyframe, voice or clip (the first run builds the web app, which needs Node.js) |
+| `film` | every stage in order, then the final 9:16 and 16:9 films |
+| `radio`, `rough` | test cuts: voice on black, and free motion over the pictures |
+| `script`, `keyframes`, `narration`, `music`, `shots`, `assemble` | one stage; `--only S03,S05` limits it to scenes, `--force` ignores the cache |
+| `validate`, `status`, `costs`, `prune` | check the storyboard, list what is cached, sum `runs.jsonl`, delete unused files |
+| `site` | the design doc as one page: `outputs/site/index.html` |
 
-## What it costs
-
-| Item | Cost |
-|---|---|
-| Script, narration, masks | free tier (a few calls a day on the newest Gemini models) |
-| Keyframes | free (10,000 Cloudflare neurons a day; about 240 per keyframe with references) |
-| Clips | about $0.38 per film at list price with the balanced plan |
-| Score | 3 candidates of about 80 s, about $0.07 |
-
-`COSTS.md` has measured latency per stage and list-price equivalents.
+`make` wraps the same commands (`make film`, `make test`) if you have it.
+`uv run pytest -q` runs the tests.
 
 ## Documents
 
-- `ARCHITECTURE.md`: stages, the storyboard contract, motion modes, caching, failure handling
-- `DESIGN.md`: audience, intent, the two audience tests and what changed
-- `EXPERIMENTS.md`: hypothesis, change and result for each experiment
-- `FAILURES.md`: what broke, what we tried, what fixed it
-- `COSTS.md`: measured latency, GPU time, list-price equivalents
-- `ETHICS.md`: consent records, licences, labelling plan
+- `GLOSSARY.md`: the words the studio, the code and these docs use
+- `ARCHITECTURE.md`: steps, approvals and staleness, stages, caching, failure handling
+- `DESIGN.md`: audience, intent, the audience tests and what changed
+- `EXPERIMENTS.md`, `FAILURES.md`, `COSTS.md`: what we measured, what broke, what it cost
+- `ETHICS.md`: consent records, licences, labelling
 - `research/motion-on-a-budget.md`: how we cut paid video by more than half
 
 ## Thanks
@@ -143,5 +149,4 @@ the single model call.
 
 > **Status.** `story.md` holds the brief's example story (a girl walking to
 > the market in Dessie), used to build and test the pipeline end to end; the
-> family story replaces it for the published film. Its narration was spoken
-> before the bare-line fix (FAILURES F7) and is re-spoken with the real story.
+> family story replaces it for the published film.

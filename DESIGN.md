@@ -34,6 +34,22 @@ there. This section spells them out.
 
 Every shot's reason is in `storyboard.json` (`shots[].reason`).
 
+## Who makes the film, and how the studio follows from that
+
+The person making the film is usually the grandchild who heard the story. They
+know what the story should feel like, but not what a seed or a motion mode is. Updated 2026-11-25, when the studio became a
+six-step flow (ARCHITECTURE.md, "Steps, approvals and staleness").
+
+| Choice | Why |
+|---|---|
+| The story is plain text in any language; settings have defaults | Nobody should have to learn YAML to start. Most people never open the settings |
+| Six steps, each approved before the next opens | Each decision is made once, in order: the words, then the composition, then the faces, then the motion. Changing the words after the pictures exist is the expensive mistake this prevents |
+| A shape sketch and animatic before any picture | Order, framing and pacing can be judged for free in a minute. Generated pictures make people judge the faces instead |
+| Upstream edits mark later work stale and keep it | The later work needs another look, but it is kept. People undo edits, and the cache brings the old files back for free |
+| Feedback in plain words, shown as a diff, then accepted | The person describes the change ("she should smile here"). Gemini rewrites the scene, and nothing changes without their yes |
+| Every action shows its price; paid ones ask first | Free actions should feel safe to click. The only money spent is on clips and the score, and it is always a deliberate choice |
+| Allowed modes and a film budget, set once | The person sets the spending once for the whole film |
+
 ## Test 1: the radio cut
 
 `outputs/cuts/radio_cut.mp4` is the narration over placeholder music on a black

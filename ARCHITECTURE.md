@@ -145,8 +145,13 @@ Keys chain, so a change flows only down its own path:
 Only the primary model is in a key, so editing a fallback list does not
 regenerate anything. The model that actually answered is recorded per item.
 Cache hits make no calls and write nothing to `runs.jsonl`: after a one-line
-edit, the log gains exactly that one line's calls. Generated files are
-committed, so a fresh clone rebuilds the film from cache with no keys.
+edit, the log gains exactly that one line's calls.
+
+`outputs/` is git-ignored: the cache lives on the machine that made it, and a
+fresh clone regenerates from `story.md` and `storyboard.json` (keys needed).
+What a reader of the repository can check is committed as text: every model
+call in `runs.jsonl`, and the measurements copied into `EXPERIMENTS.md`,
+`FAILURES.md` and `COSTS.md`.
 
 ## Failure handling
 

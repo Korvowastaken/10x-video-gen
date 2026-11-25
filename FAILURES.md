@@ -1,7 +1,9 @@
 # Failures: what broke, what we tried, what fixed it
 
 Newest problems are at the bottom. "Evidence" points at the file or log lines
-that show it. Times are UTC, as in `runs.jsonl`.
+that show it. Times are UTC, as in `runs.jsonl`. Files under `outputs/` stay
+on the machine that made them (the folder is git-ignored); `runs.jsonl` and
+the tests are committed.
 
 ## F1. Gemini 3.8 Flash: "high demand" on the very first call
 

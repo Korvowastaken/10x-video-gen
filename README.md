@@ -24,9 +24,11 @@ writes:
 - `outputs/final/heritage_short.en.srt`: the English subtitles as a file
 - `outputs/final/heritage_short.report.json`: length, loudness, and which motion each shot ended up using
 
-Generated files are committed and every stage is cached, so on a fresh clone
-`make film` rebuilds the film from cache with no keys at all. Keys are needed
-only for what you change.
+Everything the pipeline makes goes to `outputs/`, which is git-ignored: the
+films are shared as links, and `make film` rebuilds everything else from
+`story.md` and `storyboard.json`. On a fresh clone that means the keys below
+and about $0.45 of WaveSpeed credit. On your own machine every stage is
+cached, so a re-run regenerates only what changed.
 
 ## Setup
 

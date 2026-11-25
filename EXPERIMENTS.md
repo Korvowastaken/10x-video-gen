@@ -2,6 +2,8 @@
 
 Every number here comes from `runs.jsonl`, a manifest under `outputs/`, or a
 measurement script run on the files. Each entry says where. All on 2026-11-25.
+`outputs/` is git-ignored (it is rebuilt by `make film`), so the numbers are
+copied here; `runs.jsonl` is committed and holds every model call.
 
 ## E1. Can every provider be reached on a free tier from here?
 

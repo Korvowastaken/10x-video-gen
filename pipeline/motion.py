@@ -117,28 +117,77 @@ def cover(image: np.ndarray, size: tuple[int, int]) -> np.ndarray:
 
 # ---------------------------------------------------------------- RIFE
 
+def blend(a: np.ndarray, b: np.ndarray, t: float) -> np.ndarray:
+    """A cross-fade between two neighbouring frames: softer than RIFE on fast motion, but always a picture."""
+    return cv2.addWeighted(a, 1.0 - t, b, t, 0.0)
+
+
+def looks_between(out: np.ndarray | None, a: np.ndarray, b: np.ndarray) -> bool:
+    """Whether an in-between frame looks like its neighbours. RIFE on some GPUs (an Intel UHD 620) runs
+    without an error and returns black frames, which strobe in the film; this catches them."""
+    if out is None or out.shape != a.shape:
+        return False
+    lo, hi = sorted((float(a.mean()), float(b.mean())))
+    return lo - 16 <= float(out.mean()) <= hi + 16 and (float(out.std()) > 1.0 or float(a.std()) <= 1.0)
+
+
+class Blender:
+    """In-between frames as cross-fades: what the film uses when RIFE cannot be trusted here."""
+    device = "blend"
+
+    def between(self, a: np.ndarray, b: np.ndarray, t: float) -> np.ndarray:
+        return blend(a, b, t)
+
+
+def _test_pair(width: int, height: int) -> tuple[np.ndarray, np.ndarray]:
+    """Two frames with a known picture that moves a little: what a working RIFE must put between."""
+    x = np.linspace(40, 220, width, dtype=np.float32)
+    y = np.linspace(0, 30, height, dtype=np.float32)[:, None]
+    a = np.clip(x[None, :] + y, 0, 255).astype(np.uint8)
+    a = np.ascontiguousarray(np.repeat(a[:, :, None], 3, axis=2))
+    return a, np.ascontiguousarray(np.roll(a, max(1, width // 40), axis=1))
+
+
 class Interpolator:
-    """RIFE on the Vulkan GPU if one works (an Intel iGPU counts), else on the CPU."""
+    """RIFE on the Vulkan GPU, checked before it is trusted. Only the GPU: RIFE on the CPU takes
+    over a second a frame here, so a GPU that fails the check means cross-fades instead (Blender)."""
 
     def __init__(self, width: int, height: int, model: str = RIFE_MODEL):
         from rife_ncnn_vulkan_python import Rife
 
-        folder = str(rife_model_dir(model))
-        self.device = "cpu"
-        self.rife = None
-        for gpu in (0, -1):
-            try:
-                self.rife = Rife(gpuid=gpu, model=folder, scale=1, width=width, height=height, num_threads=4)
-                self.device = "vulkan:0" if gpu == 0 else "cpu"
-                break
-            except Exception:  # no usable Vulkan device: fall through to CPU
-                continue
-        if self.rife is None:
-            raise RuntimeError("RIFE could not start on Vulkan or CPU")
+        try:
+            self.rife = Rife(gpuid=0, model=str(rife_model_dir(model)), scale=1, width=width, height=height,
+                             num_threads=4)
+        except Exception as exc:
+            raise RuntimeError(f"RIFE could not start on the GPU ({exc})") from exc
+        self.device = "vulkan:0"
+        a, b = _test_pair(width, height)
+        if not looks_between(self._rife(a, b, 0.5), a, b):
+            raise RuntimeError("RIFE on this GPU returns black or broken frames")
 
-    def between(self, a: np.ndarray, b: np.ndarray, t: float) -> np.ndarray:
+    def _rife(self, a: np.ndarray, b: np.ndarray, t: float) -> np.ndarray:
         out = self.rife.process_cv2(cv2.cvtColor(a, cv2.COLOR_RGB2BGR), cv2.cvtColor(b, cv2.COLOR_RGB2BGR), timestep=t)
         return cv2.cvtColor(out, cv2.COLOR_BGR2RGB)
+
+    def between(self, a: np.ndarray, b: np.ndarray, t: float) -> np.ndarray:
+        out = self._rife(a, b, t)
+        return out if looks_between(out, a, b) else blend(a, b, t)  # a bad frame never reaches the film
+
+
+_ENGINE: str | None = None
+
+
+def interpolation_engine() -> str:
+    """What makes in-between frames on this computer, checked once: "rife-v4.25@vulkan" or "blend".
+    Part of every segment's cache key, so frames made one way are never reused as the other."""
+    global _ENGINE
+    if _ENGINE is None:
+        try:
+            Interpolator(256, 448)
+            _ENGINE = f"{RIFE_MODEL}@vulkan"
+        except Exception:
+            _ENGINE = "blend"
+    return _ENGINE
 
 
 def retime_plan(n_src: int, src_fps: float, out_fps: float, stretch: float) -> list[tuple[int, float]]:

@@ -46,3 +46,35 @@ def test_a_clip_at_normal_speed_drops_frames_instead_of_running_rife(tmp_path, n
     out = tmp_path / "seg.mp4"
     assemble.render_segment({"kind": "clip", "path": clip, "cap": 1.25}, 5.0, out, w=64, h=112, fps=24)
     assert len(motion.read_frames(out)[0]) == 120
+
+
+class _BlackRife:
+    """Stands in for RIFE on an Intel UHD 620: it runs, and every frame it returns is black."""
+
+    def __init__(self, **_):
+        pass
+
+    def process_cv2(self, a, b, timestep=0.5):
+        return np.zeros_like(a)
+
+
+@pytest.fixture
+def black_rife(monkeypatch):
+    import sys
+    import types
+    monkeypatch.setitem(sys.modules, "rife_ncnn_vulkan_python", types.SimpleNamespace(Rife=_BlackRife))
+    monkeypatch.setattr(motion, "rife_model_dir", lambda *_: "unused")
+    monkeypatch.setattr(assemble, "_INTERPOLATORS", {})
+    monkeypatch.setattr(motion, "_ENGINE", None, raising=False)
+
+
+def test_a_gpu_whose_rife_returns_black_frames_never_reaches_the_film(tmp_path, black_rife, capsys):
+    clip = _video(tmp_path / "clip.mp4", 161, 30)
+    out = tmp_path / "seg.mp4"
+    # 5.25 s of clip in a 5.5 s shot: slowed, so in-between frames are needed
+    assemble.render_segment({"kind": "clip", "path": clip, "cap": 1.25}, 5.5, out, w=64, h=112, fps=24)
+    frames = motion.read_frames(out)[0]
+    assert len(frames) == 132
+    darkest = min(float(f.mean()) for f in frames[8:])  # the test clip fades up from black over its first frames
+    assert darkest > 10, f"a black frame reached the segment (brightness {darkest:.1f})"
+    assert "black" in capsys.readouterr().out  # and the log says why it did not use RIFE

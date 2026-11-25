@@ -259,9 +259,10 @@ def render_segment(source: dict[str, Any], duration: float, out: Path, *, w: int
         smooth = interpolation == "rife" and motion.needs_rife(src_fps, fps, stretch)
         interpolator = _interpolator(src[0].shape[1], src[0].shape[0]) if smooth else None
         h0, w0 = src[0].shape[:2]
+        how = "cross-fades" if isinstance(interpolator, motion.Blender) else "RIFE"
         print(f"    {len(src)} frames at {w0}x{h0}, {src_fps:.0f} fps: "
-              + (f"RIFE adds in-between frames (slowed {stretch:.2f}x)" if interpolator and stretch > 1.02
-                 else "RIFE adds in-between frames" if interpolator
+              + (f"{how} adds in-between frames (slowed {stretch:.2f}x)" if interpolator and stretch > 1.02
+                 else f"{how} adds in-between frames" if interpolator
                  else f"down to {fps} fps, no in-between frames needed"))
         timed = out.with_name(out.stem + ".timed.mp4")
         motion.write_frames(motion.retime(src, src_fps, out_fps=fps, stretch=stretch, interpolator=interpolator),
@@ -291,14 +292,14 @@ _INTERPOLATORS: dict[tuple[int, int], Any] = {}
 
 
 def _interpolator(width: int, height: int):
-    """One RIFE instance per clip size; None (repeat frames) if RIFE cannot start here."""
+    """One checked RIFE per clip size; cross-fades (motion.Blender) when RIFE cannot be trusted here."""
     if (width, height) not in _INTERPOLATORS:
         try:
             _INTERPOLATORS[(width, height)] = motion.Interpolator(width, height)
-            print(f"  RIFE {motion.RIFE_MODEL} on {_INTERPOLATORS[(width, height)].device}")
-        except Exception as exc:  # keep the edit going; the clip just repeats frames
-            print(f"  RIFE unavailable ({exc}); repeating frames instead")
-            _INTERPOLATORS[(width, height)] = None
+            print(f"  RIFE {motion.RIFE_MODEL} on {_INTERPOLATORS[(width, height)].device}, checked")
+        except Exception as exc:  # keep the edit going with plain cross-fades between frames
+            print(f"  RIFE not used: {exc}; blending neighbouring frames instead")
+            _INTERPOLATORS[(width, height)] = motion.Blender()
     return _INTERPOLATORS[(width, height)]
 
 
@@ -515,7 +516,8 @@ def run(project: Project, *, mode: str = "final") -> dict[str, Any]:
                 "depth": sha256_file(source["depth"]) if source.get("depth") else None,
                 "dur": timing.duration, "w": w, "h": h, "fps": fps,
                 **{k: source.get(k) for k in ("kenburns", "move", "amount", "cap")},
-                "interp": f"{interpolation}:{motion.RIFE_MODEL}" if source["kind"] in ("clip", "loop") else None,
+                "interp": f"{interpolation}:{motion.interpolation_engine()}" if source["kind"] in ("clip", "loop")
+                else None,
                 "grade": lut.stem.split("__")[1] if lut else None}
         key = key_for(spec)
         seg = seg_cache.hit(shot["id"], key, ".mp4")
@@ -624,7 +626,9 @@ def preview(project: Project, shot_id: str) -> dict[str, Any]:
             "src": sha256_file(source["path"]) if source.get("path") else None,
             "depth": sha256_file(source["depth"]) if source.get("depth") else None,
             **{k: source.get(k) for k in ("kenburns", "move", "amount", "cap")},
-            "lines": [sha256_file(p) for p, _, _ in lines], "grade": lut.stem.split("__")[1] if lut else None}
+            "lines": [sha256_file(p) for p, _, _ in lines], "grade": lut.stem.split("__")[1] if lut else None,
+            # how in-between frames are made here: a preview from a GPU that returned black frames is not reused
+            "interp": motion.interpolation_engine() if source["kind"] in ("clip", "loop") else None}
     previews = StageCache(project, "preview")
     key = key_for(spec)
     out = previews.hit(shot_id, key, ".mp4")

@@ -154,6 +154,13 @@ def retime_plan(n_src: int, src_fps: float, out_fps: float, stretch: float) -> l
     return plan
 
 
+def needs_rife(src_fps: float, out_fps: float, stretch: float) -> bool:
+    """Whether RIFE earns its time. Slowing a clip down, or raising its frame rate, needs new frames
+    in between. Lowering it (30 fps clips into a 24 fps film) only drops frames, which barely shows,
+    and RIFE there cost about a minute per clip."""
+    return stretch > 1.02 or src_fps < out_fps - 0.5
+
+
 def retime(frames: list[np.ndarray], src_fps: float, *, out_fps: float = 24, stretch: float = 1.0,
            interpolator: Interpolator | None = None) -> Iterator[np.ndarray]:
     """Resample to out_fps and slow down by `stretch`, synthesising in-between frames with RIFE.

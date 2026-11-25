@@ -20,6 +20,7 @@ import math
 import re
 import shutil
 import textwrap
+import time
 import wave
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -224,6 +225,11 @@ def kenburns_filter(mode: str, frames: int, w: int, h: int, fps: int) -> str:
             f"zoompan=z='{zoom}':x='{x}':y='{y}':d={frames}:s={w}x{h}:fps={fps},setsar=1,format=yuv420p")
 
 
+# What each kind of segment is, in the job log.
+SOURCE_LABEL = {"clip": "bought clip", "loop": "masked loop", "parallax": "camera move", "image": "still with a slow zoom",
+                "black": "black frame"}
+
+
 def render_segment(source: dict[str, Any], duration: float, out: Path, *, w: int, h: int, fps: int,
                    interpolation: str = "rife", lut: Path | None = None) -> None:
     """One shot's picture at its exact length. Sources:
@@ -246,9 +252,17 @@ def render_segment(source: dict[str, Any], duration: float, out: Path, *, w: int
         src, src_fps = motion.read_frames(source["path"])
         if kind == "clip":
             src = src[int(round(TRIM_HEAD * src_fps)):] or src  # many clips start weak
+        else:  # only the part of the cycle the shot shows; FFmpeg loops the result if the shot is longer
+            src = src[:min(len(src), math.ceil(duration * src_fps) + 2)]
         length = len(src) / src_fps
         stretch = min(source.get("cap", 1.0), duration / length) if kind == "clip" and length < duration else 1.0
-        interpolator = _interpolator(src[0].shape[1], src[0].shape[0]) if interpolation == "rife" else None
+        smooth = interpolation == "rife" and motion.needs_rife(src_fps, fps, stretch)
+        interpolator = _interpolator(src[0].shape[1], src[0].shape[0]) if smooth else None
+        h0, w0 = src[0].shape[:2]
+        print(f"    {len(src)} frames at {w0}x{h0}, {src_fps:.0f} fps: "
+              + (f"RIFE adds in-between frames (slowed {stretch:.2f}x)" if interpolator and stretch > 1.02
+                 else "RIFE adds in-between frames" if interpolator
+                 else f"down to {fps} fps, no in-between frames needed"))
         timed = out.with_name(out.stem + ".timed.mp4")
         motion.write_frames(motion.retime(src, src_fps, out_fps=fps, stretch=stretch, interpolator=interpolator),
                             timed, fps, crf=14)
@@ -507,8 +521,11 @@ def run(project: Project, *, mode: str = "final") -> dict[str, Any]:
         seg = seg_cache.hit(shot["id"], key, ".mp4")
         if not seg:
             seg = seg_cache.path(shot["id"], key, ".mp4")
+            began = time.perf_counter()
+            print(f"  {shot['id']}: making the {SOURCE_LABEL.get(source['kind'], source['kind'])}, {timing.duration:.1f} s")
             render_segment(source, timing.duration, seg, w=w, h=h, fps=fps, interpolation=interpolation, lut=lut)
             seg_cache.record(shot["id"], key, seg, spec)
+            print(f"  {shot['id']}: done in {time.perf_counter() - began:.0f} s")
             rendered += 1
         segments.append(seg)
     fell_back = [f"{sid} {u['wanted']}->{u['used']}" for sid, u in used.items()
@@ -541,6 +558,7 @@ def run(project: Project, *, mode: str = "final") -> dict[str, Any]:
         full = work / f"picture_{mode}_{fmt}_full.mp4"
         if fmt == "16x9":
             wide = work / f"picture_{mode}_16x9.mp4"
+            print("  16x9: making the wide picture from the vertical one")
             fill = ("[0:v]split[a][b];[a]scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080,"
                     "scale=96:54:flags=bilinear,scale=1920:1080:flags=bicubic,eq=brightness=-0.10:saturation=0.8[bg];"
                     "[b]scale=-2:1080:flags=lanczos[fg];[bg][fg]overlay=(W-w)/2:0,setsar=1,format=yuv420p[v]")
@@ -559,6 +577,7 @@ def run(project: Project, *, mode: str = "final") -> dict[str, Any]:
         else:
             shutil.copy2(base, full)
         out = out_dir / (f"{slug}.mp4" if fmt == "radio" else f"{slug}_{fmt}.mp4")
+        print(f"  {fmt}: adding captions and sound")
         vf = f"subtitles={ass.relative_to(project.root).as_posix()}:fontsdir={fonts}"
         if end_len:  # fade the picture out into the end card, and the end card out at the very end
             vf += f",fade=t=out:st={total - 0.6:.3f}:d=0.6"

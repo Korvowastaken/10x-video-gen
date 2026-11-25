@@ -113,6 +113,7 @@ the single model call.
 | `make status` | which shots have keyframes, lines and clips cached |
 | `make costs` | per-stage calls, latency, GPU time and list-price cost from `runs.jsonl` |
 | `make test` | the contract, caching, motion and edit tests |
+| `make site` | the design doc as one page in Linear's style: `outputs/site/index.html` (self-contained, shareable) |
 
 ## What it costs
 

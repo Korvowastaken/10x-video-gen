@@ -13,7 +13,7 @@ ONLY  ?=
 FORCE ?=
 SEL    = $(if $(ONLY),--only $(ONLY)) $(if $(FORCE),--force)
 
-.PHONY: film radio rough script keyframes narration music shots assemble validate status smoke costs prune test setup
+.PHONY: film radio rough script keyframes narration music shots assemble validate status smoke costs prune test setup site
 
 film:      ; $(PY) film $(SEL)
 radio:     ; $(PY) radio $(SEL)
@@ -27,6 +27,7 @@ assemble:  ; $(PY) assemble --mode $(or $(MODE),final)
 validate:  ; $(PY) validate
 status:    ; $(PY) status
 costs:     ; $(PY) costs
+site:      ; $(PY) site
 prune:     ; $(PY) prune
 smoke:     ; $(PY) smoke $(if $(GPU),--kaggle-gpu)
 test:      ; uv run pytest -q

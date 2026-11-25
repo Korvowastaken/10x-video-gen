@@ -18,6 +18,7 @@ dependencies = [
     "opencv-python-headless>=4.9",
     "onnxruntime>=1.18",
     "rife-ncnn-vulkan-python-tntwise>=1.4.5",
+    "markdown>=3.6",
 ]
 
 [dependency-groups]

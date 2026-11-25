@@ -2,32 +2,43 @@
 from __future__ import annotations
 
 from . import storyboard as sbmod
-from .cache import StageCache, key_for
+from .cache import StageCache, key_for, sha256_file
 from .config import Project
+from .engines import MODES
 from .narration import line_items, spec_for
 
-STAGE_DIRS = ("refs", "keyframes", "narration", "narration/raw", "music", "shots", "assemble/segments")
+STAGE_DIRS = ("refs", "keyframes", "narration", "narration/raw", "music", "shots", "shots/raw", "shots/masks",
+              "depth", "assemble/segments")
 KEEP = {"manifest.json", "contact_sheet.jpg", "timing.json"}
 
 
 def run(project: Project) -> None:
+    from .shots import clip_spec
+
     sb = sbmod.load_valid(project)
     narration = StageCache(project, "narration")
     keyframes = StageCache(project, "keyframes")
-    shots = StageCache(project, "shots")
-    print(f"{'shot':5} {'keyframe':10} {'lines':12} {'clip':8} motion")
+    raw = StageCache(project, "shots/raw")
+    depth = StageCache(project, "depth")
     lines_by_shot: dict[str, list[bool]] = {}
     for item, shot, line in line_items(sb):
         ok = narration.hit(item, key_for(spec_for(sb, line)), ".wav") is not None
         lines_by_shot.setdefault(shot["id"], []).append(ok)
+    print(f"{'shot':5} {'mode':15} {'keyframe':9} {'lines':10} {'clip':12} depth")
     for shot in sb["shots"]:
-        kf = "cached" if keyframes.current(shot["id"]) else "missing"
-        spoken = lines_by_shot.get(shot["id"], [])
-        lines = f"{sum(spoken)}/{len(spoken)} cached" if spoken else "silent"
-        clip = "-" if shot["motion"]["mode"] != "video" else ("cached" if shots.current(shot["id"]) else "missing")
-        print(f"{shot['id']:5} {kf:10} {lines:12} {clip:8} {shot['motion']['mode']}")
-    print("(a keyframe or clip marked cached may still regenerate if its prompt, seed or references changed;"
-          " `make film` only redoes those)")
+        sid, mode = shot["id"], shot["motion"]["mode"]
+        kf = keyframes.current(sid)
+        spoken = lines_by_shot.get(sid, [])
+        lines = f"{sum(spoken)}/{len(spoken)}" if spoken else "silent"
+        clip = "-"
+        if MODES[mode]["paid"]:
+            end = keyframes.current(f"{sid}_end") if mode == "flf_inbetween" else None
+            ready = kf is not None and (mode != "flf_inbetween" or end is not None)
+            clip = "cached" if ready and raw.hit(sid, key_for(clip_spec(sb, shot, kf, end)), ".mp4") else "to buy"
+        has_depth = bool(kf and (depth.entry(sid) or {}).get("spec", {}).get("keyframe") == sha256_file(kf))
+        print(f"{sid:5} {mode:15} {'ok' if kf else 'missing':9} {lines:10} {clip:12} {'ok' if has_depth else '-'}")
+    print(f"paid shots: {len(sbmod.paid_clips(sb))} (limit {sb.get('video', {}).get('max_paid_clips', 7)} a run); "
+          "'to buy' shots fall back to parallax or a pan until bought")
 
 
 def prune(project: Project) -> None:

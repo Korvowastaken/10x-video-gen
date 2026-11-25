@@ -13,12 +13,16 @@ from typing import Any
 from .config import Project
 from .runlog import read
 
-# USD list prices (sources and dates in COSTS.md).
-T4_SESSION_USD_PER_HOUR = 0.70  # 2x NVIDIA T4 on-demand, as on Kaggle's "GPU T4 x2"
-GEMINI_USD_PER_M = {  # (input, output) per million tokens; TTS output is audio tokens
-    "default": (0.30, 2.50),
-    "tts": (0.50, 10.00),
+# USD list prices, read 2026-11-25 (sources in COSTS.md).
+T4_SESSION_USD_PER_HOUR = 0.70  # estimate: 2x T4 on demand, about $0.35 each, like Kaggle's "GPU T4 x2"
+GEMINI_USD_PER_M = {  # (input, output) per million tokens, standard tier, prices "through December 31, 2026"
+    "gemini-3.8-flash": (0.75, 3.75),
+    "gemini-3.5-flash-lite": (0.30, 2.50),
+    "gemini-3.5-transcribe": (2.00, 12.00),
+    "gemini-3.8-flash-tts": (0.50, 9.00),       # audio output at 25 tokens a second
+    "gemini-3.8-flash-lite-tts": (0.50, 6.00),
 }
+UNLISTED_GEMINI = (0.75, 3.75)  # 3.7 and 3.5 Flash have no row on the pricing page: priced like 3.8 Flash
 
 
 def _usd(row: dict[str, Any]) -> float:
@@ -26,7 +30,7 @@ def _usd(row: dict[str, Any]) -> float:
     if "usd_list" in cost:
         return float(cost["usd_list"])
     if cost.get("unit") == "tokens":
-        rates = GEMINI_USD_PER_M["tts" if "tts" in row.get("model", "") else "default"]
+        rates = GEMINI_USD_PER_M.get(row.get("model", ""), UNLISTED_GEMINI)
         tokens_in = cost.get("input") or 0
         tokens_out = (cost.get("output") or 0) + (cost.get("thinking") or 0)
         return tokens_in * rates[0] / 1e6 + tokens_out * rates[1] / 1e6

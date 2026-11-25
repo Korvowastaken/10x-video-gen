@@ -51,10 +51,16 @@ def test_tts_key_tracks_voice_and_direction():
     assert key_for(tts_spec(edited, line)) != base
 
 
-def test_tts_prompt_starts_with_an_instruction_and_quotes_the_line():
-    prompt = tts_prompt("ቀስ በቀስ፣ እንቁላል በእግሩ ይሄዳል።", "Mature, merry, loving", "Amharic")
-    assert prompt.startswith("Say this line in Amharic")
-    assert prompt.endswith('"ቀስ በቀስ፣ እንቁላል በእግሩ ይሄዳል።"')
+def test_tts_prompt_is_the_bare_line():
+    """A style note in the prompt was spoken aloud before the line (FAILURES.md F7)."""
+    line = "ቀስ በቀስ፣ እንቁላል በእግሩ ይሄዳል።"
+    assert tts_prompt(line, "Mature, merry, loving", "Amharic") == line
+
+
+def test_too_long_takes_are_caught():
+    from pipeline.narration import too_long
+    assert too_long("ዛሬ እሑድ ቡና ታፈላለች።", 10.3)       # the take with the spoken note
+    assert not too_long("ዛሬ እሑድ ቡና ታፈላለች።", 2.25)   # the bare line
 
 
 def test_char_error_rate():

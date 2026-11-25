@@ -34,9 +34,10 @@ from .retry import ProviderError, QuotaExhausted, RetryableError
 
 TARGET_LUFS = -18.0
 POST_VERSION = 3            # bump when post-processing changes: re-renders from raw takes, no TTS calls
-PROMPT_FORMAT = 2           # see gemini.tts_prompt
+PROMPT_FORMAT = 3           # the bare line; see gemini.tts_prompt and FAILURES.md F7
 MAX_TAKES = 3
 RETAKE_CER = 0.6            # above this the take is very likely wrong, not just transcribed loosely
+MIN_WORDS_PER_S = 0.9       # slower than this, the take holds more than the line (F7: a spoken style note)
 TRIM_AND_TIGHTEN = (
     "silenceremove=start_periods=1:start_threshold=-48dB:start_silence=0.06,"
     "silenceremove=stop_periods=-1:stop_duration=0.45:stop_threshold=-40dB:stop_silence=0.32,"
@@ -85,10 +86,15 @@ def tts_spec(sb: dict[str, Any], line: dict[str, Any]) -> dict[str, Any]:
     fallback list must not re-speak every line. The model that actually spoke a
     take is recorded in the manifest and in runs.jsonl."""
     speaker = sbmod.characters(sb)[line["speaker"]]
+    # The delivery note is not sent to the model (gemini.tts_prompt), so it is not in the key.
     return {"text": line["text"], "voice": speaker["voice"]["name"],
-            "direction": line.get("direction") or speaker["voice"]["direction"],
             "model": sbmod.model_list(sb["models"]["tts"])[0], "language": sb["language"]["code"],
             "prompt_format": PROMPT_FORMAT}
+
+
+def too_long(text: str, seconds: float) -> bool:
+    """A take far longer than its words allow holds something else: a spoken note, a repeat."""
+    return seconds > len(text.split()) / MIN_WORDS_PER_S + 1.2
 
 
 def tts_models(sb: dict[str, Any]) -> list[str]:
@@ -107,12 +113,11 @@ def _take(project: Project, sb: dict[str, Any], item: str, spec: dict[str, Any],
     tts_key = key_for(spec)
     for take in range(1, MAX_TAKES + 1):
         pcm, rate, used = gemini.tts(project, stage="narration", item=item if take == 1 else f"{item}-take{take}",
-                                     model=tts_models(sb), text=spec["text"], voice=spec["voice"],
-                                     direction=spec["direction"] if take < MAX_TAKES else None,
-                                     language=sb["language"]["name"])
+                                     model=tts_models(sb), text=spec["text"], voice=spec["voice"])
         raw = raw_cache.dir / f"{item}__{tts_key}.take{take}.wav"
         write_wav(raw, pcm, rate=rate)
-        meta: dict[str, Any] = {"model": used, "take": take}
+        seconds = len(pcm) / 2 / rate
+        meta: dict[str, Any] = {"model": used, "take": take, "raw_s": round(seconds, 2)}
         cer = None
         if listen_models:
             try:
@@ -123,12 +128,15 @@ def _take(project: Project, sb: dict[str, Any], item: str, spec: dict[str, Any],
                 meta.update(heard=heard, cer=cer)
             except (ProviderError, QuotaExhausted, RetryableError) as exc:
                 meta["listen_error"] = str(exc)[:200]
-        score = cer if cer is not None else 0.5
+        long_take = too_long(spec["text"], seconds)
+        meta["too_long"] = long_take
+        score = (cer if cer is not None else 0.5) + (1.0 if long_take else 0.0)
         if best is None or score < best[0]:
             best = (score, raw, meta)
-        if cer is None or cer <= RETAKE_CER:
+        if not long_take and (cer is None or cer <= RETAKE_CER):
             break
-        print(f"    {item}: take {take} drifted from the script (CER {cer:.2f}); re-taking")
+        reason = f"{seconds:.1f}s is too long for {len(spec['text'].split())} words" if long_take else f"CER {cer:.2f}"
+        print(f"    {item}: take {take} does not match the script ({reason}); re-taking")
     assert best is not None
     _, raw, meta = best
     final_raw = raw_cache.path(item, tts_key, ".wav")

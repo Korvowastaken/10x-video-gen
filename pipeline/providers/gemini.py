@@ -8,6 +8,7 @@ from __future__ import annotations
 import base64
 import json
 import re
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -76,18 +77,23 @@ def _models(model: str | list[str]) -> list[str]:
 
 def generate_text(project: Project, *, stage: str, item: str, model: str | list[str], prompt: str,
                   system: str | None = None, json_mode: bool = False, temperature: float = 0.8,
-                  seed: int | None = None, timeout: float = 240) -> tuple[str, str]:
-    """Returns (text, model used). `model` may be a fallback chain, best first."""
+                  seed: int | None = None, timeout: float = 240, image: Path | None = None) -> tuple[str, str]:
+    """Returns (text, model used). `model` may be a fallback chain, best first. `image` is sent before the prompt."""
     return with_fallback(_models(model), lambda m: _generate_text_once(
         project, stage=stage, item=item, model=m, prompt=prompt, system=system, json_mode=json_mode,
-        temperature=temperature, seed=seed, timeout=timeout), label=f"{stage}/{item}")
+        temperature=temperature, seed=seed, timeout=timeout, image=image), label=f"{stage}/{item}")
 
 
 def _generate_text_once(project: Project, *, stage: str, item: str, model: str, prompt: str,
                         system: str | None, json_mode: bool, temperature: float,
-                        seed: int | None, timeout: float) -> str:
+                        seed: int | None, timeout: float, image: Path | None = None) -> str:
+    parts: list[dict[str, Any]] = []
+    if image is not None:
+        mime = "image/png" if image.suffix.lower() == ".png" else "image/jpeg"
+        parts.append({"inlineData": {"mimeType": mime, "data": base64.b64encode(image.read_bytes()).decode("ascii")}})
+    parts.append({"text": prompt})
     body: dict[str, Any] = {
-        "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+        "contents": [{"role": "user", "parts": parts}],
         "generationConfig": {"temperature": temperature},
     }
     if system:
@@ -126,17 +132,28 @@ def tts(project: Project, *, stage: str, item: str, model: str | list[str], text
     return pcm, rate, used
 
 
-def tts_prompt(text: str, direction: str | None, language: str | None = None) -> str:
-    """Google's documented shape: an instruction that starts with "Say", then the line in quotes.
+def tts_prompt(text: str, direction: str | None = None, language: str | None = None) -> str:
+    """The bare line. With Amharic text, both formats that put an English style
+    note in the prompt ("<note>:\\n<line>" and 'Say this line, <note>: "<line>"')
+    made the voice speak the note aloud, partly translated, before the line:
+    a 4-word line became 10 s of audio instead of 2.25 s (FAILURES.md F7).
+    Delivery now comes from the choice of voice; `direction` stays in the
+    storyboard as documentation until a safe way to send it is proven."""
+    del direction, language
+    return text
 
-    The first format, "<direction>:\\n<line>", made the voice read the English
-    direction aloud instead of the Amharic line (FAILURES.md F7).
-    """
-    if not direction:
-        return text
-    style = direction.strip().rstrip(".:").lower()
-    lang = f" in {language}" if language else ""
-    return f'Say this line{lang}, {style}, at a natural speaking pace: "{text}"'
+
+def _decode_audio(data: bytes, mime: str) -> tuple[bytes, int]:
+    """Return 16-bit mono PCM and its rate. Some TTS models send raw L16, some a WAV file."""
+    if data[:4] == b"RIFF":
+        import io
+        import wave
+        with wave.open(io.BytesIO(data)) as wav:
+            if wav.getsampwidth() != 2 or wav.getnchannels() != 1:
+                raise ProviderError(f"unexpected WAV format: {wav.getsampwidth() * 8}-bit, {wav.getnchannels()} channel(s)")
+            return wav.readframes(wav.getnframes()), wav.getframerate()
+    rate_match = re.search(r"rate=(\d+)", mime)
+    return data, int(rate_match.group(1)) if rate_match else 24000
 
 
 def _tts_once(project: Project, *, stage: str, item: str, model: str, text: str, voice: str,
@@ -153,8 +170,8 @@ def _tts_once(project: Project, *, stage: str, item: str, model: str, text: str,
         body["generationConfig"]["seed"] = seed
 
     def attempt(n: int) -> tuple[bytes, int]:
-        params = {"voice": voice, "direction": direction, "text_chars": len(text),
-                  "text_sha": runlog.text_digest(text), "prompt_format": 2}
+        params = {"voice": voice, "text_chars": len(text), "text_sha": runlog.text_digest(text),
+                  "prompt_format": 3}
         with runlog.model_call(project, stage=stage, item=item, provider="gemini", model=model,
                                params=params, seed=seed, attempt=n) as call:
             payload = _generate(model, body, timeout)
@@ -163,8 +180,9 @@ def _tts_once(project: Project, *, stage: str, item: str, model: str, text: str,
                 inline = part.get("inlineData") or part.get("inline_data")
                 if inline and inline.get("data"):
                     mime = inline.get("mimeType") or inline.get("mime_type") or ""
-                    rate_match = re.search(r"rate=(\d+)", mime)
-                    return base64.b64decode(inline["data"]), int(rate_match.group(1)) if rate_match else 24000
+                    pcm, rate = _decode_audio(base64.b64decode(inline["data"]), mime)
+                    call.note = f"audio {mime}, {len(pcm) / 2 / rate:.2f}s"
+                    return pcm, rate
             raise ProviderError("TTS response had no audio part")
 
     return with_retries(attempt, attempts=3, label=f"{stage}/{item}")

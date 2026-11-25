@@ -108,6 +108,7 @@ def rule_errors(sb: dict[str, Any], project: Project | None = None) -> list[str]
         ref = character.get("reference")
         if ref and ref.get("chosen", 0) >= len(ref["seeds"]):
             errors.append(f"characters/{character['id']}: reference.chosen is past the end of seeds")
+    errors += motion_errors(sb)
     music = sb.get("music", {})
     if music.get("chosen") is not None and music["chosen"] >= len(music.get("seeds", [])):
         errors.append("music: chosen is past the end of seeds")
@@ -123,6 +124,44 @@ def rule_errors(sb: dict[str, Any], project: Project | None = None) -> list[str]
                     f"'{character.get('consent', '?')}' has no row in the ETHICS.md consent table. "
                     "Record consent first; nothing of a real person is generated without it.")
     return errors
+
+
+def motion_errors(sb: dict[str, Any]) -> list[str]:
+    """Engines exist and can do what each shot's mode asks (pipeline/engines.py)."""
+    from .engines import LEGACY_MODES, MODES, MUSIC_ENGINES, VIDEO_ENGINES
+
+    errors = []
+    default_engine = sb.get("models", {}).get("video")
+    if default_engine not in VIDEO_ENGINES:
+        errors.append(f"models.video: unknown engine '{default_engine}' (known: {', '.join(VIDEO_ENGINES)})")
+    if sb.get("models", {}).get("music") not in MUSIC_ENGINES:
+        errors.append(f"models.music: unknown engine '{sb.get('models', {}).get('music')}' (known: {', '.join(MUSIC_ENGINES)})")
+    for shot in sb.get("shots", []):
+        motion = shot["motion"]
+        mode = motion["mode"]
+        if mode in LEGACY_MODES:
+            errors.append(f"{shot['id']}: motion.mode '{mode}' is retired; use '{LEGACY_MODES[mode]}'")
+            continue
+        if not MODES.get(mode, {}).get("paid"):
+            continue
+        name = motion.get("engine", default_engine)
+        engine = VIDEO_ENGINES.get(name)
+        if engine is None:
+            errors.append(f"{shot['id']}: unknown video engine '{name}'")
+            continue
+        if mode == "flf_inbetween" and not engine["last_image"]:
+            errors.append(f"{shot['id']}: engine '{name}' cannot end on a given frame (no last_image)")
+        if motion.get("clip_s", 5) not in engine["clip_s"]:
+            errors.append(f"{shot['id']}: engine '{name}' makes {engine['clip_s']} s clips, not {motion.get('clip_s')}")
+        for region in motion.get("mask", {}).get("regions", []):
+            if region["x"] + region["w"] > 1.001 or region["y"] + region["h"] > 1.001:
+                errors.append(f"{shot['id']}: a mask region runs past the edge of the frame")
+    return errors
+
+
+def paid_clips(sb: dict[str, Any]) -> list[dict[str, Any]]:
+    from .engines import MODES
+    return [s for s in sb["shots"] if MODES.get(s["motion"]["mode"], {}).get("paid")]
 
 
 def warnings(sb: dict[str, Any]) -> list[str]:
@@ -219,6 +258,18 @@ def image_prompt(sb: dict[str, Any], shot: dict[str, Any]) -> str:
     return " ".join(_sentence(p) for p in parts)
 
 
+def end_image_prompt(sb: dict[str, Any], shot: dict[str, Any]) -> str:
+    """The frame an in-between must end on: same scene and look, the new state."""
+    end = dict(shot, keyframe={"prompt": shot["motion"]["end_keyframe"]["prompt"],
+                               "seed": shot["motion"]["end_keyframe"]["seed"]})
+    return image_prompt(sb, end) + (" Keep the camera, framing, light and every character's look exactly as in the "
+                                    "first reference image; only their pose and position change.")
+
+
 def motion_prompt(sb: dict[str, Any], shot: dict[str, Any]) -> str:
     tag = sb["style"].get("motion", "smooth slow motion, stable shapes")
-    return f"{_sentence(shot['motion']['prompt'])} {_sentence(tag)}"
+    prompt = f"{_sentence(shot['motion']['prompt'])} {_sentence(tag)}"
+    if shot["motion"]["mode"] in ("masked_i2v", "cinemagraph"):
+        # The clip is pasted back onto the still, so it has to line up with it (research 1a).
+        prompt += " Static locked-off camera; the background does not move."
+    return prompt

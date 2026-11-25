@@ -21,15 +21,20 @@ import yaml
 from . import storyboard as sbmod
 from .cache import sha256_bytes
 from .config import DEFAULT_MODELS, ConfigError, Project
+from .engines import LEGACY_MODES, MODES
 from .presets import LANGUAGES, STYLES, VOICES
+
+PARALLAX_MOVES = ("push-in", "pull-out", "slide-left", "slide-right", "rise")
+KENBURNS = ("zoom-in", "zoom-out", "pan-left", "pan-right", "pan-up", "pan-down")
 from .providers import gemini
 from .runlog import now_iso
 
 PROMPT_VERSION = "script-v1"
 SCRIPT_MODELS = DEFAULT_MODELS["script"]
-# Spoken words per second with Gemini TTS. Amharic was measured on our first radio
-# cut (94 words -> 97 s of speech, EXPERIMENTS.md E3); the others are estimates.
-WORDS_PER_SECOND = {"am": 1.0, "ti": 1.0, "om": 1.5, "so": 1.6, "en": 2.3}
+# Spoken words per second with Gemini TTS. Amharic: a bare 4-word line took 2.25 s
+# (~1.8 w/s with padding). The earlier "1.0" came from takes polluted by a spoken
+# style note (EXPERIMENTS.md E3, FAILURES.md F7). The others are estimates.
+WORDS_PER_SECOND = {"am": 1.6, "ti": 1.6, "om": 1.8, "so": 1.9, "en": 2.3}
 
 SYSTEM = """You are the writer and storyboard artist of a tiny animation studio. You turn one family
 story into a 60-90 second vertical short film that the family will watch twice and forward to
@@ -55,8 +60,12 @@ TEMPLATE = """{
      "size": "extreme-wide | wide | medium | medium-close-up | close-up | extreme-close-up | insert | over-the-shoulder",
      "location": "location id", "characters": ["ids visible in the frame"], "duration_s": 6,
      "keyframe": {"prompt": "what this still shows: action, expression, props, angle, light"},
-     "motion": {"mode": "video or kenburns", "prompt": "only the motion and the camera",
-                "kenburns": "zoom-in | zoom-out | pan-left | pan-right | pan-up | pan-down"},
+     "motion": {"mode": "full_i2v | flf_inbetween | masked_i2v | cinemagraph | parallax | still_kenburns",
+                "prompt": "only the motion and the camera", "subject": "character | ambient", "clip_s": 5,
+                "mask": {"target": "masked modes only: what should move, in words"},
+                "end_keyframe": {"prompt": "flf_inbetween only: Same place and camera: the end state"},
+                "parallax": {"move": "parallax only: push-in | pull-out | slide-left | slide-right | rise"},
+                "kenburns": "still_kenburns only: zoom-in | zoom-out | pan-left | pan-right | pan-up | pan-down"},
      "lines": [{"speaker": "character id", "text": "spoken line in LANGUAGE", "en": "English subtitle"}],
      "music_cue": "what the music does here"}
   ],
@@ -88,9 +97,17 @@ RULES = """Rules:
 6. keyframe.prompt describes only this frame: action, expression, props, camera angle, light. Do not
    repeat the style or the characters' full looks; code adds them. Keep the subject centred with
    space above heads. Never ask for text, letters or signs in the image.
-7. motion.prompt describes only motion and camera, one slow movement, e.g. "she slowly lifts the cup,
-   steam rises, the camera pushes in gently". Use mode "video" for 7-8 shots where movement carries
-   meaning (people, steam, walking, hands) and "kenburns" for the rest (landscapes, still objects).
+7. Motion: one mode per shot. At most {paid} shots may use the paid modes (each buys one generated clip):
+   - full_i2v: whole-body action such as walking. clip_s 8 only when the walk lasts more than 6 seconds.
+   - flf_inbetween: a clear start and end state in one place (a hand reaches out, then they hold hands);
+     give end_keyframe.prompt, starting "Same place and camera:".
+   - masked_i2v: only part of the frame moves (a face, hands); give mask.target in words.
+   - cinemagraph: one looping detail (steam, smoke, pouring, water, leaves); give mask.target.
+   Free modes:
+   - parallax: establishing shots, landscapes, rooms, still characters; give parallax.move.
+   - still_kenburns: inserts and small details; give kenburns.
+   motion.prompt describes only motion and camera, one slow movement, e.g. "she slowly lifts the cup,
+   steam rises, the camera pushes in gently". subject is "character" when a person moves, else "ambient".
 8. Culture: dress, objects and places must be accurate for the story's place and era (for example
    habesha kemis, netela shawl with a woven tibeb border, gabi, jebena clay coffee pot with a long
    neck and round belly, small handleless sini cups, rekebot tray, mesob basket, eucalyptus, false-
@@ -141,7 +158,7 @@ def build_prompt(meta: dict[str, Any], body: str) -> str:
     else:
         people_rule = "no real person is depicted. Every character is a fictional composite inspired by the story."
     voices = ", ".join(f"{name}: {pitch}, {mood}" for name, (pitch, mood) in VOICES.items())
-    rules = RULES.format(min_shots=10, max_shots=12, target=target, people_rule=people_rule,
+    rules = RULES.format(min_shots=10, max_shots=12, target=target, people_rule=people_rule, paid=7,
                          language=lang["name"], script=lang["script"], wps=wps,
                          words=int(target * wps * 0.8), voices=voices,
                          template=TEMPLATE.replace("LANGUAGE", lang["name"]))
@@ -179,10 +196,24 @@ def to_storyboard(draft: dict[str, Any], meta: dict[str, Any], *, story_sha: str
                                         "seeds": [500 + 10 * i], "chosen": 0}})
     shots = []
     for n, s in enumerate(draft.get("shots", []), 1):
-        motion = dict(s.get("motion", {}))
-        motion["seed"] = 1000 + 10 * n
-        if motion.get("mode") == "kenburns":
-            motion.setdefault("kenburns", "zoom-in")
+        given = dict(s.get("motion", {}))
+        mode = LEGACY_MODES.get(given.get("mode", ""), given.get("mode", "still_kenburns"))
+        motion = {"mode": mode, "prompt": given.get("prompt", ""), "seed": 1000 + 10 * n}
+        if given.get("subject") in ("character", "ambient"):
+            motion["subject"] = given["subject"]
+        if MODES.get(mode, {}).get("paid"):
+            motion["clip_s"] = 8 if given.get("clip_s") == 8 else 5
+        if mode in ("masked_i2v", "cinemagraph"):
+            motion["mask"] = {"target": (given.get("mask") or {}).get("target") or "the main moving detail"}
+            motion["loop"] = "pingpong"
+        if mode == "flf_inbetween":
+            end = (given.get("end_keyframe") or {}).get("prompt") or "Same place and camera: the action completed."
+            motion["end_keyframe"] = {"prompt": end, "seed": 1001 + 10 * n}
+        if mode == "parallax":
+            move = (given.get("parallax") or {}).get("move", "push-in")
+            motion["parallax"] = {"move": move if move in PARALLAX_MOVES else "push-in", "amount": 0.03}
+        if mode == "still_kenburns":
+            motion["kenburns"] = given.get("kenburns") if given.get("kenburns") in KENBURNS else "zoom-in"
         shot = {k: s[k] for k in ("id", "beat", "reason", "size", "location", "characters", "duration_s", "lines")
                 if k in s}
         shot["keyframe"] = {"prompt": (s.get("keyframe") or {}).get("prompt", ""), "seed": 1000 + 10 * n}
@@ -219,6 +250,7 @@ def to_storyboard(draft: dict[str, Any], meta: dict[str, Any], *, story_sha: str
         "shots": shots,
         "music": music,
         "end_card": {"title": "Made with AI", "lines": end_lines, "duration_s": 3},
+        "video": {"max_paid_clips": 7, "budget_usd": 0.6, "interpolation": "rife", "rife_model": "rife-v4.25"},
         "edit": dict(sbmod.EDIT_DEFAULTS),
     }
 

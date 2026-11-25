@@ -273,6 +273,8 @@ export const api = {
   useKey: (service: string, slot: number) => call("POST", `/api/keys/${service}/${slot}/use`),
   consent: () => call<Consent>("GET", "/api/consent"),
   confirmConsent: (body: ConsentConfirm) => call<Consent>("POST", "/api/consent", body),
+  /** The Real person switch, turned on: nothing of them is made until consent is confirmed. */
+  markRealPerson: (character: string) => call<Consent>("POST", "/api/consent/real", { character }),
   withdrawConsent: (id: string) => call<Consent>("POST", `/api/consent/${id}/withdraw`),
   notRealPerson: (id: string) => call<Consent>("POST", `/api/consent/${id}/fictional`),
   stories: () => call<StoryItem[]>("GET", "/api/stories"),

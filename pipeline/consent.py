@@ -62,8 +62,10 @@ def people(project: Project) -> list[dict[str, str]]:
             for r in load(project) if r["status"] in (AGREED, WITHDRAWN)]
 
 
-def _next_id(project: Project) -> str:
-    taken = {int(i[1:]) for i in _ethics_ids(project) | {r["id"] for r in load(project)}}
+def _next_id(project: Project, sb: dict[str, Any] | None = None) -> str:
+    """The next free C<n>: past the ETHICS.md table, this story's records and ids characters already hold."""
+    held = {c["consent"] for c in (sb or {}).get("characters", []) if re.fullmatch(r"C\d+", c.get("consent") or "")}
+    taken = {int(i[1:]) for i in _ethics_ids(project) | {r["id"] for r in load(project)} | held}
     return f"C{max(taken, default=0) + 1}"
 
 
@@ -136,8 +138,11 @@ def record(project: Project, sb: dict[str, Any], cid: str, *, self: bool, read_o
         raise ValueError("Confirm all three, and say how the answer was recorded")
     lines = lines_of(sb, cid)
     voice = (character.get("voice") or {}).get("name")
+    # a character marked real before confirming keeps the id it holds, unless a record already took it
+    held = character.get("consent")
+    fresh = held if held and character.get("real_person") and held not in {r["id"] for r in load(project)}         and held not in _ethics_ids(project) else _next_id(project, sb)
     rec = {
-        "id": _next_id(project), "character": cid, "person": character["name"], "status": AGREED, "self": self,
+        "id": fresh, "character": cid, "person": character["name"], "status": AGREED, "self": self,
         "shown_as": "an AI-made animated character" if character["visible"] else "not shown (voice only)",
         "voiced_as": f"a computer voice ({voice}), not their own" if lines else "no spoken lines",
         "lines": lines,
@@ -153,6 +158,17 @@ def record(project: Project, sb: dict[str, Any], cid: str, *, self: bool, read_o
     character["real_person"] = True
     character["consent"] = rec["id"]
     return rec
+
+
+def mark_real(project: Project, sb: dict[str, Any], cid: str) -> None:
+    """Mark a character as a real person before consent is confirmed: from now on nothing of them is
+    generated until it is (the caller saves the storyboard)."""
+    character = next((c for c in sb["characters"] if c["id"] == cid), None)
+    if character is None:
+        raise KeyError(cid)
+    if not character.get("real_person"):
+        character["real_person"] = True
+        character["consent"] = _next_id(project, sb)
 
 
 def set_status(project: Project, sb: dict[str, Any], cid: str, status: str, today: str | None = None) -> None:
@@ -244,5 +260,22 @@ def _status(cid: str, status: str) -> dict[str, Any]:
         set_status(project, sb, cid, status)
     except KeyError:
         raise HTTPException(404, "no such consent record")
+    _save_storyboard(project, sb)
+    return overview(project)
+
+
+class Character(BaseModel):
+    character: str
+
+
+@router.post("/real")
+def post_real(body: Character) -> dict[str, Any]:
+    """The Real person switch, turned on: protected at once, consent asked next."""
+    project = _project()
+    sb = _storyboard(project)
+    try:
+        mark_real(project, sb, body.character)
+    except KeyError:
+        raise HTTPException(404, "no such character")
     _save_storyboard(project, sb)
     return overview(project)

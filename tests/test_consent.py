@@ -90,3 +90,19 @@ def test_the_read_out_comes_from_ethics_md():
     blocks = consent.wording()
     assert [b["label"] for b in blocks][:2] == ["English", "Amharic"]
     assert "Do you agree?" in blocks[0]["text"]
+
+
+def test_the_switch_protects_a_person_at_once_and_confirming_keeps_their_id(project):
+    client = TestClient(studio.app)
+    sb = sbmod.load(project)
+    a, b = sb["characters"][0]["id"], sb["characters"][1]["id"]
+    client.post("/api/consent/real", json={"character": a})
+    out = client.post("/api/consent/real", json={"character": b}).json()
+    held = {x["id"]: x for x in out["characters"]}
+    assert held[a]["status"] == held[b]["status"] == "needs consent"
+    assert {held[a]["consent"], held[b]["consent"]} == {"C1", "C2"}  # two people never share an id
+    assert len(_blocked(project)) == 2
+    out = client.post("/api/consent", json={"character": b, "self": True}).json()
+    assert next(x for x in out["characters"] if x["id"] == b)["consent"] == "C2" and len(_blocked(project)) == 1
+    out = client.post("/api/consent/C1/fictional").json()  # switched off again before confirming
+    assert next(x for x in out["characters"] if x["id"] == a)["status"] == "fictional" and not _blocked(project)

@@ -5,58 +5,70 @@
 @custom-variant data-horizontal (&[data-orientation="horizontal"]);
 @custom-variant data-vertical (&[data-orientation="vertical"]);
 
-/* Linear's design tokens (read from linear.app's stylesheet, 2026-11-25), mapped onto shadcn's variables
-   so every component takes Linear's look instead of shadcn's default. */
+/* Tibeb: white cotton ground, ink, and the colours of a woven tibeb border, each with one job.
+   Green is approved, gold is current or ready, red needs the maker (stale, used up, missing),
+   blue is selection and links. Light follows white cotton; dark follows the same weave on a dark cloth. */
+
 :root {
   --background: #ffffff;
-  --foreground: #282a30;
-  --card: #f8f8f8;
-  --card-foreground: #282a30;
+  --foreground: #1d1d1b;
+  --card: #fbfaf7;
+  --card-foreground: #1d1d1b;
   --popover: #ffffff;
-  --popover-foreground: #282a30;
-  --primary: #5e6ad2;
+  --popover-foreground: #1d1d1b;
+  --primary: #1d1d1b;
   --primary-foreground: #ffffff;
-  --secondary: #f4f4f4;
-  --secondary-foreground: #3c4149;
-  --muted: #f0f0f0;
-  --muted-foreground: #6f6e77;
-  --accent: #f1f1ff;
-  --accent-foreground: #282a30;
-  --destructive: #eb5757;
-  --border: #e9e8ea;
-  --input: #e4e2e4;
-  --ring: #5e6ad2;
-  --subtle: #86848d;
-  --paid: #d9622b;
-  --free: #27a644;
-  --warn: #b98f00;
-  --radius: 8px;
+  --secondary: #f3f2ee;
+  --secondary-foreground: #2e2d2a;
+  --muted: #f3f2ee;
+  --muted-foreground: #5f5e58;
+  --accent: #eef2f9;
+  --accent-foreground: #1d1d1b;
+  --destructive: #b8322a;
+  --border: #e6e4de;
+  --input: #d6d3ca;
+  --ring: #1f4e9e;
+  --subtle: #6f6d66;
+  --thread: #cfccc2;
+  --paid: #9a4a12;
+  --free: #1f7a4d;
+  --warn: #b8322a;
+  --gold: #e0a800;
+  --gold-ink: #7d5f00;
+  --link: #1f4e9e;
+  --weft: #ffffff;
+  --radius: 6px;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #08090a;
-    --foreground: #f7f8f8;
-    --card: #0f1011;
-    --card-foreground: #f7f8f8;
-    --popover: #141516;
-    --popover-foreground: #f7f8f8;
-    --primary: #7170ff;
-    --primary-foreground: #ffffff;
-    --secondary: #191a1b;
-    --secondary-foreground: #d0d6e0;
-    --muted: #141516;
-    --muted-foreground: #8a8f98;
-    --accent: #18182f;
-    --accent-foreground: #f7f8f8;
-    --destructive: #eb5757;
-    --border: #ffffff14;
-    --input: #ffffff1f;
-    --ring: #7170ff;
-    --subtle: #62666d;
-    --paid: #fc7840;
-    --free: #4cb782;
-    --warn: #f0bf00;
+    --background: #121211;
+    --foreground: #f2f0ea;
+    --card: #1a1917;
+    --card-foreground: #f2f0ea;
+    --popover: #1e1d1b;
+    --popover-foreground: #f2f0ea;
+    --primary: #f2f0ea;
+    --primary-foreground: #121211;
+    --secondary: #24231f;
+    --secondary-foreground: #e4e1d8;
+    --muted: #22211e;
+    --muted-foreground: #aeaba1;
+    --accent: #1d2533;
+    --accent-foreground: #f2f0ea;
+    --destructive: #e5675b;
+    --border: #2c2b27;
+    --input: #3a3833;
+    --ring: #7aa2e8;
+    --subtle: #95928a;
+    --thread: #4a4740;
+    --paid: #eb9a5c;
+    --free: #45a876;
+    --warn: #e5675b;
+    --gold: #eab51f;
+    --gold-ink: #eab51f;
+    --link: #8db0ee;
+    --weft: #121211;
   }
 }
 
@@ -83,11 +95,15 @@
   --color-paid: var(--paid);
   --color-free: var(--free);
   --color-warn: var(--warn);
-  --radius-sm: 4px;
-  --radius-md: 6px;
+  --color-gold: var(--gold);
+  --color-gold-ink: var(--gold-ink);
+  --color-link: var(--link);
+  --color-thread: var(--thread);
+  --radius-sm: 3px;
+  --radius-md: 5px;
   --radius-lg: var(--radius);
-  --radius-xl: 12px;
-  --font-sans: "Inter Variable", "Inter", "SF Pro Display", -apple-system, "Segoe UI", sans-serif;
+  --radius-xl: 10px;
+  --font-sans: "Inter", "Noto Sans Ethiopic", -apple-system, "Segoe UI", sans-serif;
   --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
 }
 
@@ -98,8 +114,42 @@
     @apply bg-background text-foreground font-sans antialiased;
     font-size: 14px;
     line-height: 1.5;
-    letter-spacing: -0.013em;
-    font-feature-settings: "cv01", "ss03";
+    letter-spacing: -0.006em;
+    font-feature-settings: "cv11", "ss01";
   }
-  ::selection { background: color-mix(in srgb, var(--primary) 35%, transparent); }
+  :lang(am) { font-family: "Noto Sans Ethiopic", "Inter", sans-serif; letter-spacing: 0; }
+  ::selection { background: color-mix(in srgb, var(--gold) 40%, transparent); }
+  :focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+  a { text-underline-offset: 3px; }
+  * { scrollbar-width: thin; scrollbar-color: var(--thread) transparent; }
+}
+
+/* The woven band: a tibeb strip whose colour says the state. Diamonds from two diagonal
+   thread grids over a striped warp. Used on the rail edge (one segment per step) and the
+   scenes strip (one segment per scene). */
+@layer components {
+  .weave { background-color: transparent; }
+  .weave-done {
+    background:
+      repeating-linear-gradient(45deg, transparent 0 4px, var(--weft) 4px 5px),
+      repeating-linear-gradient(-45deg, transparent 0 4px, var(--weft) 4px 5px),
+      linear-gradient(90deg, var(--free) 0 3px, var(--warn) 3px 4px, var(--free) 4px 10px, var(--gold) 10px 11px, var(--free) 11px);
+  }
+  .weave-current {
+    background:
+      repeating-linear-gradient(45deg, transparent 0 4px, var(--foreground) 4px 5px),
+      repeating-linear-gradient(-45deg, transparent 0 4px, var(--weft) 4px 5px),
+      linear-gradient(90deg, var(--gold) 0 3px, var(--warn) 3px 4px, var(--gold) 4px 10px, var(--free) 10px 11px, var(--gold) 11px);
+  }
+  .weave-stale {
+    background:
+      repeating-linear-gradient(45deg, transparent 0 4px, var(--weft) 4px 5px),
+      repeating-linear-gradient(-45deg, transparent 0 4px, var(--weft) 4px 5px),
+      var(--warn);
+  }
+  .weave-locked { background: linear-gradient(90deg, transparent 6px, var(--thread) 6px 7px, transparent 7px); }
+  .weave-h.weave-locked {
+    background: linear-gradient(transparent 3px, var(--thread) 3px 4px, transparent 4px);
+    border-inline: 1px solid var(--thread);
+  }
 }

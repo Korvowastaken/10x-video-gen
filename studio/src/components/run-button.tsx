@@ -21,7 +21,7 @@ export function CostTag({ cost, className }: { cost: Cost; className?: string })
     <span
       title={out ? `${out.label}: today's free limit is used up. Back ${back(out).text}.` : undefined}
       className={cn(
-        "inline-flex h-[18px] items-center rounded-[4px] px-1.5 text-[11px] font-medium tabular-nums",
+        "inline-flex h-[18px] shrink-0 items-center rounded-[4px] px-1.5 text-[11px] font-medium whitespace-nowrap tabular-nums",
         cost.paid ? "bg-paid/15 text-paid" : "bg-free/12 text-free",
         className,
         out && "bg-warn/15 text-warn",
@@ -73,11 +73,15 @@ export function RunButton({
         size={size}
         disabled={disabled || !!out}
         title={out ? `${out.label}: today's free limit is used up. Back ${back(out).text}.` : undefined}
-        className={cn(cost.paid && !variant && "border-paid/40 text-paid hover:bg-paid/10 hover:text-paid", className)}
+        className={cn(
+          cost.paid && !variant && "border-paid/40 text-paid hover:bg-paid/10 hover:text-paid",
+          "disabled:border-transparent disabled:bg-muted disabled:text-subtle disabled:opacity-100",
+          className,
+        )}
         onClick={() => (ask ? setOpen(true) : onRun())}
       >
         {children}
-        <CostTag cost={cost} className={cn("-mr-1", !cost.paid && !out && (variant ?? "default") === "default" && "bg-white/15 text-white")} />
+        <CostTag cost={cost} className={cn("-mr-1", !cost.paid && !out && !disabled && (variant ?? "default") === "default" && "bg-background/15 text-background")} />
       </Button>
       {ask && (
         <AlertDialog open={open} onOpenChange={setOpen}>

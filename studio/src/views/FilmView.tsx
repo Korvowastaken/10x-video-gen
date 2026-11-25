@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { toast } from "sonner"
 
-import { api, MODES } from "@/api"
+import { api, MODES, type Storyboard } from "@/api"
 import type { Studio } from "@/App"
 import { ProvidersPanel } from "@/components/providers-panel"
 import { RunButton } from "@/components/run-button"
@@ -11,7 +11,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { FREE, PAID, usd } from "@/lib/progress"
 import { cn } from "@/lib/utils"
-import { ApproveBar, Page, Section, StatusDot, StepHeader } from "@/views/parts"
+import { ApproveBar, NotYet, Page, Section, StatusDot, StepHeader } from "@/views/parts"
+
+const LEAD = "Choose what each scene uses, pick the score, then make the final cut in 9:16 and 16:9. Making a cut is free: it only uses what is already made."
 
 export function FilmView({ studio }: { studio: Studio }) {
   const { state, flow, track, busy, refresh, go } = studio
@@ -51,10 +53,11 @@ export function FilmView({ studio }: { studio: Studio }) {
   ].filter((v) => v.url)
   const [watch, setWatch] = useState(videos[0]?.id ?? "")
   const video = videos.find((v) => v.id === watch) ?? videos[0]
+  if (!sb) return <NotYet studio={studio} step="final" n={6} title="Film" lead={LEAD} needs="The film is cut from the scenes, so there is nothing to cut until the script has them." />
 
   return (
     <Page>
-      <StepHeader n={6} title="Film" lead="Choose what each scene uses, pick the score, then make the final cut in 9:16 and 16:9. Making a cut is free: it only uses what is already made." />
+      <StepHeader n={6} title="Film" lead={LEAD} />
       <ProvidersPanel studio={studio} step="film" />
       <ApproveBar studio={studio} step="final" what="the final cut" />
 
@@ -81,7 +84,7 @@ export function FilmView({ studio }: { studio: Studio }) {
                 <RunButton
                   variant={c.id === "rough" ? "default" : "secondary"}
                   cost={c.cost}
-                  disabled={busy || !sb || (c.id === "final" && locked)}
+                  disabled={busy || (c.id === "final" && locked)}
                   onRun={() => track(c.id === "final" ? api.makeCut() : api.run(c.id))}
                 >
                   {c.url ? "Make again" : "Make"}
@@ -99,7 +102,7 @@ export function FilmView({ studio }: { studio: Studio }) {
             </p>
           )}
 
-          {sb && <CutChoices studio={studio} />}
+          <CutChoices studio={studio} sb={sb} />
 
           <Section
             title="Paid clips"
@@ -216,9 +219,8 @@ export function FilmView({ studio }: { studio: Studio }) {
 }
 
 /** Per scene, what goes into the cut: its own mode, or a free one instead (a bought clip is kept either way). */
-function CutChoices({ studio }: { studio: Studio }) {
-  const { state, flow, refresh, busy } = studio
-  const sb = state.storyboard!
+function CutChoices({ studio, sb }: { studio: Studio; sb: Storyboard }) {
+  const { flow, refresh, busy } = studio
   const use = sb.edit?.use ?? {}
   const free = Object.entries(flow.catalog.modes).filter(([, m]) => !m.paid)
 

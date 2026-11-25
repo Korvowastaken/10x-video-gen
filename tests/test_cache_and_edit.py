@@ -9,7 +9,9 @@ from pipeline.config import ROOT, Project
 from pipeline.narration import char_error_rate, line_items, spec_for, tts_spec
 from pipeline.providers.gemini import tts_prompt
 
-PROJECT = Project(ROOT)
+FILM = ROOT / "tests" / "fixtures" / "film"  # a sample film to test against, so the real project can be empty
+
+PROJECT = Project(FILM)
 
 
 def _sb():

@@ -1,0 +1,597 @@
+{
+  "$schema": "./schema/storyboard.schema.json",
+  "version": 1,
+  "title": "An Egg Walks on Its Own Legs",
+  "logline": "A young Ethiopian girl learns patience from her mother during long Saturday walks to market, carrying a lesson that warms her family generations later.",
+  "source": {
+    "story_file": "story.md",
+    "story_sha256": "7b53742e645892a5e665b09e4bebc7e20169692872fef5104561c2fd77ac0cc5",
+    "model": "gemini-3.5-flash",
+    "generated_at": "2026-11-25T13:52:05+00:00",
+    "attempts": 2
+  },
+  "audience": {
+    "who": "Young Ethiopians at home and in the diaspora, 18-35, watching on a phone",
+    "where": "Watching on vertical screens (phones)",
+    "feel": "Warmth and pride for the long walks our grandparents made, and the urge to call them"
+  },
+  "language": {
+    "code": "am",
+    "name": "Amharic",
+    "script": "Ge'ez (Ethiopic)",
+    "subtitles": "en"
+  },
+  "models": {
+    "script": [
+      "gemini-3.8-flash",
+      "gemini-3.7-flash",
+      "gemini-3.5-flash"
+    ],
+    "tts": [
+      "gemini-3.8-flash-tts",
+      "gemini-3.8-flash-lite-tts"
+    ],
+    "listen": [
+      "gemini-3.5-transcribe",
+      "gemini-3.5-flash"
+    ],
+    "image": [
+      "@cf/black-forest-labs/flux-2-klein-4b",
+      "@cf/black-forest-labs/flux-1-schnell"
+    ],
+    "video": "wavespeed-wan22-480p",
+    "music": "wavespeed-ace-step-1.5"
+  },
+  "style": {
+    "block": "Stylized low-poly 3D animation still: faceted surfaces with visible flat polygons, toy-like rounded characters with simple dark oval eyes and small calm mouths, soft matte materials, cinematic warm key light against cool deep-blue shadows, soft circular bokeh lights in the background, shallow depth of field, gentle film grain",
+    "motion": "low-poly 3D animation, smooth and slow, faceted shapes stay stable, no morphing",
+    "negative": "photorealistic skin, realistic human photo, text, letters, subtitles, watermark, logo, extra fingers, deformed hands, distorted face, blurry, low quality, flicker",
+    "palette": [
+      "#0E1A33",
+      "#F2A541",
+      "#E86A33",
+      "#F5E6C8",
+      "#3B6E8F"
+    ]
+  },
+  "characters": [
+    {
+      "id": "narrator_grandma",
+      "name": "Grandmother (Voice)",
+      "role": "narrator",
+      "visible": false,
+      "real_person": false,
+      "voice": {
+        "name": "Sulafat",
+        "direction": "warm, elderly, smiling, nostalgic"
+      }
+    },
+    {
+      "id": "young_girl",
+      "name": "Little Grandmother (Child)",
+      "role": "character",
+      "visible": true,
+      "real_person": false,
+      "voice": {
+        "name": "Leda",
+        "direction": "youthful, curious, gentle"
+      },
+      "look": "8 years old, petite build, dark brown expressive eyes, hair styled in neat traditional shurba cornrows, wearing a simple white cotton habesha kemis dress with subtle woven tibeb trim along the hem.",
+      "reference": {
+        "prompt": "8-year-old Ethiopian girl in traditional white dress with braided cornrows, standing softly against mist",
+        "seeds": [
+          110,
+          111,
+          112
+        ],
+        "chosen": 0
+      }
+    },
+    {
+      "id": "mother",
+      "name": "Great-Grandmother",
+      "role": "character",
+      "visible": true,
+      "real_person": false,
+      "voice": {
+        "name": "Vindemiatrix",
+        "direction": "gentle, wise, warm"
+      },
+      "look": "30 years old, tall and graceful, gentle smiling expression, hair wrapped in a crisp white scarf, wearing a traditional white habesha kemis with a white netela shawl around her shoulders.",
+      "reference": {
+        "prompt": "30-year-old Ethiopian woman in traditional white cotton kemis and netela shawl, carrying a woven basket",
+        "seeds": [
+          120,
+          121,
+          122
+        ],
+        "chosen": 0
+      }
+    },
+    {
+      "id": "old_grandma",
+      "name": "Grandmother (Present Day)",
+      "role": "character",
+      "visible": true,
+      "real_person": false,
+      "voice": {
+        "name": "Sulafat",
+        "direction": "warm, elderly, full of laughter"
+      },
+      "look": "75 years old, same rounded face shape and warm eyes as young_girl, silvery-white hair visible beneath a soft white netela, wearing a cozy embroidered dress.",
+      "reference": {
+        "prompt": "75-year-old Ethiopian grandmother smiling joyfully while roasting coffee over a small stove",
+        "seeds": [
+          130,
+          131,
+          132
+        ],
+        "chosen": 0
+      }
+    }
+  ],
+  "locations": [
+    {
+      "id": "mountain_road",
+      "name": "Wollo Rural Mountain Path",
+      "look": "Dawn breaking over misty Wollo hills, golden cool light, tall green eucalyptus trees lining a winding dirt trail, a small log bridge over a flowing creek.",
+      "reference": {
+        "prompt": "Misty Ethiopian countryside path at dawn with tall eucalyptus trees and green hills, wide landscape view",
+        "seeds": [
+          500
+        ],
+        "chosen": 0
+      }
+    },
+    {
+      "id": "dessie_market",
+      "name": "Dessie Open Market",
+      "look": "Vibrant morning sunshine, rustic wooden stalls, woven baskets filled with red spices and green coffee beans, light rising smoke from roasted beans.",
+      "reference": {
+        "prompt": "Traditional Ethiopian open market in Dessie with coffee stalls and woven baskets, warm morning sunlight",
+        "seeds": [
+          510
+        ],
+        "chosen": 0
+      }
+    },
+    {
+      "id": "living_room",
+      "name": "Family Living Room",
+      "look": "Cozy contemporary room bathed in warm afternoon sun, traditional wooden coffee tray (rekebot), black clay jebena pot, steam rising into soft light.",
+      "reference": {
+        "prompt": "Warm sunlit room with traditional Ethiopian coffee ceremony setup on a wooden rekebot tray",
+        "seeds": [
+          520
+        ],
+        "chosen": 0
+      }
+    }
+  ],
+  "shots": [
+    {
+      "id": "S01",
+      "beat": "Establish the long, early journey of the past.",
+      "reason": "Establishes setting, atmospheric mood, and echoes the physical distance walked.",
+      "size": "wide",
+      "location": "mountain_road",
+      "characters": [
+        "young_girl",
+        "mother"
+      ],
+      "duration_s": 7,
+      "lines": [
+        {
+          "speaker": "narrator_grandma",
+          "text": "የወሎ አየር በንጋት አዲስ ነው።",
+          "en": "The Wollo air was always fresh at dawn."
+        }
+      ],
+      "keyframe": {
+        "prompt": "Wide view of dawn over Wollo hills, misty eucalyptus path with two figures walking away into distant blue fog, soft golden sunrise light.",
+        "seed": 1010
+      },
+      "motion": {
+        "mode": "parallax",
+        "prompt": "The camera slowly pans right following the two figures walking down the misty trail as morning light warms the horizon.",
+        "seed": 1010,
+        "subject": "ambient",
+        "parallax": {
+          "move": "slide-right",
+          "amount": 0.025
+        }
+      },
+      "music_cue": "Gentle acoustic krar plucking enters softly with warm ambient pads."
+    },
+    {
+      "id": "S02",
+      "beat": "Show the heavy cargo carried with care.",
+      "reason": "Highlights the effort and traditional items (butter in leaves, eggs in basket).",
+      "size": "medium",
+      "location": "mountain_road",
+      "characters": [
+        "young_girl",
+        "mother"
+      ],
+      "duration_s": 7,
+      "lines": [
+        {
+          "speaker": "narrator_grandma",
+          "text": "ቅቤና እንቁላል ተይዞ ወደ ደሴ።",
+          "en": "Carrying butter and eggs all the way to Dessie."
+        }
+      ],
+      "keyframe": {
+        "prompt": "Little girl holding small black clay pots wrapped tightly in shiny broad green banana leaves, mother carrying a woven grass basket nearby.",
+        "seed": 1020
+      },
+      "motion": {
+        "mode": "full_i2v",
+        "prompt": "The camera moves slowly beside them as they step together along the dirt path, leaves brushing their clothes.",
+        "seed": 1020,
+        "clip_s": 5,
+        "subject": "character"
+      },
+      "music_cue": "Rhythmic, quiet shaker joins the soft string melody."
+    },
+    {
+      "id": "S03",
+      "beat": "Highlight childhood fear overcome by guidance.",
+      "reason": "Creates emotional vulnerability and trust between mother and child.",
+      "size": "medium",
+      "location": "mountain_road",
+      "characters": [
+        "young_girl",
+        "mother"
+      ],
+      "duration_s": 6,
+      "lines": [
+        {
+          "speaker": "narrator_grandma",
+          "text": "ወንዙን መሻገር ይፈራታል።",
+          "en": "Crossing the stream always frightened her."
+        }
+      ],
+      "keyframe": {
+        "prompt": "Little girl standing hesitatingly at the edge of a rushing stream wooden plank, mother reaching her hand back with a reassuring warm smile.",
+        "seed": 1030
+      },
+      "motion": {
+        "mode": "flf_inbetween",
+        "prompt": "The mother reaches out her hand and the girl steps across the stream to her side. Static camera.",
+        "seed": 1030,
+        "clip_s": 5,
+        "subject": "character",
+        "end_keyframe": {
+          "prompt": "Same place, same camera and light: the girl now stands on the far bank of the stream holding her mother's hand, both smiling.",
+          "seed": 1031
+        }
+      },
+      "music_cue": "Music pauses softly, leaving gentle water sounds."
+    },
+    {
+      "id": "S04",
+      "beat": "Arrival at the reward—the sensory joy of the market.",
+      "reason": "Connects grandmother's childhood love of coffee to the present tradition.",
+      "size": "medium-close-up",
+      "location": "dessie_market",
+      "characters": [
+        "young_girl"
+      ],
+      "duration_s": 7,
+      "lines": [
+        {
+          "speaker": "narrator_grandma",
+          "text": "የቡናው ጠረን ደስ ይላል።",
+          "en": "The sweet aroma of coffee was her greatest joy."
+        }
+      ],
+      "keyframe": {
+        "prompt": "Young girl smiling brightly in warm sunlit market, holding a dark roasted coffee bean up to her nose as wisps of fragrant smoke float by.",
+        "seed": 1040
+      },
+      "motion": {
+        "mode": "masked_i2v",
+        "prompt": "The girl gently brings the roasted bean close, closes her eyes happily, while smoke drifts slowly upward.",
+        "seed": 1040,
+        "clip_s": 5,
+        "subject": "character",
+        "loop": "pingpong",
+        "mask": {
+          "target": "the girl's face, hands and the coffee bean she holds",
+          "feather": 0.015
+        }
+      },
+      "music_cue": "Warm melodic motif swells gently."
+    },
+    {
+      "id": "S05",
+      "beat": "Autonomy and responsibility granted to the girl.",
+      "reason": "Shows her growing role within the family ritual.",
+      "size": "close-up",
+      "location": "dessie_market",
+      "characters": [
+        "young_girl"
+      ],
+      "duration_s": 6,
+      "lines": [
+        {
+          "speaker": "narrator_grandma",
+          "text": "ቡና መምረጥ የእሷ ነበር።",
+          "en": "Bargaining for coffee was her special task."
+        }
+      ],
+      "keyframe": {
+        "prompt": "Child's small hand carefully picking green raw coffee beans out of a wide woven straw tray.",
+        "seed": 1050
+      },
+      "motion": {
+        "mode": "still_kenburns",
+        "prompt": "Slow camera zoom-in onto the child's delicate hand picking coffee beans.",
+        "kenburns": "zoom-in",
+        "seed": 1050
+      },
+      "music_cue": "Soft acoustic strumming continues smoothly."
+    },
+    {
+      "id": "S06",
+      "beat": "The key lesson delivered on the long trek back.",
+      "reason": "Delivers the core proverb and central moral of the story.",
+      "size": "medium",
+      "location": "mountain_road",
+      "characters": [
+        "young_girl",
+        "mother"
+      ],
+      "duration_s": 8,
+      "lines": [
+        {
+          "speaker": "young_girl",
+          "text": "እማማ፡ ገና ነው?",
+          "en": "Mama, is it still far?"
+        },
+        {
+          "speaker": "mother",
+          "text": "ከስ በከስ፡ እንቁላል በእግሩ ይሄዳል።",
+          "en": "Little by little, an egg will walk on its own legs."
+        }
+      ],
+      "keyframe": {
+        "prompt": "Late afternoon sun lighting yellow grass, tired little girl walking slowly looking up at mother, mother looking down lovingly while speaking.",
+        "seed": 1060
+      },
+      "motion": {
+        "mode": "full_i2v",
+        "prompt": "They walk slowly together in profile as camera pans alongside them through golden light.",
+        "seed": 1060,
+        "clip_s": 8,
+        "subject": "character"
+      },
+      "music_cue": "Theme plays softly, resting on a sustained warm chord."
+    },
+    {
+      "id": "S07",
+      "beat": "Pause to let the wisdom settle into memory.",
+      "reason": "Focuses on the physical rhythm of patient walking.",
+      "size": "insert",
+      "location": "mountain_road",
+      "characters": [
+        "young_girl",
+        "mother"
+      ],
+      "duration_s": 6,
+      "lines": [],
+      "keyframe": {
+        "prompt": "Close-up of four feet walking side by side on dusty ground: small bare child feet and mother's traditional leather sandals.",
+        "seed": 1070
+      },
+      "motion": {
+        "mode": "still_kenburns",
+        "prompt": "Slow pan-right tracking the feet walking step by step on dusty earth.",
+        "kenburns": "pan-right",
+        "seed": 1070
+      },
+      "music_cue": "Solo instrumental breath, silent beats allowing proverb to echo."
+    },
+    {
+      "id": "S08",
+      "beat": "Seamless shift from past memory to present reality.",
+      "reason": "Brings the tradition into modern family life.",
+      "size": "medium",
+      "location": "living_room",
+      "characters": [
+        "old_grandma"
+      ],
+      "duration_s": 7,
+      "lines": [
+        {
+          "speaker": "narrator_grandma",
+          "text": "ዛሬ እሑድ ቡና ታፈላለች።",
+          "en": "Today, she roasts coffee for us on Sundays."
+        }
+      ],
+      "keyframe": {
+        "prompt": "Elderly grandmother sitting indoors in warm sunlight, roasting coffee beans over charcoal pan, thin swirl of aromatic white smoke surrounding her hands.",
+        "seed": 1080
+      },
+      "motion": {
+        "mode": "masked_i2v",
+        "prompt": "The camera gently moves in as she rotates the pan slowly, smoke drifting across the sunlight.",
+        "seed": 1080,
+        "clip_s": 5,
+        "subject": "character",
+        "loop": "pingpong",
+        "mask": {
+          "target": "the grandmother's hands, the roasting pan and the smoke above it",
+          "feather": 0.015
+        }
+      },
+      "music_cue": "Main melody transforms into a warmer modern acoustic arrangement."
+    },
+    {
+      "id": "S09",
+      "beat": "Care and ritual handed down.",
+      "reason": "Emphasizes the grandmother's joy in serving her loved ones.",
+      "size": "close-up",
+      "location": "living_room",
+      "characters": [
+        "old_grandma"
+      ],
+      "duration_s": 7,
+      "lines": [
+        {
+          "speaker": "narrator_grandma",
+          "text": "ሰው ሲቸኩል፡ ታቀልዳለች።",
+          "en": "When one of us impatiens, she laughs."
+        }
+      ],
+      "keyframe": {
+        "prompt": "Close view of grandmother's wrinkled, gentle hands pouring rich black coffee from a dark clay jebena into tiny porcelain cups on a tray.",
+        "seed": 1090
+      },
+      "motion": {
+        "mode": "cinemagraph",
+        "prompt": "Dark coffee pours smoothly into the small cup as steam rises gently towards the lens.",
+        "seed": 1090,
+        "clip_s": 5,
+        "subject": "ambient",
+        "loop": "pingpong",
+        "mask": {
+          "target": "the stream of coffee pouring from the clay pot and the steam above the cups",
+          "feather": 0.012
+        }
+      },
+      "music_cue": "Full chord progression builds with soft percussion."
+    },
+    {
+      "id": "S10",
+      "beat": "The ancestral proverb reborn as family laughter.",
+      "reason": "Climax of emotional warmth, humor, and intergenerational bond.",
+      "size": "medium-close-up",
+      "location": "living_room",
+      "characters": [
+        "old_grandma"
+      ],
+      "duration_s": 6,
+      "lines": [
+        {
+          "speaker": "old_grandma",
+          "text": "ከስ በከስ፡ እንቁላል በእግሩ ይሄዳል!",
+          "en": "Little by little, an egg will walk on its own legs!"
+        }
+      ],
+      "keyframe": {
+        "prompt": "Elderly grandmother laughing happily, twinkling eyes, shaking her head playfully while gesturing with her hand.",
+        "seed": 1100
+      },
+      "motion": {
+        "mode": "masked_i2v",
+        "prompt": "Grandmother tilts her head back in gentle laughter, her warm smile filling the frame.",
+        "seed": 1100,
+        "clip_s": 5,
+        "subject": "character",
+        "loop": "hold",
+        "mask": {
+          "target": "the grandmother's head and shoulders",
+          "feather": 0.02
+        }
+      },
+      "music_cue": "Music reaches its most joyful, heart-filling phrase."
+    },
+    {
+      "id": "S11",
+      "beat": "Closing the circle back to the landscape of origin.",
+      "reason": "Echoes S01 to close the journey like a full circle, leaving profound pride.",
+      "size": "wide",
+      "location": "mountain_road",
+      "characters": [
+        "young_girl",
+        "mother"
+      ],
+      "duration_s": 7,
+      "lines": [
+        {
+          "speaker": "narrator_grandma",
+          "text": "የአያቶቻችን መንገድ ከእኛ ጋር ነው።",
+          "en": "Our grandparents' long walks live on within us."
+        }
+      ],
+      "keyframe": {
+        "prompt": "Golden dusk landscape over Wollo mountains echoing S01, warm sunset horizon with soft silhouettes of eucalyptus trees.",
+        "seed": 1110
+      },
+      "motion": {
+        "mode": "parallax",
+        "prompt": "Slow camera zoom-out from the mountain vista into golden evening glow.",
+        "seed": 1110,
+        "subject": "ambient",
+        "parallax": {
+          "move": "pull-out",
+          "amount": 0.03
+        }
+      },
+      "music_cue": "Theme finishes on a soft lingering acoustic resolution."
+    }
+  ],
+  "music": {
+    "caption": "Acoustic Ethiopian folk score featuring traditional krar strings, soft ambient pads, gentle wooden percussion, warm and reflective atmosphere.",
+    "bpm": 76,
+    "key": "E minor",
+    "time_signature": "6/8",
+    "cues": [
+      {
+        "at": "S01",
+        "note": "Acoustic intro begins quietly with delicate string picking over cool ambient pads."
+      },
+      {
+        "at": "S06",
+        "note": "Music rests softly on sustained harmony for the mother's spoken wisdom."
+      },
+      {
+        "at": "S08",
+        "note": "Arrangement warms up into a cozy home rhythm with soft wooden percussion."
+      },
+      {
+        "at": "S11",
+        "note": "Opening theme returns gently to resolve peacefully as sunset fades."
+      }
+    ],
+    "duration_s": 81,
+    "instrumental": true,
+    "seeds": [
+      11,
+      22,
+      33
+    ],
+    "chosen": null,
+    "gain_db": -3,
+    "ducking": {
+      "threshold": 0.02,
+      "ratio": 6,
+      "attack_ms": 300,
+      "release_ms": 1500
+    }
+  },
+  "end_card": {
+    "title": "Made with AI",
+    "lines": [
+      "For our grandparents, who walked so we could soar. Call them today.",
+      "Pictures: FLUX.2 klein   Motion: Wan 2.2",
+      "Voices: Gemini TTS   Music: ACE-Step 1.5"
+    ],
+    "duration_s": 3
+  },
+  "edit": {
+    "fps": 24,
+    "lead_s": 0.4,
+    "gap_s": 0.35,
+    "tail_s": 0.7,
+    "caption_chars": 38
+  },
+  "video": {
+    "max_paid_clips": 7,
+    "budget_usd": 0.6,
+    "interpolation": "rife",
+    "rife_model": "rife-v4.25"
+  }
+}

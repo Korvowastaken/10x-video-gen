@@ -1,11 +1,22 @@
-import { ChevronDown, KeyRound, Loader2, Monitor, Moon, Sun } from "lucide-react"
+import { Check, ChevronDown, ChevronsUpDown, KeyRound, Loader2, Monitor, Moon, Pencil, Plus, Sun } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { Toaster, toast } from "sonner"
 
-import { api, type Flow, type Job, type State } from "@/api"
+import { api, type Flow, type Job, type State, type StoryItem } from "@/api"
 import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Input } from "@/components/ui/input"
 import { LimitsContext } from "@/lib/limits"
-import { back, steps, usd, type Step, type StepId } from "@/lib/progress"
+import { back, steps, usd, VIEW_OF, type Step, type StepId } from "@/lib/progress"
 import { cn } from "@/lib/utils"
 import { FilmView } from "@/views/FilmView"
 import { KeysView } from "@/views/KeysView"
@@ -54,6 +65,8 @@ export default function App() {
   const [scene, setScene] = useState(() => read("scene") ?? "")
   const [job, setJob] = useState<Job | null>(null)
   const poll = useRef<number | null>(null)
+  /** Set once the page has opened on a step it can work in; cleared when another story opens. */
+  const landed = useRef(false)
 
   const refresh = useCallback(async () => {
     try {
@@ -119,24 +132,35 @@ export default function App() {
     const id = window.setInterval(refresh, 60_000)
     return () => window.clearInterval(id)
   }, [waiting, refresh])
+  // Open on the remembered step, unless it is locked (a new story, say): then on the step the film is at.
+  useEffect(() => {
+    if (!flow || landed.current) return
+    landed.current = true
+    if (view !== "keys" && steps(flow).find((s) => s.id === view)?.state === "locked") setView(VIEW_OF[flow.current ?? "story"])
+  }, [flow, view])
   useEffect(() => write("view", view), [view])
   useEffect(() => write("scene", scene), [scene])
 
   const busy = job?.status === "running"
+  const opened = useCallback(async () => {
+    landed.current = false
+    setJob(null)
+    await refresh()
+  }, [refresh])
   const studio: Studio | null = state && flow ? { state, flow, refresh, track, busy, job, go, scene } : null
 
   return (
     <LimitsContext.Provider value={state?.limits}>
     <div className="grid h-screen grid-cols-[288px_minmax(0,1fr)] overflow-hidden">
       <aside className="relative flex h-screen flex-col border-r bg-card">
-        <div className="flex h-[68px] items-center gap-2.5 border-b pr-10 pl-6">
-          <img src="/logo.png" alt="" className="size-7 rounded-[5px]" />
-          <span className="text-[15px] font-semibold tracking-tight">TenX Heritage Short</span>
+        <div className="flex h-[68px] items-center gap-2 border-b pr-10 pl-6">
+          <img src="/logo.png" alt="" className="size-7 shrink-0 rounded-[5px]" />
+          <StorySwitcher busy={busy} onOpened={opened} />
         </div>
         <nav aria-label="Steps" className="relative">
           {flow &&
             steps(flow).map((s, i) => (
-              <StepLink key={s.id} step={s} n={i + 1} active={view === s.id} onClick={() => s.state !== "locked" && setView(s.id)} />
+              <StepLink key={s.id} step={s} n={i + 1} active={view === s.id} onClick={() => setView(s.id)} />
             ))}
         </nav>
         {/* the undyed warp under the band, so locked steps still show the cloth's edge */}
@@ -160,6 +184,124 @@ export default function App() {
   )
 }
 
+/** Which story is open, the others to switch to, and a new one. Each story is its own film. */
+function StorySwitcher({ busy, onOpened }: { busy: boolean; onOpened: () => Promise<void> }) {
+  const [list, setList] = useState<StoryItem[]>([])
+  const [naming, setNaming] = useState<"new" | "rename" | null>(null)
+  const load = useCallback(() => api.stories().then(setList).catch(() => {}), [])
+  useEffect(() => void load(), [load])
+  const current = list.find((s) => s.current)
+
+  async function open(story: StoryItem) {
+    if (story.current) return
+    try {
+      setList(await api.openStory(story.id))
+      await onOpened()
+    } catch (err) {
+      toast.error((err as Error).message)
+    }
+  }
+
+  async function name(text: string) {
+    try {
+      if (naming === "new") {
+        setList(await api.newStory(text))
+        await onOpened()
+      } else if (current) setList(await api.renameStory(current.id, text))
+      setNaming(null)
+    } catch (err) {
+      toast.error((err as Error).message)
+    }
+  }
+
+  return (
+    <>
+      <DropdownMenu onOpenChange={(open) => open && load()}>
+        <DropdownMenuTrigger
+          aria-label="Switch story"
+          title={current?.name}
+          className="-mx-1.5 flex min-w-0 flex-1 items-center gap-1.5 rounded-md px-1.5 py-1 text-left transition-colors duration-150 hover:bg-secondary data-popup-open:bg-secondary"
+        >
+          <span className="min-w-0 flex-1 truncate text-[15px] font-semibold tracking-tight">{current?.name ?? "Story"}</span>
+          <ChevronsUpDown className="size-3.5 shrink-0 text-subtle" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" sideOffset={8} className="w-64 p-1.5">
+          <DropdownMenuGroup>
+            <DropdownMenuLabel className="px-2 pt-1 pb-1.5 text-[12px] font-normal text-subtle">
+              {busy ? "Switch stories once the running job ends" : "Stories"}
+            </DropdownMenuLabel>
+            {list.map((s) => (
+              <DropdownMenuItem key={s.id} disabled={busy && !s.current} onClick={() => open(s)} className="gap-2.5 px-2 py-1.5">
+                <Check className={cn("size-3.5 text-free", !s.current && "invisible")} strokeWidth={2.5} />
+                <span className="min-w-0 flex-1">
+                  <span className={cn("block truncate text-[13.5px]", s.current && "font-medium")}>{s.name}</span>
+                  <span className="block text-[11.5px] text-subtle">{s.drafted ? "Script drafted" : s.written ? "Story written" : "Not started"}</span>
+                </span>
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuGroup>
+          <DropdownMenuSeparator className="my-1.5" />
+          <DropdownMenuItem disabled={busy} onClick={() => setNaming("new")} className="gap-2.5 px-2 py-1.5 text-[13.5px]">
+            <Plus className="size-3.5 text-subtle" /> New story
+          </DropdownMenuItem>
+          {current && (
+            <DropdownMenuItem onClick={() => setNaming("rename")} className="gap-2.5 px-2 py-1.5 text-[13.5px]">
+              <Pencil className="size-3.5 text-subtle" /> Rename this story
+            </DropdownMenuItem>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <StoryName
+        open={naming !== null}
+        rename={naming === "rename"}
+        initial={naming === "rename" ? (current?.name ?? "") : ""}
+        onClose={() => setNaming(null)}
+        onSave={name}
+      />
+    </>
+  )
+}
+
+/** Name a new story, or rename the open one. */
+function StoryName({ open, rename, initial, onClose, onSave }: { open: boolean; rename: boolean; initial: string; onClose: () => void; onSave: (name: string) => Promise<void> }) {
+  const [text, setText] = useState(initial)
+  const [saving, setSaving] = useState(false)
+  useEffect(() => {
+    if (open) setText(initial)
+  }, [open, initial])
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault()
+    setSaving(true)
+    await onSave(text.trim())
+    setSaving(false)
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-sm">
+        <form onSubmit={save} className="grid gap-4">
+          <DialogHeader>
+            <DialogTitle>{rename ? "Rename this story" : "New story"}</DialogTitle>
+            <DialogDescription>
+              {rename ? "Only its name in the list changes." : "A fresh film with its own story, script and pictures. Your other stories stay as they are."}
+            </DialogDescription>
+          </DialogHeader>
+          <Input autoFocus value={text} onChange={(e) => setText(e.target.value)} placeholder="The market walk" aria-label="Story name" />
+          <DialogFooter>
+            <Button type="button" variant="ghost" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={saving || (rename && !text.trim())}>
+              {rename ? "Save name" : "Start story"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 /** The band segment and number colour for each step state: woven green when approved, gold where the maker is, red when it changed. */
 const WEAVE: Record<Step["state"], string> = { done: "weave-done", todo: "weave-current", stale: "weave-stale", locked: "weave-locked" }
 
@@ -168,11 +310,10 @@ function StepLink({ step, n, active, onClick }: { step: Step; n: number; active:
   return (
     <button
       onClick={onClick}
-      disabled={locked}
       aria-current={active ? "page" : undefined}
       title={locked ? step.note : undefined}
       className={cn(
-        "relative z-10 flex h-[60px] w-full items-center gap-3 border-b pr-10 pl-6 text-left transition-colors duration-150 hover:bg-secondary disabled:cursor-not-allowed disabled:hover:bg-transparent",
+        "relative z-10 flex h-[60px] w-full items-center gap-3 border-b pr-10 pl-6 text-left transition-colors duration-150 hover:bg-secondary",
         active && "bg-background hover:bg-background",
       )}
     >

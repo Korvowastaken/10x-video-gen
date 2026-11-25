@@ -12,7 +12,9 @@ from pipeline.config import ROOT, Project
 from pipeline.media import probe_duration
 from pipeline.narration import POST_VERSION, line_items, process, spec_for, tts_spec
 
-PROJECT = Project(ROOT)
+FILM = ROOT / "tests" / "fixtures" / "film"  # a sample film to test against, so the real project can be empty
+
+PROJECT = Project(FILM)
 
 
 def _sb():

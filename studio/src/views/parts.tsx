@@ -5,7 +5,7 @@ import { toast } from "sonner"
 import { api, type FlowStepId } from "@/api"
 import type { Studio } from "@/App"
 import { Button } from "@/components/ui/button"
-import { upper } from "@/lib/progress"
+import { upper, VIEW_OF } from "@/lib/progress"
 import { cn } from "@/lib/utils"
 
 export function Page({ children, className }: { children: React.ReactNode; className?: string }) {
@@ -57,6 +57,53 @@ export function NextStep({ to, onClick }: { to: string; onClick: () => void }) {
         Go to {to} <ArrowRight />
       </Button>
     </>
+  )
+}
+
+/** What has to happen first, for the step that holds the rest back. */
+const FIRST: Record<FlowStepId, string> = {
+  story: "Approve your story first",
+  script: "Draft and approve the script first",
+  sketch: "Approve the sketch first",
+  references: "Approve the references first",
+  scenes: "Approve every scene first",
+  final: "Approve the final cut first",
+}
+
+/** The step before this one that is not approved yet: where the film is waiting. */
+function waitingOn(studio: Studio, step: FlowStepId) {
+  const { flow } = studio
+  const before = flow.steps.slice(0, flow.steps.findIndex((x) => x.id === step))
+  const s = before.find((x) => x.state !== "approved") ?? before[before.length - 1]
+  if (!s) return null
+  const title = s.id === "story" && !flow.story_text.trim() ? "Write your story first" : FIRST[s.id]
+  return { step: s, title }
+}
+
+/**
+ * A step with nothing to show yet: what comes first and the way there, in place of an empty page.
+ * `needs` says, in one line, what this step is made from.
+ */
+export function NotYet({ studio, step, n, title, lead, needs }: { studio: Studio; step: FlowStepId; n: number; title: string; lead: string; needs: string }) {
+  const first = waitingOn(studio, step)
+  return (
+    <Page>
+      <StepHeader n={n} title={title} lead={lead} />
+      <div className="flex max-w-2xl items-start gap-4 rounded-md border px-5 py-5">
+        <span className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-full border border-thread text-subtle">
+          <Lock className="size-3.5" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <h2 className="text-[15px] font-semibold">{first?.title ?? "Not open yet"}</h2>
+          <p className="mt-1 text-muted-foreground">{needs}</p>
+          {first && (
+            <Button className="mt-4" onClick={() => studio.go(VIEW_OF[first.step.id])}>
+              Go to {first.step.title} <ArrowRight />
+            </Button>
+          )}
+        </div>
+      </div>
+    </Page>
   )
 }
 
@@ -114,6 +161,7 @@ export function ApproveBar({ studio, step, what, scene }: { studio: Studio; step
   const changed = one ? one.changed : s.changed
   const blockers = s.locked ? [] : one ? one.blockers : s.blockers
   const before = flow.steps[flow.steps.findIndex((x) => x.id === step) - 1]
+  const first = s.locked ? waitingOn(studio, step) : null
 
   async function set(approve: boolean) {
     setSaving(true)
@@ -161,6 +209,11 @@ export function ApproveBar({ studio, step, what, scene }: { studio: Studio; step
           <span>Looks right? Approve {what} to open the next step.</span>
         )}
       </div>
+      {first && (
+        <Button size="sm" variant="secondary" onClick={() => studio.go(VIEW_OF[first.step.id])}>
+          Go to {first.step.title} <ArrowRight />
+        </Button>
+      )}
       {!s.locked &&
         (state === "approved" ? (
           <Button size="sm" variant="ghost" className="text-subtle" disabled={saving} onClick={() => set(false)}>

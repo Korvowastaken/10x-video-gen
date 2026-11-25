@@ -7,7 +7,9 @@ import pytest
 from pipeline import storyboard as sbmod
 from pipeline.config import ROOT, Project
 
-PROJECT = Project(ROOT)
+FILM = ROOT / "tests" / "fixtures" / "film"  # a sample film to test against, so the real project can be empty
+
+PROJECT = Project(FILM)
 
 
 @pytest.fixture()

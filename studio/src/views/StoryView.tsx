@@ -34,6 +34,8 @@ export function StoryView({ studio }: { studio: Studio }) {
           <Textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
+            autoFocus={!flow.story_text.trim()}
+            aria-label="Your story"
             placeholder="Every Saturday when she was a girl, my grandmother walked to the market…"
             className="min-h-[calc(100vh-300px)] text-[14px] leading-7"
           />

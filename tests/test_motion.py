@@ -9,7 +9,9 @@ from pipeline.config import ROOT, Project
 from pipeline.engines import MODES, STRETCH_CAP, stretch_cap
 from pipeline.motion import mask_image, retime_plan
 
-PROJECT = Project(ROOT)
+FILM = ROOT / "tests" / "fixtures" / "film"  # a sample film to test against, so the real project can be empty
+
+PROJECT = Project(FILM)
 
 
 def _sb():

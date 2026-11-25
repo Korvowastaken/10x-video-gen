@@ -11,7 +11,9 @@ from pipeline.cache import key_for
 from pipeline.config import ROOT, Project
 from pipeline.media import probe_duration
 
-PROJECT = Project(ROOT)
+FILM = ROOT / "tests" / "fixtures" / "film"  # a sample film to test against, so the real project can be empty
+
+PROJECT = Project(FILM)
 
 
 def _sb():
@@ -99,7 +101,7 @@ def test_every_size_renders(size):
 
 def test_run_draws_frames_and_an_animatic_then_caches(tmp_path, capsys):
     for name in ("storyboard.json", "ETHICS.md"):
-        shutil.copy(ROOT / name, tmp_path / name)
+        shutil.copy(FILM / name, tmp_path / name)
     project = Project(tmp_path)
     sb = json.loads(project.storyboard.read_text("utf-8"))
     total = sum(s["duration_s"] for s in sb["shots"])

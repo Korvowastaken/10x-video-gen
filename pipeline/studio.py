@@ -25,7 +25,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import accounts, keys, revise
+from . import accounts, keys, revise, stories
 from . import storyboard as sbmod
 from .cache import StageCache, key_for, sha256_bytes
 from .config import ROOT, Project, load_env
@@ -34,7 +34,9 @@ from .engines import MODES, MUSIC_ENGINES, VIDEO_ENGINES
 from .limits import free_limits
 
 load_env()
-PROJECT = Project(Path(os.environ.get("STUDIO_PROJECT", ROOT)).resolve())
+# The first story; others live in HOME/stories/ (stories.py). PROJECT is the one open now.
+HOME = Path(os.environ.get("STUDIO_PROJECT", ROOT)).resolve()
+PROJECT = Project(stories.remembered(HOME).resolve())
 DIST = ROOT / "studio" / "dist"
 app = FastAPI(title="10x video gen studio")
 
@@ -61,7 +63,8 @@ def start_job(kind: str, work: Callable[[], Any]) -> dict[str, Any]:
         busy = [j for j in JOBS.values() if j["status"] == "running"]
         if busy:
             raise HTTPException(409, f"'{busy[0]['kind']}' is still running")
-        job = {"id": uuid.uuid4().hex[:8], "kind": kind, "status": "running", "log": [], "started": time.time()}
+        job = {"id": uuid.uuid4().hex[:8], "kind": kind, "status": "running", "log": [], "started": time.time(),
+               "project": str(PROJECT.root)}
         keys.new_run()
         JOBS[job["id"]] = job
 
@@ -79,6 +82,15 @@ def start_job(kind: str, work: Callable[[], Any]) -> dict[str, Any]:
 
     threading.Thread(target=target, daemon=True).start()
     return job
+
+
+def _jobs() -> list[dict[str, Any]]:
+    """The open story's last few jobs (a job from another story does not belong on its page)."""
+    return [j for j in JOBS.values() if j.get("project") == str(PROJECT.root)][-5:]
+
+
+def busy_job() -> dict[str, Any] | None:
+    return next((j for j in JOBS.values() if j["status"] == "running"), None)
 
 
 # ---------------------------------------------------------------- state
@@ -183,9 +195,15 @@ def _tune_state(sb: dict[str, Any], item: str, line: dict[str, Any], raw: StageC
 def state() -> dict[str, Any]:
     story = PROJECT.story.read_text("utf-8") if PROJECT.story.exists() else ""
     if not PROJECT.storyboard.exists():
+        # A new story: nothing drafted or made yet, but every field the page reads is there.
         from .script import SCRIPT_MODELS
-        return {"story": story, "storyboard": None, "errors": [], "jobs": list(JOBS.values())[-5:],
-                "limits": free_limits(PROJECT, {"script": SCRIPT_MODELS})}
+        costs = summarise(PROJECT)
+        return {"story": story, "story_changed": False, "storyboard": None, "errors": [], "shots": [],
+                "sheets": {}, "sheets_stale": {}, "photos": {},
+                "film": {"vertical": None, "wide": None, "radio": None, "rough": None, "report": {}, "stale": False},
+                "music": [], "music_price": 0.0, "limits": free_limits(PROJECT, {"script": SCRIPT_MODELS}),
+                "spent": round(sum(s["usd_list"] for k, s in costs.items() if k in ("shots", "music")), 4),
+                "calls": int(sum(s["calls"] for s in costs.values())), "jobs": _jobs()}
     sb = sbmod.load(PROJECT)
     errors = sbmod.schema_errors(sb) or sbmod.rule_errors(sb, PROJECT)
     kf, raw, comp = (StageCache(PROJECT, s) for s in ("keyframes", "shots/raw", "shots"))
@@ -249,7 +267,7 @@ def state() -> dict[str, Any]:
             "film": film, "music": candidates, "music_price": round(music_price, 3),
             "limits": free_limits(PROJECT, sb.get("models", {})),
             "spent": round(sum(s["usd_list"] for k, s in costs.items() if k in ("shots", "music")), 4),
-            "calls": int(sum(s["calls"] for s in costs.values())), "jobs": list(JOBS.values())[-5:]}
+            "calls": int(sum(s["calls"] for s in costs.values())), "jobs": _jobs()}
 
 
 @app.get("/api/state")
@@ -556,11 +574,18 @@ def redo_shot(shot_id: str, body: dict[str, Any]) -> dict[str, Any]:
 from .flow_api import router as flow_router  # noqa: E402  (flow_api reads PROJECT and start_job from here)
 
 app.include_router(flow_router)
+app.include_router(stories.router)
 
 
 # ---------------------------------------------------------------- files
 
-app.mount("/media", StaticFiles(directory=PROJECT.outputs, check_dir=False), name="media")
+@app.get("/media/{rel:path}")
+def get_media(rel: str) -> FileResponse:
+    """A file under the open story's outputs/ (looked up per request, so it follows a story switch)."""
+    path = (PROJECT.outputs / rel).resolve()
+    if not path.is_file() or PROJECT.root.resolve() not in path.parents:
+        raise HTTPException(404)
+    return FileResponse(path)
 
 
 @app.get("/refs/{name}")

@@ -11,7 +11,9 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { FREE, fieldLabel } from "@/lib/progress"
 import { cn } from "@/lib/utils"
-import { ApproveBar, NextStep, Page, Section, StepHeader } from "@/views/parts"
+import { ApproveBar, NextStep, NotYet, Page, Section, StepHeader } from "@/views/parts"
+
+const LEAD = "The film in words: each scene, who speaks, the lines and their English subtitles. Edit lines here, or say what to change and let the model you pick revise."
 
 /** The words of a scene: what the script step covers. */
 const words = (s: Shot) => ({ beat: s.beat, duration_s: s.duration_s, lines: s.lines })
@@ -20,9 +22,10 @@ export function ScriptView({ studio }: { studio: Studio }) {
   const { state, flow, track, busy, go } = studio
   const sb = state.storyboard
   const step = flow.steps.find((s) => s.id === "script")!
+  if (step.locked && !sb) return <NotYet studio={studio} step="script" n={2} title="Script" lead={LEAD} needs="The script is drafted from your story: the scenes, who speaks and what they say." />
   return (
     <Page>
-      <StepHeader n={2} title="Script" lead="The film in words: each scene, who speaks, the lines and their English subtitles. Edit lines here, or say what to change and let the model you pick revise.">
+      <StepHeader n={2} title="Script" lead={LEAD}>
         <RunButton
           variant={sb ? "secondary" : "default"}
           cost={FREE("Gemini", "writing")}

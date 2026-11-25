@@ -10,7 +10,9 @@ from pipeline.config import ROOT, ConfigError, Project
 from pipeline.providers import anthropic_api, azure_speech, gemini, route
 from pipeline.retry import ProviderError, QuotaExhausted
 
-PROJECT = Project(ROOT)
+FILM = ROOT / "tests" / "fixtures" / "film"  # a sample film to test against, so the real project can be empty
+
+PROJECT = Project(FILM)
 
 
 @pytest.fixture(autouse=True)

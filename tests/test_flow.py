@@ -13,11 +13,13 @@ from pipeline.keyframes import (KEYFRAME_SIZE, REFERENCE_SIZE, character_ref_pro
                                 location_ref_prompt, ref_spec, shot_refs)
 from pipeline.narration import spec_for
 
+FILM = ROOT / "tests" / "fixtures" / "film"  # a sample film to test against, so the real project can be empty
+
 
 @pytest.fixture
 def project(tmp_path):
     for name in ("story.md", "storyboard.json", "ETHICS.md"):
-        shutil.copy(ROOT / name, tmp_path / name)
+        shutil.copy(FILM / name, tmp_path / name)
     return Project(tmp_path)
 
 
@@ -163,7 +165,7 @@ def test_fingerprints_do_not_change_when_nothing_changes(project):
 
 
 def test_modes_outside_the_allowed_list_and_over_budget_are_errors():
-    sb = json.loads((ROOT / "storyboard.json").read_text("utf-8"))
+    sb = json.loads((FILM / "storyboard.json").read_text("utf-8"))
     paid = next(s for s in sb["shots"] if sbmod.paid_clips({"shots": [s]}))
     sb["video"]["allowed_modes"] = ["parallax", "still_kenburns", "still"]
     assert any(paid["id"] in e and "not one of the allowed" in e for e in sbmod.budget_errors(sb))
@@ -173,7 +175,7 @@ def test_modes_outside_the_allowed_list_and_over_budget_are_errors():
 
 
 def test_a_revised_script_keeps_seeds_of_kept_scenes_and_numbers_scenes_in_order():
-    sb = json.loads((ROOT / "storyboard.json").read_text("utf-8"))
+    sb = json.loads((FILM / "storyboard.json").read_text("utf-8"))
     first, second = sb["shots"][0], sb["shots"][1]
     draft = {"scenes": [{"id": second["id"], "beat": "Now first."},
                         {"id": "new", "beat": "A new scene in the market.", "reason": "It shows the bargaining.",

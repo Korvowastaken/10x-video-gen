@@ -17,7 +17,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { LimitsContext } from "@/lib/limits"
 import { affected, back, blocked, FREE, fieldLabel, LIMIT_OF, PAID, PART_LABEL, scene, usd, type Part } from "@/lib/progress"
 import { cn } from "@/lib/utils"
-import { ApproveBar, NextStep, StatusDot, StepHeader } from "@/views/parts"
+import { ApproveBar, NextStep, NotYet, StatusDot, StepHeader } from "@/views/parts"
 import { VoicePanel } from "@/views/VoicePanel"
 
 /** The flow, for the motion picker deep in the editor: prices and the allowed modes. */
@@ -25,7 +25,8 @@ const FlowContext = createContext<Flow | null>(null)
 
 export function ScenesView({ studio, onScene }: { studio: Studio; onScene: (id: string) => void }) {
   const sb = studio.state.storyboard
-  if (!sb) return <div className="p-10 text-muted-foreground">Draft the scenes from your story first.</div>
+  if (!sb || !sb.shots.length)
+    return <NotYet studio={studio} step="scenes" n={5} title="Scenes" lead="Each scene's picture, voices and motion, made and approved one by one." needs="The scenes come from the script, and each is drawn from the approved references." />
   const shot = sb.shots.find((s) => s.id === studio.scene) ?? sb.shots[0]
   const media = studio.state.shots.find((s) => s.id === shot.id)!
   const i = sb.shots.indexOf(shot)

@@ -9,10 +9,12 @@ from pipeline.keyframes import keyframe_spec
 from pipeline.narration import spec_for
 from pipeline.studio import stale
 
+FILM = ROOT / "tests" / "fixtures" / "film"  # a sample film to test against, so the real project can be empty
+
 
 def _setup(tmp_path):
     project = Project(tmp_path)
-    sb = json.loads((ROOT / "storyboard.json").read_text("utf-8"))
+    sb = json.loads((FILM / "storyboard.json").read_text("utf-8"))
     shot = next(s for s in sb["shots"] if s["lines"] and not sbmod.paid_clips({"shots": [s]}))
     model = sbmod.model_list(sb["models"]["image"])[0]
     kf, narration = StageCache(project, "keyframes"), StageCache(project, "narration")
@@ -47,7 +49,7 @@ def test_editing_picture_and_line_marks_them_stale(tmp_path):
 
 def test_nothing_made_yet_is_missing_not_stale(tmp_path):
     project = Project(tmp_path)
-    sb = json.loads((ROOT / "storyboard.json").read_text("utf-8"))
+    sb = json.loads((FILM / "storyboard.json").read_text("utf-8"))
     shot = sb["shots"][0]
     caches = [StageCache(project, s) for s in ("keyframes", "shots/raw", "narration")]
     result = stale(sb, shot, caches[0], caches[1], caches[2], {})

@@ -101,6 +101,8 @@ export type KeyService = {
   keys: { slot: number; n: number; active: boolean; fingerprint: string; masked: Record<string, string> }[]
 }
 export type LimitId = "writing" | "voices" | "pictures"
+/** One story: its own film in its own folder (pipeline/stories.py). */
+export type StoryItem = { id: string; name: string; current: boolean; written: boolean; drafted: boolean }
 export type Job = { id: string; kind: string; status: "running" | "done" | "error"; log: string[]; error?: string }
 export type State = {
   story: string
@@ -227,6 +229,10 @@ export const api = {
   addKey: (service: string, values: Record<string, string>) => call("POST", `/api/keys/${service}`, { values }),
   removeKey: (service: string, slot: number) => call("DELETE", `/api/keys/${service}/${slot}`),
   useKey: (service: string, slot: number) => call("POST", `/api/keys/${service}/${slot}/use`),
+  stories: () => call<StoryItem[]>("GET", "/api/stories"),
+  newStory: (name: string) => call<StoryItem[]>("POST", "/api/stories", { name }),
+  openStory: (id: string) => call<StoryItem[]>("PUT", "/api/stories/current", { id }),
+  renameStory: (id: string, name: string) => call<StoryItem[]>("PUT", `/api/stories/${id}`, { name }),
 }
 
 export const MODES: Record<string, { label: string; paid: boolean }> = {

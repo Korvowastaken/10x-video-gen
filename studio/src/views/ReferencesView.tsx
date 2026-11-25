@@ -2,7 +2,7 @@ import { Check, ImagePlus, Trash2 } from "lucide-react"
 import { useRef, useState } from "react"
 import { toast } from "sonner"
 
-import { api, type Character, type Place } from "@/api"
+import { api, type Character, type Place, type Shot } from "@/api"
 import type { Studio } from "@/App"
 import { ProvidersPanel } from "@/components/providers-panel"
 import { RunButton } from "@/components/run-button"
@@ -19,13 +19,15 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { FREE } from "@/lib/progress"
 import { cn } from "@/lib/utils"
-import { ApproveBar, NextStep, Page, StatusDot, StepHeader } from "@/views/parts"
+import { ApproveBar, NextStep, NotYet, Page, StatusDot, StepHeader } from "@/views/parts"
+
+const LEAD = "Every scene is drawn from the chosen sheet of each person and place. Add the photos you have, draw the sheets, pick one per person, then approve."
 
 export function ReferencesView({ studio }: { studio: Studio }) {
   const { state, flow, track, busy, go } = studio
   const step = flow.steps.find((s) => s.id === "references")!
   const sb = state.storyboard
-  if (!sb) return <Page>Draft the scenes from your story first.</Page>
+  if (!sb) return <NotYet studio={studio} step="references" n={4} title="References" lead={LEAD} needs="The sheets are drawn for the people and places the script names, so the script comes first." />
   const people = sb.characters.filter((c) => c.visible)
   const old = Object.values(state.sheets_stale ?? {}).filter(Boolean).length
   const undrawn = Object.values(state.sheets).filter((u) => u.some((x) => !x)).length
@@ -34,7 +36,7 @@ export function ReferencesView({ studio }: { studio: Studio }) {
       <StepHeader
         n={4}
         title="References"
-        lead="Every scene is drawn from the chosen sheet of each person and place. Add the photos you have, draw the sheets, pick one per person, then approve."
+        lead={LEAD}
       >
         {(old > 0 || undrawn > 0) && (
           <StatusDot status="stale">{[undrawn && `${undrawn} not drawn`, old && `${old} out of date`].filter(Boolean).join(" · ")}</StatusDot>
@@ -53,20 +55,20 @@ export function ReferencesView({ studio }: { studio: Studio }) {
       <h2 className="mb-1 text-[13px] font-semibold">People</h2>
       <div className="divide-y border-y">
         {people.map((c) => (
-          <Owner key={c.id} studio={studio} id={c.id} name={c.name} sub={c.role} character={c} />
+          <Owner key={c.id} studio={studio} shots={sb.shots} id={c.id} name={c.name} sub={c.role} character={c} />
         ))}
       </div>
       <h2 className="mt-10 mb-1 text-[13px] font-semibold">Places</h2>
       <div className="divide-y border-y">
         {sb.locations.map((p) => (
-          <Owner key={p.id} studio={studio} id={p.id} name={p.name} place={p} />
+          <Owner key={p.id} studio={studio} shots={sb.shots} id={p.id} name={p.name} place={p} />
         ))}
       </div>
     </Page>
   )
 }
 
-function Owner({ studio, id, name, sub, character, place }: { studio: Studio; id: string; name: string; sub?: string; character?: Character; place?: Place }) {
+function Owner({ studio, shots, id, name, sub, character, place }: { studio: Studio; shots: Shot[]; id: string; name: string; sub?: string; character?: Character; place?: Place }) {
   const { state, refresh, track, busy } = studio
   const input = useRef<HTMLInputElement>(null)
   const [text, setText] = useState(character?.look ?? place?.look ?? "")
@@ -75,7 +77,7 @@ function Owner({ studio, id, name, sub, character, place }: { studio: Studio; id
   const sheets = state.sheets[id] ?? []
   const photo = state.photos[id]
   const chosen = character?.reference?.chosen ?? 0
-  const scenes = state.storyboard!.shots.filter((s) => (character ? s.characters.includes(id) : s.location === id)).map((s) => s.id)
+  const scenes = shots.filter((s) => (character ? s.characters.includes(id) : s.location === id)).map((s) => s.id)
   const status = sheets.some((u) => !u) ? "missing" : state.sheets_stale?.[id] ? "stale" : "ok"
 
   function pick(file?: File) {

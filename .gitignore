@@ -34,3 +34,9 @@ studio/dist/
 .impeccable/mocks/
 .impeccable/review/
 .impeccable/build/
+
+# earlier films moved aside to start a new story
+backups/
+
+# which story the studio opened last (per computer)
+stories/current.txt

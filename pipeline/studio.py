@@ -375,8 +375,28 @@ def _service(service: str) -> str:
 
 @app.get("/api/keys")
 def get_keys() -> list[dict[str, Any]]:
-    """Saved keys, masked to their last four characters. A key itself never leaves this machine's .env."""
-    return keys.describe()
+    """Saved keys, masked to their last four characters. A key itself never leaves this machine's .env.
+    Each service also says whether it can be paused and whether it is (pipeline/paused.py)."""
+    from . import paused
+    off = paused.paused()
+    return [{**s, "pausable": s["id"] in paused.PAUSABLE, "paused": s["id"] in off} for s in keys.describe()]
+
+
+class Pause(BaseModel):
+    paused: bool
+
+
+@app.put("/api/keys/{service}/paused")
+def put_paused(service: str, body: Pause) -> dict[str, Any]:
+    """Switch a service off (or on) without touching its keys; the chains skip it while it is off."""
+    from . import paused
+    try:
+        paused.set_paused(_service(service), body.paused)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc))
+    keys.new_run()
+    accounts.forget()
+    return {"ok": True}
 
 
 @app.post("/api/keys/{service}")

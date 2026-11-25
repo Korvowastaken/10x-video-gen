@@ -154,3 +154,25 @@ def test_tuning_does_not_reopen_the_script():
     sb["characters"][0]["voice"]["tune"] = {"speed": 0.9}
     line_items(sb)[0][2]["tune"] = {"age": 0.5}
     assert key_for(script_view(sb)) == before
+
+
+def test_an_older_take_is_tuned_once_and_stays_marked_for_recording(tmp_path):
+    """A line recorded for other words or settings still plays in the film: tuning applies to it."""
+    from pipeline.cache import StageCache
+    from pipeline.narration import retune_older
+
+    project = Project(tmp_path)
+    raws, cache = StageCache(project, "narration/raw"), StageCache(project, "narration")
+    raw = raws.path("S01_L1", "oldkey", ".wav")
+    _tone(raw, seconds=2.0)
+    raws.record("S01_L1", "oldkey", raw, {"text": "old words"}, cer=0.1)
+    plain = cache.path("S01_L1", "plain", ".wav")
+    process(raw, plain)
+    cache.record("S01_L1", "plain", plain, {"tts": {"text": "old words"}, "post": POST_VERSION})
+
+    assert retune_older(cache, raws, "S01_L1", {}) is False  # untuned: the film keeps its file
+    assert retune_older(cache, raws, "S01_L1", {"speed": 1.25}) is True
+    entry = cache.entry("S01_L1")
+    assert entry["spec"]["tune"] == {"speed": 1.25} and entry["cer"] == 0.1
+    assert entry["duration_s"] == pytest.approx(probe_duration(plain) / 1.25, rel=0.06)
+    assert retune_older(cache, raws, "S01_L1", {"speed": 1.25}) is False  # already applied

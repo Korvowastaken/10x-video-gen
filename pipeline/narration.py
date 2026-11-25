@@ -190,6 +190,28 @@ def _take(project: Project, sb: dict[str, Any], item: str, spec: dict[str, Any],
     return final_raw, meta
 
 
+def retune_older(cache: StageCache, raw_cache: StageCache, item: str, tune: dict[str, float]) -> bool:
+    """Tune the take a line already has when it was made for other words, voice or model
+    (it still needs recording again, and stays marked so). The film uses that take until
+    then, so it should sound as tuned. Free, and only when the tuning changed."""
+    older = raw_cache.current(item)
+    entry = cache.entry(item) or {}
+    if older is None or ((entry.get("spec") or {}).get("tune") or {}) == tune and cache.current(item):
+        return False
+    spec: dict[str, Any] = {"older_take": older.name, "post": POST_VERSION}
+    if tune:
+        spec.update(tune=tune, tune_version=tuning.TUNE_VERSION)
+    key = key_for(spec)
+    out = cache.path(item, key, ".wav")
+    gain = process(older, out, tune) if not cache.hit(item, key, ".wav") else entry.get("gain_db")
+    raw_entry = raw_cache.entry(item) or {}
+    meta = {k: v for k, v in raw_entry.items() if k in ("model", "heard", "cer", "take")}
+    cache.record(item, key, out, {**spec, "tts": raw_entry.get("spec")},
+                 duration_s=round(probe_duration(out), 3), gain_db=gain, **meta)
+    print(f"  {item}: tuned the older take ({tuning.describe(tune)}); record the line again to bring it up to date")
+    return True
+
+
 def run(project: Project, *, only: set[str] | None = None, force: bool = False,
         listen: bool = True, speak: bool = True) -> dict[str, float]:
     """`speak=False` re-processes from saved takes only (tuning): a line with no take keeps its old file."""
@@ -224,11 +246,11 @@ def run(project: Project, *, only: set[str] | None = None, force: bool = False,
             meta = {k: v for k, v in (raw_cache.entry(item) or {}).items() if k in ("model", "heard", "cer", "take")}
             reprocessed += 1
         elif not speak:
+            retune_older(cache, raw_cache, item, line_tune(sb, line))
             old = cache.current(item)
             if old is not None:
                 stale.append(item)
                 timing[item] = probe_duration(old)
-            print(f"  {item}: no saved take for this text and voice; record it first (tuning needs a take)")
             continue
         else:
             try:

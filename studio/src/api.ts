@@ -70,6 +70,8 @@ export type ShotState = {
     seconds: number | null
     /** The tuning the line is rendered with: the character's default, then the line's own. */
     tune: Tune
+    /** The tuning the line's current file was rendered with. */
+    applied: Tune
     /** A saved take exists for the line's words and voice, so it can be re-tuned for free. */
     tunable: boolean
     /** Some saved take exists, maybe an out-of-date one: settings can be tried on it. */

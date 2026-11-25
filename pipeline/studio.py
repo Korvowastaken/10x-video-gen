@@ -167,13 +167,16 @@ def _stale_or_unknown(sb: dict[str, Any], shot: dict[str, Any], kf: StageCache, 
     return stale(sb, shot, kf, raw, narration, approved)
 
 
-def _tune_state(sb: dict[str, Any], item: str, line: dict[str, Any], raw: StageCache,
+def _tune_state(sb: dict[str, Any], item: str, line: dict[str, Any], raw: StageCache, narration: StageCache,
                 errors: list[str]) -> dict[str, Any]:
-    """The tuning a line is rendered with, and whether its saved take can be re-tuned for free."""
+    """The tuning a line should have, the tuning its current file was rendered with, and
+    whether its take is current (tunable) or older (previewable only until recorded again)."""
+    applied = ((narration.entry(item) or {}).get("spec") or {}).get("tune") or {}
     if errors:
-        return {"tune": {}, "tunable": False, "previewable": False}
+        return {"tune": {}, "applied": applied, "tunable": False, "previewable": False}
     from .narration import line_tune, tts_spec
-    return {"tune": line_tune(sb, line), "tunable": raw.hit(item, key_for(tts_spec(sb, line)), ".wav") is not None,
+    return {"tune": line_tune(sb, line), "applied": applied,
+            "tunable": raw.hit(item, key_for(tts_spec(sb, line)), ".wav") is not None,
             "previewable": raw.current(item) is not None}
 
 
@@ -200,7 +203,7 @@ def state() -> dict[str, Any]:
             entry = narration.entry(f"{sid}_L{n}") or {}
             lines.append({"audio": _url(narration.current(f"{sid}_L{n}")), "cer": entry.get("cer"),
                           "heard": entry.get("heard"), "seconds": entry.get("duration_s"),
-                          **_tune_state(sb, f"{sid}_L{n}", line, voice_raw, errors)})
+                          **_tune_state(sb, f"{sid}_L{n}", line, voice_raw, narration, errors)})
         shots.append({
             "id": sid, "keyframe": _url(kf.current(sid)), "end": _url(kf.current(f"{sid}_end")),
             "clip": _url(comp.current(sid) if mode in ("masked_i2v", "cinemagraph") else raw.current(sid)),

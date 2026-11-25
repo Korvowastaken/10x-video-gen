@@ -93,13 +93,13 @@ export function VoicePanel({ studio, shot, media }: { studio: Studio; shot: Shot
   /** Lines in other scenes that follow this character's default (no own tuning), and whether each has a take to re-tune. */
   const others = (cid: string) =>
     sb.shots.flatMap((s) =>
-      s.id === shot.id ? [] : s.lines.map((l, i) => ({ l, tunable: !!studio.state.shots.find((m) => m.id === s.id)?.lines[i]?.tunable })),
+      s.id === shot.id ? [] : s.lines.map((l, i) => ({ l, tunable: !!studio.state.shots.find((m) => m.id === s.id)?.lines[i]?.previewable })),
     ).filter(({ l }) => l.speaker === cid && !l.tune)
   const otherLines = (cid: string) => others(cid).length
   // Lines elsewhere in the film follow a changed default too; those without a current take wait for one.
   const elsewhere = changedChars.reduce((n, c) => n + others(c.id).filter((o) => o.tunable).length, 0)
   const waiting = changedChars.reduce((n, c) => n + others(c.id).filter((o) => !o.tunable).length, 0)
-  const unapplied = shot.lines.map((_, i) => media.stale.voice[i] && media.lines[i]?.tunable)
+  const unapplied = shot.lines.map((_, i) => !!media.lines[i]?.previewable && !same(media.lines[i].applied, media.lines[i].tune))
 
   async function listen(i: number) {
     const item = `${shot.id}_L${i + 1}`
@@ -216,7 +216,7 @@ export function VoicePanel({ studio, shot, media }: { studio: Studio; shot: Shot
                   <span className="text-[12px] text-subtle">Record this line first: there is no saved take yet.</span>
                 ) : (
                   !take.tunable && (
-                    <span className="text-[12px] text-subtle">Plays the older take. Settings you apply are used when this line is recorded again.</span>
+                    <span className="text-[12px] text-subtle">Older take: tuning applies to it now and carries over when the line is recorded again.</span>
                   )
                 )}
               </div>
@@ -234,7 +234,7 @@ export function VoicePanel({ studio, shot, media }: { studio: Studio; shot: Shot
         </Button>
         <span className="text-[12px] text-muted-foreground">
           {dirty
-            ? `Re-renders ${rerender} line${rerender === 1 ? "" : "s"} here${elsewhere ? ` and ${elsewhere} in other scenes` : ""} from the saved takes${waiting ? `; ${waiting} more get it when they are recorded again` : ""}. A faster or slower line changes the scene's length in the cut.`
+            ? `Re-renders ${rerender} line${rerender === 1 ? "" : "s"} here${elsewhere ? ` and ${elsewhere} in other scenes` : ""} from the saved takes${waiting ? `; ${waiting} more have no take yet` : ""}. A faster or slower line changes the scene's length in the cut.`
             : unapplied.some(Boolean)
               ? "Some lines are not rendered with their tuning yet."
               : "Play a line with new settings before you apply them."}

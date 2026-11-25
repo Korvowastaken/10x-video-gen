@@ -12,9 +12,6 @@ const PAID_SERVICES = new Set(["anthropic", "wavespeed"])
 
 type Tone = "ok" | "out" | "paid" | "none"
 
-/** The services a kind of work tries, in order (pipeline/accounts.py "chain"). */
-type Link = { service: string; provider: string; connected: boolean }
-const chainOf = (info: PurposeInfo): Link[] => (info as PurposeInfo & { chain?: Link[] }).chain ?? [{ service: info.service, provider: info.provider, connected: info.keys.length > 0 }]
 
 /** One short status for a kind of work: what is left on the key it starts with. */
 function purposeStatus(info: PurposeInfo): { tone: Tone; text: string } {
@@ -67,87 +64,55 @@ function useProviders(studio: Studio) {
   return [data, async () => setData(await providersApi.get())] as const
 }
 
-/** One quiet line on a step: which service does each kind of work here, and whether it can run now. */
+/** One quiet line on a step: which service does each kind of work here, and whether it can run now.
+ * Clips and music offer their engines right here, where the step that makes them is. */
 export function ProvidersPanel({ studio, step }: { studio: Studio; step: string }) {
   const purposes = STEP_PURPOSES[step] ?? []
-  const [data] = useProviders(studio)
-  if (!purposes.length || !data) return null
-  return (
-    <div className="mb-6 flex flex-wrap items-center gap-x-5 gap-y-1 text-[12px]">
-      {purposes.map((p) => (
-        <span key={p} className="inline-flex items-center gap-1.5">
-          <span className="text-subtle">{data[p].label}:</span>
-          <span>{data[p].provider}</span>
-          <StatusText info={data[p]} />
-        </span>
-      ))}
-      <button className="text-link hover:underline" onClick={() => studio.go("keys")}>
-        Connections
-      </button>
-    </div>
-  )
-}
-
-/** For the Keys page: each kind of work, the service that does it (with a choice for clips and music), and what is left. */
-export function PurposeRows({ studio }: { studio: Studio }) {
   const [data, reload] = useProviders(studio)
-  if (!data) return <p className="py-3 text-[13px] text-subtle">Reading services…</p>
-  return (
-    <div className="divide-y border-y">
-      {(Object.keys(data) as Purpose[]).map((p) => (
-        <PurposeRow key={p} purpose={p} info={data[p]} studio={studio} onChange={reload} />
-      ))}
-    </div>
-  )
-}
+  if (!purposes.length || !data) return null
 
-function PurposeRow({ purpose, info, studio, onChange }: { purpose: Purpose; info: PurposeInfo; studio: Studio; onChange: () => Promise<void> }) {
-  async function setEngine(id: string) {
+  async function setEngine(purpose: Purpose, id: string) {
     try {
       await providersApi.chooseEngine(purpose, id)
-      toast.success(`${info.label} now use ${info.engines.find((e) => e.id === id)?.label}`)
-      await onChange()
+      toast.success(`${data![purpose].label} now use ${data![purpose].engines.find((e) => e.id === id)?.label}`)
+      await reload()
       await studio.refresh() // prices per scene follow the engine
     } catch (err) {
       toast.error((err as Error).message)
     }
   }
+
   return (
-    <div className="grid grid-cols-[180px_260px_minmax(0,1fr)] items-center gap-6 py-3">
-      <div className="min-w-0">
-        <div className="text-[14px] font-medium">{info.label}</div>
-        <div className="truncate text-[12px] text-subtle" title={info.does}>
-          {info.does}
-        </div>
-      </div>
-      {info.engines.length > 1 ? (
-        <Select items={info.engines.map((e) => ({ value: e.id, label: e.label }))} value={info.engine ?? ""} onValueChange={(v) => v && v !== info.engine && setEngine(String(v))}>
-          <SelectTrigger size="sm" className="w-full">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent className="min-w-80">
-            {info.engines.map((e) => (
-              <SelectItem key={e.id} value={e.id}>
-                {e.label}
-                <span className={cn("ml-auto pl-3 text-[11px]", e.paid ? "text-paid" : "text-free")}>{e.price}</span>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      ) : (
-        <span className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[13px]">
-          {chainOf(info).map((c, i) => (
-            <span key={c.service} className="inline-flex items-center gap-1.5">
-              {i > 0 && <span className="text-subtle">then</span>}
-              <span className={cn(!c.connected && "text-subtle")} title={c.connected ? undefined : "No key yet: skipped"}>
-                {c.provider}
-                {!c.connected && " (no key)"}
-              </span>
-            </span>
-          ))}
-        </span>
-      )}
-      <StatusText info={info} />
+    <div className="mb-6 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-[12px]">
+      {purposes.map((p) => {
+        const info = data[p]
+        return (
+          <span key={p} className="inline-flex items-center gap-1.5">
+            <span className="text-subtle">{info.label}:</span>
+            {info.engines.length > 1 ? (
+              <Select items={info.engines.map((e) => ({ value: e.id, label: e.label }))} value={info.engine ?? ""} onValueChange={(v) => v && v !== info.engine && setEngine(p, String(v))}>
+                <SelectTrigger size="sm" className="h-6 gap-1 border-none px-1.5 text-[12px] shadow-none hover:bg-secondary">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="min-w-80">
+                  {info.engines.map((e) => (
+                    <SelectItem key={e.id} value={e.id}>
+                      {e.label}
+                      <span className={cn("ml-auto pl-3 text-[11px]", e.paid ? "text-paid" : "text-free")}>{e.price}</span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <span>{info.provider}</span>
+            )}
+            <StatusText info={info} />
+          </span>
+        )
+      })}
+      <button className="text-link hover:underline" onClick={() => studio.go("keys")}>
+        Connections
+      </button>
     </div>
   )
 }

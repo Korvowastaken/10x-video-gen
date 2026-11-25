@@ -1,33 +1,51 @@
-import { ExternalLink, Plus, X } from "lucide-react"
+import { ExternalLink, Plus, Search, X } from "lucide-react"
 import { useCallback, useEffect, useState } from "react"
 import { toast } from "sonner"
 
 import { api, type KeyService } from "@/api"
 import type { Studio } from "@/App"
-import { PurposeRows } from "@/components/providers-panel"
+import { ServiceLogo } from "@/components/service-logo"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
+import { Switch } from "@/components/ui/switch"
 import { cn } from "@/lib/utils"
-import { Page, Section } from "@/views/parts"
+import { Page } from "@/views/parts"
 
+/** What /api/keys returns per service, plus the pause switch (pipeline/paused.py). */
+type Service = KeyService & { pausable?: boolean; paused?: boolean }
 type Key = KeyService["keys"][number]
 
-/** How the connections are grouped on the page, by the work they do. Unknown services land in the last group. */
-const GROUPS: { title: string; ids: string[] }[] = [
-  { title: "Writing and voices", ids: ["anthropic", "azure", "gemini"] },
-  { title: "Pictures, clips and music", ids: ["cloudflare", "wavespeed", "kaggle"] },
-  { title: "Other free writers (optional)", ids: ["groq", "cerebras", "openrouter"] },
+/** The side list: the kinds of work. A service can do more than one (Gemini writes and speaks). */
+const GROUPS: { id: string; title: string; ids: string[] }[] = [
+  { id: "writing", title: "Writing", ids: ["anthropic", "gemini", "groq", "cerebras", "openrouter"] },
+  { id: "video", title: "Video", ids: ["wavespeed", "kaggle"] },
+  { id: "voice", title: "Voice", ids: ["azure", "gemini"] },
+  { id: "pictures", title: "Pictures", ids: ["cloudflare"] },
+  { id: "sound", title: "Sound", ids: ["wavespeed", "kaggle"] },
 ]
+const FILTERS = [
+  { id: "all", label: "All" },
+  { id: "on", label: "Connected" },
+  { id: "off", label: "Not connected" },
+] as const
+
+async function setPaused(service: string, paused: boolean) {
+  const res = await fetch(`/api/keys/${service}/paused`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ paused }) })
+  if (!res.ok) throw new Error((await res.json().catch(() => ({})))?.detail ?? `HTTP ${res.status}`)
+}
 
 export function KeysView({ studio }: { studio: Studio }) {
-  const [services, setServices] = useState<KeyService[] | null>(null)
+  const [services, setServices] = useState<Service[] | null>(null)
+  const [group, setGroup] = useState("all")
+  const [filter, setFilter] = useState<(typeof FILTERS)[number]["id"]>("all")
+  const [query, setQuery] = useState("")
   const [open, setOpen] = useState<string | null>(null)
   const load = useCallback(async () => {
     try {
-      setServices(await api.keys())
+      setServices((await api.keys()) as Service[])
     } catch (err) {
-      toast.error(`Could not read the keys: ${(err as Error).message}`)
+      toast.error(`Could not read the connections: ${(err as Error).message}`)
     }
   }, [])
   useEffect(() => {
@@ -37,38 +55,71 @@ export function KeysView({ studio }: { studio: Studio }) {
     await load()
     await studio.refresh()
   }
-  const known = new Set(GROUPS.flatMap((g) => g.ids))
-  const groups = GROUPS.map((g, i) => ({
-    title: g.title,
-    items: (services ?? []).filter((s) => g.ids.includes(s.id) || (i === GROUPS.length - 1 && !known.has(s.id))),
-  })).filter((g) => g.items.length)
-  const connected = services?.filter((s) => s.keys.length).length ?? 0
-  const current = services?.find((s) => s.id === open) ?? null
+
+  const all = services ?? []
+  const inGroup = (s: Service, id: string) => GROUPS.find((x) => x.id === id)!.ids.includes(s.id)
+  const q = query.trim().toLowerCase()
+  const shown = all.filter(
+    (s) =>
+      (group === "all" || inGroup(s, group)) &&
+      (filter === "all" || (filter === "on") === s.keys.length > 0) &&
+      (!q || `${s.label} ${s.for}`.toLowerCase().includes(q)),
+  )
+  const current = all.find((s) => s.id === open) ?? null
 
   return (
     <Page className="max-w-6xl">
-      <header className="mb-2 border-b pb-5">
+      <header className="mb-6">
         <h1 className="text-[28px] leading-tight font-semibold tracking-[-0.01em]">Connections</h1>
         <p className="mt-1 max-w-2xl text-muted-foreground">
-          {services ? `${connected} of ${services.length} services connected. ` : ""}
-          Keys stay in the .env file on this computer. When a free limit runs out, the next key for the same service takes over by itself.
+          The services that write, speak, draw and move your film. Keys stay in the .env file on this computer; when a free limit runs out, the next key takes over.
         </p>
       </header>
 
-      <Section title="What makes what">
-        <PurposeRows studio={studio} />
-      </Section>
+      <div className="grid grid-cols-[200px_minmax(0,1fr)] gap-8">
+        <nav aria-label="Categories" className="sticky top-6 flex flex-col gap-0.5 self-start">
+          <SideItem active={group === "all"} onClick={() => setGroup("all")} label="All services" n={all.length} />
+          {GROUPS.map((g) => (
+            <SideItem key={g.id} active={group === g.id} onClick={() => setGroup(g.id)} label={g.title} n={all.filter((s) => inGroup(s, g.id)).length} />
+          ))}
+        </nav>
 
-      {!services && <p className="mt-8 text-[13px] text-subtle">Reading the connections…</p>}
-      {groups.map((g) => (
-        <Section key={g.title} title={g.title} className="mt-10">
-          <div className="grid grid-cols-3 gap-3">
-            {g.items.map((s) => (
-              <Connector key={s.id} service={s} onOpen={() => setOpen(s.id)} />
+        <div className="min-w-0">
+          <div className="sticky top-0 z-10 -mt-6 mb-1 flex items-center gap-2 bg-background pt-6 pb-4">
+            <div role="radiogroup" aria-label="Show" className="flex gap-1">
+              {FILTERS.map((f) => (
+                <button
+                  key={f.id}
+                  role="radio"
+                  aria-checked={filter === f.id}
+                  onClick={() => setFilter(f.id)}
+                  className={cn(
+                    "h-7 rounded-full border px-3 text-[12px] transition-colors duration-150",
+                    filter === f.id ? "border-foreground bg-foreground text-background" : "text-muted-foreground hover:bg-secondary hover:text-foreground",
+                  )}
+                >
+                  {f.label}
+                  <span className="ml-1.5 tabular-nums opacity-70">
+                    {f.id === "all" ? all.length : all.filter((s) => (f.id === "on") === s.keys.length > 0).length}
+                  </span>
+                </button>
+              ))}
+            </div>
+            <label className="relative ml-auto w-60">
+              <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-subtle" />
+              <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search services" className="h-8 pl-8 text-[13px]" aria-label="Search services" />
+            </label>
+          </div>
+
+          <div className="divide-y rounded-lg border">
+            {!services && <p className="p-4 text-[13px] text-subtle">Reading the connections…</p>}
+            {services && shown.length === 0 && <p className="p-4 text-[13px] text-subtle">No service matches. Try All, or clear the search.</p>}
+            {shown.map((s) => (
+              <ServiceRow key={s.id} service={s} onOpen={() => setOpen(s.id)} onChange={changed} />
             ))}
           </div>
-        </Section>
-      ))}
+        </div>
+      </div>
 
       <Dialog open={!!current} onOpenChange={(o) => !o && setOpen(null)}>
         {current && <Manage service={current} onChange={changed} />}
@@ -77,47 +128,71 @@ export function KeysView({ studio }: { studio: Studio }) {
   )
 }
 
-/** A service's mark: its initials on a tile, since the studio ships no third-party logos. */
-function Mark({ label, on }: { label: string; on: boolean }) {
-  const letters = label.split(/\s+/).map((w) => w[0]).join("").slice(0, 2)
+function SideItem({ active, onClick, label, n }: { active: boolean; onClick: () => void; label: string; n: number }) {
   return (
-    <span className={cn("grid size-9 shrink-0 place-items-center rounded-md text-[13px] font-semibold", on ? "bg-foreground text-background" : "border bg-muted text-subtle")}>
-      {letters}
-    </span>
+    <button
+      onClick={onClick}
+      aria-current={active ? "true" : undefined}
+      className={cn(
+        "flex h-8 items-center justify-between rounded-md px-2.5 text-left text-[13px] transition-colors duration-150",
+        active ? "bg-secondary font-medium text-foreground" : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground",
+      )}
+    >
+      {label}
+      <span className="text-[12px] text-subtle tabular-nums">{n}</span>
+    </button>
   )
 }
 
-function Connector({ service, onOpen }: { service: KeyService; onOpen: () => void }) {
+/** One service: logo, name, status badge and one line; keys underneath when connected; the switch and one button on the right. */
+function ServiceRow({ service, onOpen, onChange }: { service: Service; onOpen: () => void; onChange: () => Promise<void> }) {
   const on = service.keys.length > 0
+  async function toggle(next: boolean) {
+    try {
+      await setPaused(service.id, !next)
+      toast.success(next ? `${service.label} is on again` : `${service.label} is paused; the next service takes over`)
+      await onChange()
+    } catch (err) {
+      toast.error((err as Error).message)
+    }
+  }
   return (
-    <div className="flex flex-col rounded-lg border p-4 transition-colors duration-150 hover:border-thread">
-      <div className="flex items-start gap-3">
-        <Mark label={service.label} on={on} />
-        <div className="min-w-0 flex-1">
-          <div className="flex items-baseline justify-between gap-2">
-            <span className="text-[14px] font-medium">{service.label}</span>
-            <span className={cn("text-[12px]", service.paid ? "text-paid" : "text-free")}>{service.paid ? "Paid" : "Free"}</span>
-          </div>
-          <p className="mt-1 line-clamp-2 text-[12.5px] leading-snug text-muted-foreground" title={service.for}>
-            {service.for}
-          </p>
+    <div className="flex items-center gap-4 px-4 py-3.5">
+      <ServiceLogo id={service.id} label={service.label} dim={!on || service.paused} />
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <span className="text-[14px] font-medium">{service.label}</span>
+          {on && !service.paused && <span className="rounded-full bg-free/12 px-2 text-[11px] leading-[18px] font-medium text-free">Connected</span>}
+          {on && service.paused && <span className="rounded-full bg-gold/15 px-2 text-[11px] leading-[18px] font-medium text-gold-ink">Paused</span>}
+          <span className={cn("text-[12px]", service.paid ? "text-paid" : "text-subtle")}>{service.paid ? "Paid" : "Free"}</span>
         </div>
+        <p className="mt-0.5 truncate text-[12.5px] text-muted-foreground" title={service.for}>
+          {service.for}
+        </p>
+        {on && (
+          <p className="mt-1 text-[12px] text-subtle tabular-nums">
+            {service.keys.map((k) => `Key ${k.n} ${Object.values(k.masked).slice(-1)[0]}`).join("  ·  ")}
+          </p>
+        )}
       </div>
-      <div className="mt-4 flex items-center justify-between gap-2 pt-1">
-        <span className={cn("inline-flex items-center gap-1.5 text-[12px]", on ? "text-free" : "text-subtle")}>
-          <span className={cn("size-1.5 rounded-full", on ? "bg-free" : "border border-thread")} />
-          {on ? `Connected${service.keys.length > 1 ? ` · ${service.keys.length} keys` : ""}` : "Not connected"}
-        </span>
-        <Button size="sm" variant={on ? "ghost" : "outline"} onClick={onOpen}>
-          {on ? "Manage" : "Connect"}
-        </Button>
-      </div>
+      {on && service.pausable && (
+        <Switch
+          checked={!service.paused}
+          onCheckedChange={toggle}
+          aria-label={`${service.label} on`}
+          title={service.paused ? "Paused: the studio skips it" : "On: the studio uses it"}
+          className="data-checked:bg-free"
+        />
+      )}
+      <Button size="sm" variant={on ? "ghost" : "outline"} className="w-24" onClick={onOpen}>
+        {on ? "Manage" : "Connect"}
+      </Button>
     </div>
   )
 }
 
 /** The dialog for one service: its keys (use first, remove) and adding one. */
-function Manage({ service, onChange }: { service: KeyService; onChange: () => Promise<void> }) {
+function Manage({ service, onChange }: { service: Service; onChange: () => Promise<void> }) {
   const [adding, setAdding] = useState(service.keys.length === 0)
   const [removing, setRemoving] = useState<Key | null>(null)
   const several = service.keys.length > 1 && !service.single
@@ -127,7 +202,7 @@ function Manage({ service, onChange }: { service: KeyService; onChange: () => Pr
     <DialogContent className="sm:max-w-lg">
       <DialogHeader>
         <div className="flex items-center gap-3">
-          <Mark label={service.label} on={service.keys.length > 0} />
+          <ServiceLogo id={service.id} label={service.label} dim={service.keys.length === 0} />
           <div>
             <DialogTitle>{service.label}</DialogTitle>
             <DialogDescription className="mt-0.5">{service.for}</DialogDescription>
@@ -200,9 +275,7 @@ function Manage({ service, onChange }: { service: KeyService; onChange: () => Pr
           </Button>
         )
       )}
-      {service.keys.length > 1 && !service.single && (
-        <p className="text-[12px] text-subtle">Keys from different accounts each have their own free limit; when one runs out, the next is used.</p>
-      )}
+      {several && <p className="text-[12px] text-subtle">Keys from different accounts each have their own free limit; when one runs out, the next is used.</p>}
     </DialogContent>
   )
 }

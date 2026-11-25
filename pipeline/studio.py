@@ -315,9 +315,31 @@ if DIST.exists():
     app.mount("/", StaticFiles(directory=DIST, html=True), name="app")
 
 
+def build_app() -> None:
+    """Build studio/dist when it is missing or older than the app's source, so
+    `uv run python -m pipeline studio` is the only command needed (no make)."""
+    import shutil
+    import subprocess
+
+    web = ROOT / "studio"
+    index = web / "dist" / "index.html"
+    sources = [web / "index.html", web / "package.json", web / "vite.config.ts", *(web / "src").rglob("*")]
+    newest = max((f.stat().st_mtime for f in sources if f.is_file()), default=0)
+    if index.exists() and index.stat().st_mtime >= newest:
+        return
+    tool = shutil.which("pnpm") or shutil.which("npm")
+    if not tool:
+        raise SystemExit("studio: the web app needs building, and that needs Node.js (https://nodejs.org) with pnpm or npm")
+    print(f"studio: building the web app with {Path(tool).stem} (first run takes a minute)")
+    if not (web / "node_modules").exists():
+        subprocess.run([tool, "install"], cwd=web, check=True)
+    subprocess.run([tool, "run", "build"], cwd=web, check=True)
+
+
 def main() -> None:
     import uvicorn
 
+    build_app()
     port = int(os.environ.get("STUDIO_PORT", "8765"))
     print(f"studio: http://localhost:{port}")
     uvicorn.run(app, host="127.0.0.1", port=port, log_level="warning")

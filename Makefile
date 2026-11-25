@@ -28,7 +28,7 @@ validate:  ; $(PY) validate
 status:    ; $(PY) status
 costs:     ; $(PY) costs
 site:      ; $(PY) site
-studio:    ; cd studio && pnpm install && pnpm build && cd .. && $(PY) studio
+studio:    ; $(PY) studio
 prune:     ; $(PY) prune
 smoke:     ; $(PY) smoke $(if $(GPU),--kaggle-gpu)
 test:      ; uv run pytest -q

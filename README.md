@@ -114,7 +114,7 @@ the single model call.
 | `make costs` | per-stage calls, latency, GPU time and list-price cost from `runs.jsonl` |
 | `make test` | the contract, caching, motion and edit tests |
 | `make site` | the design doc as one page in Linear's style: `outputs/site/index.html` (self-contained, shareable) |
-| `make studio` | the studio: a local web app at http://127.0.0.1:8765 to edit the story, add reference photos, edit each scene's lines, picture and motion, give Gemini feedback on a scene and redo its keyframe, voice or clip (needs Node and pnpm) |
+| `make studio`, or `uv run python -m pipeline studio` without make | the studio: a local web app at http://127.0.0.1:8765 to edit the story, add reference photos, edit each scene's lines, picture and motion, give Gemini feedback on a scene and redo its keyframe, voice or clip (the first run builds the web app, which needs Node.js) |
 
 ## What it costs
 

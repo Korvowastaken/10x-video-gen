@@ -150,3 +150,14 @@ The test the research asked for before building on it.
   - A before/after strip of all 11 stills shows no muddy or tinted scenes at 0.6; the interiors lose a little of their blue cast.
   - FFmpeg's `lut3d` and the numpy path used for the measurement agree within 0.5 levels of 255.
 - **Decision:** grade every cut except the radio cut, at strength 0.6. It gets most of the gain (0.186 to 0.130) and leaves each scene some of its own light; 1.0 makes every scene's averages identical. `edit.grade: false` turns it off, and `edit.grade: {"target": ...}` fixes the look.
+
+## E15. Does a run with no changes give the same film, and do approvals stay put?
+
+- **Hypothesis:** every file is cached under a hash of what made it, and approvals are hashes of the same inputs, so running a step again with nothing changed makes nothing new and leaves every approval fresh.
+- **Change:** none to the pipeline; measured on a copy of the project with `python -m pipeline --project <copy> sketch` twice, `assemble.preview` twice for S01, and `flow.fingerprints` computed twice (`tests/test_flow.py`, `tests/test_sketch.py`).
+- **Result:**
+  - Sketch: the first run drew 11 frames and a 74.0 s animatic; the second drew 0 and reused both. Rendering the same scene twice gives byte-identical PNGs.
+  - Scene preview: S01 took 14.0 s the first time and came back from the cache the second time, with no new file.
+  - Approvals: fingerprints are identical across runs. After approving Story, Script and Sketch, running `sketch` again left all three approved.
+  - Model calls: none in either second run (`runs.jsonl` unchanged).
+- **Decision:** keep approvals as hashes of the same inputs the cache keys use. A re-run is a safe "check nothing changed": anything that turns stale really did change.

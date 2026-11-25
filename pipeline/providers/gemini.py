@@ -15,7 +15,8 @@ import httpx
 
 from .. import runlog
 from ..config import Project, env
-from ..retry import ProviderError, QuotaExhausted, http_request, with_fallback, with_retries
+from .. import keys
+from ..retry import KeySwitched, ProviderError, QuotaExhausted, http_request, with_fallback, with_retries
 
 BASE = "https://generativelanguage.googleapis.com/v1beta"
 
@@ -32,6 +33,13 @@ def _on_throttle(response: httpx.Response) -> float | None:
         return None
     text = json.dumps(error)
     if response.status_code == 429 and re.search(r"PerDay|per day|daily", text, re.IGNORECASE):
+        # The limit is per Google project and per model: another saved key may still have it.
+        try:
+            model = re.search(r"/models/([^/:?]+)", str(response.request.url))
+        except RuntimeError:  # a response built without a request (tests)
+            model = None
+        if keys.switch("gemini", model.group(1) if model else ""):
+            raise KeySwitched("QuotaExhausted on this key: switched to the next saved Gemini key")
         raise QuotaExhausted(f"Gemini daily quota used up: {error.get('message', '')[:240]}")
     for detail in error.get("details", []):
         delay = detail.get("retryDelay")

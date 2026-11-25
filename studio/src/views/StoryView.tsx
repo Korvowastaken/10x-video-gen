@@ -58,7 +58,7 @@ export function StoryView({ studio }: { studio: Studio }) {
             )}
             <RunButton
               className="w-full"
-              cost={FREE("Gemini")}
+              cost={FREE("Gemini", "writing")}
               disabled={busy || !text.trim()}
               onRun={draft}
               confirm={

@@ -20,9 +20,17 @@ export function FilmView({ studio }: { studio: Studio }) {
   const paid = state.shots.filter((s) => s.paid)
   const toBuy = paid.filter((s) => !s.clip)
   const buyPrice = toBuy.reduce((n, s) => n + s.price, 0)
+  const voicesPending = state.shots.some((m) => m.lines.some((l, i) => !l.audio || m.stale.voice[i]))
 
   const cuts = [
-    { id: "radio", label: "Radio cut", note: "Voices and placeholder music on black. For a first listen with the family.", url: state.film.radio, cost: FREE() },
+    {
+      id: "radio",
+      label: "Radio cut",
+      note: "Voices and placeholder music on black. For a first listen with the family.",
+      url: state.film.radio,
+      // It records any missing or changed line first, which draws on the free voice limit.
+      cost: FREE("Gemini", voicesPending ? "voices" : undefined),
+    },
     { id: "rough", label: "Rough cut", note: "Free motion over every still, with voice and captions. No paid clip used.", url: state.film.rough, cost: FREE() },
     {
       id: "final",

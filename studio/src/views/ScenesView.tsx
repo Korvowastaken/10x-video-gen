@@ -1,5 +1,5 @@
 import { ArrowRight, Check, ChevronDown, ChevronUp, Sparkles, X } from "lucide-react"
-import { useEffect, useMemo, useState } from "react"
+import { useContext, useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
 
 import { ApiError, api, diff, MODES, type Shot, type ShotState } from "@/api"
@@ -12,7 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
-import { affected, FREE, fieldLabel, PAID, PART_LABEL, scene, usd, type Part } from "@/lib/progress"
+import { LimitsContext } from "@/lib/limits"
+import { affected, back, blocked, FREE, fieldLabel, LIMIT_OF, PAID, PART_LABEL, scene, usd, type Part } from "@/lib/progress"
 import { cn } from "@/lib/utils"
 import { StatusDot } from "@/views/parts"
 
@@ -196,6 +197,7 @@ function SceneWorkspace({
                 dirty={dirty}
                 busy={busy}
                 onEdit={() => setTab("edit")}
+                onKeys={() => studio.go("keys")}
                 onAccept={async (proposal, redo) => {
                   if (!(await save(proposal))) return false
                   if (redo.length) await track(api.redo(shot.id, redo))
@@ -335,6 +337,7 @@ function FeedbackPanel({
   dirty,
   busy,
   onEdit,
+  onKeys,
   onAccept,
 }: {
   shot: Shot
@@ -342,6 +345,7 @@ function FeedbackPanel({
   dirty: boolean
   busy: boolean
   onEdit: () => void
+  onKeys: () => void
   onAccept: (s: Shot, redo: Part[]) => Promise<boolean>
 }) {
   const [text, setText] = useState("")
@@ -350,7 +354,11 @@ function FeedbackPanel({
   const [failed, setFailed] = useState<string | null>(null)
   const changes = proposal ? diff(shot, proposal.shot) : []
   const parts = proposal ? affected(shot, proposal.shot, hasClip) : []
-  const free = parts.filter((p) => p !== "clip")
+  const limits = useContext(LimitsContext)
+  const writing = blocked(FREE("Gemini", "writing"), limits)
+  const waitsFor = (p: Part) => blocked(FREE(undefined, LIMIT_OF[p]), limits)
+  const free = parts.filter((p) => p !== "clip" && !waitsFor(p))
+  const waiting = parts.filter((p) => p !== "clip" && waitsFor(p))
 
   async function ask() {
     setLoading(true)
@@ -360,7 +368,11 @@ function FeedbackPanel({
       setProposal({ shot: res.proposal, errors: res.errors })
     } catch (err) {
       const message = (err as Error).message
-      setFailed(/quota/i.test(message) ? "Gemini's free quota is used up for today. Try again tomorrow, or edit the scene by hand." : message)
+      setFailed(
+        /quota/i.test(message)
+          ? `Gemini's free writing limit is used up for today.${limits?.writing ? ` It comes back ${back(limits.writing).text}.` : ""} Until then you can edit the scene by hand.`
+          : message,
+      )
     } finally {
       setLoading(false)
     }
@@ -379,16 +391,16 @@ function FeedbackPanel({
         <Textarea
           value={text}
           onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && (e.metaKey || e.ctrlKey) && text.trim() && !dirty && ask()}
+          onKeyDown={(e) => e.key === "Enter" && (e.metaKey || e.ctrlKey) && text.trim() && !dirty && !writing && ask()}
           placeholder="What should change? For example: Grandma should be laughing, and the line should mention Sunday."
           className="min-h-24 text-[13px]"
         />
         <div className="mt-2 flex items-center gap-3">
-          <Button onClick={ask} disabled={!text.trim() || loading || dirty}>
+          <Button onClick={ask} disabled={!text.trim() || loading || dirty || !!writing}>
             <Sparkles /> {loading ? "Gemini is revising…" : "Revise with Gemini"}
-            <CostTag cost={FREE()} className="-mr-1 bg-white/15 text-white" />
+            <CostTag cost={FREE("Gemini", "writing")} className={cn("-mr-1", !writing && "bg-white/15 text-white")} />
           </Button>
-          {dirty ? (
+          {writing ? null : dirty ? (
             <span className="text-[12px] text-subtle">
               You have unsaved hand edits.{" "}
               <button className="text-foreground underline-offset-2 hover:underline" onClick={onEdit}>
@@ -400,6 +412,19 @@ function FeedbackPanel({
             <span className="text-[12px] text-subtle">Nothing changes until you accept.</span>
           )}
         </div>
+        {writing && (
+          <p className="mt-2 text-[12px] text-warn">
+            Today's free Gemini writing is used up. It comes back {back(writing).text}.{" "}
+            <button className="text-foreground underline-offset-2 hover:underline" onClick={onKeys}>
+              Add a key
+            </button>{" "}
+            from another Google project to go on now, or{" "}
+            <button className="text-foreground underline-offset-2 hover:underline" onClick={onEdit}>
+              edit by hand
+            </button>
+            .
+          </p>
+        )}
       </div>
 
       {failed && !proposal && (
@@ -458,7 +483,12 @@ function FeedbackPanel({
             <Button variant="ghost" onClick={() => setProposal(null)}>
               <X /> Discard
             </Button>
-            {parts.includes("clip") && (
+            {waiting.length > 0 && (
+              <span className="ml-auto text-[12px] text-warn">
+                {waiting.map((p) => PART_LABEL[p]).join(" and ")} can be redone {back(waitsFor(waiting[0])!).text}, when its free limit is back.
+              </span>
+            )}
+            {parts.includes("clip") && !waiting.length && (
               <span className="ml-auto text-[12px] text-muted-foreground">
                 The clip then needs a redo too. That one is <span className="text-paid">paid</span>, below.
               </span>
@@ -484,6 +514,8 @@ function RedoPanel({
   onRedo: (parts: Part[]) => void
 }) {
   const status = scene(media)
+  const limits = useContext(LimitsContext)
+  const waitsFor = (p: Part) => blocked(FREE(undefined, LIMIT_OF[p]), limits)
   const flf = shot.motion.mode === "flf_inbetween"
   const options: { id: Part; label: string; state: string; tone: "ok" | "stale" | "missing" | "paid"; off?: string }[] = [
     {
@@ -517,7 +549,7 @@ function RedoPanel({
     },
   ]
   const [parts, setParts] = useState<Part[]>(() =>
-    options.filter((o) => !o.off && o.id !== "clip" && (o.tone === "stale" || o.tone === "missing")).map((o) => o.id),
+    options.filter((o) => !o.off && !waitsFor(o.id) && o.id !== "clip" && (o.tone === "stale" || o.tone === "missing")).map((o) => o.id),
   )
   const toggle = (p: Part, on: boolean) => setParts((x) => (on ? [...x, p] : x.filter((y) => y !== p)))
   const buying = parts.includes("clip")
@@ -536,15 +568,17 @@ function RedoPanel({
       </div>
       <div className="mt-3 divide-y rounded-lg border">
         {options.map((o) => {
-          const price = o.id === "clip" ? PAID(media.price) : FREE(o.id === "keyframe" ? "Cloudflare" : "Gemini")
+          const price = o.id === "clip" ? PAID(media.price) : FREE(o.id === "keyframe" ? "Cloudflare" : "Gemini", LIMIT_OF[o.id])
+          const out = waitsFor(o.id)
           return (
             <label
               key={o.id}
               className={cn("flex items-center gap-3 px-3.5 py-2.5", o.off ? "opacity-50" : "cursor-pointer hover:bg-muted/40")}
             >
-              <Checkbox checked={parts.includes(o.id)} disabled={!!o.off} onCheckedChange={(on) => toggle(o.id, on)} />
+              <Checkbox checked={parts.includes(o.id)} disabled={!!o.off || !!out} onCheckedChange={(on) => toggle(o.id, on)} />
               <span className="w-40 text-[13px] font-medium">{o.label}</span>
               {o.off ? <span className="text-[12px] text-subtle">{o.off}</span> : <StatusDot status={o.tone}>{o.state}</StatusDot>}
+              {!o.off && out && <span className="text-[12px] text-warn">· free limit used up</span>}
               {!o.off && <CostTag cost={price} className="ml-auto" />}
             </label>
           )

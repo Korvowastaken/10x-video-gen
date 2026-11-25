@@ -46,6 +46,7 @@ class Call:
     output: str | None = None
     error: str | None = None
     note: str | None = None
+    key: str | None = None  # which saved key made the call: a fingerprint, never the key
 
 
 def append(project: Project, call: Call) -> None:
@@ -59,6 +60,9 @@ def append(project: Project, call: Call) -> None:
 def model_call(project: Project, **fields: Any) -> Iterator[Call]:
     """Time one model call and log it. The body may fill in cost, output, gpu_s."""
     call = Call(**fields)
+    if call.key is None:  # taken now: a key that runs out is swapped before this call is logged
+        from .keys import active_fingerprint
+        call.key = active_fingerprint(call.provider)
     started = time.perf_counter()
     try:
         yield call

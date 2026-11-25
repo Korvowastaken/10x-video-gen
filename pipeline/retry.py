@@ -26,25 +26,38 @@ class QuotaExhausted(RuntimeError):
     pass
 
 
+class KeySwitched(RetryableError):
+    """The key ran out and another saved key took over: try the same request again now."""
+
+    def __init__(self, message: str):
+        super().__init__(message, retry_after=0)
+
+
 class ProviderError(RuntimeError):
     pass
 
 
 def with_retries(fn: Callable[[int], T], *, attempts: int = 4, base: float = 4.0,
                  cap: float = 90.0, label: str = "") -> T:
-    """Call fn(attempt) until it succeeds, backing off exponentially with jitter."""
-    for attempt in range(1, attempts + 1):
+    """Call fn(attempt) until it succeeds, backing off exponentially with jitter.
+    A switch to another key retries at once and does not use up an attempt."""
+    attempt, switches = 1, 0
+    while True:
         try:
             return fn(attempt)
+        except KeySwitched:
+            switches += 1
+            if switches > 20:  # every saved key bounced: stop rather than loop
+                raise
         except RetryableError as exc:
-            if attempt == attempts:
+            if attempt >= attempts:
                 raise
             delay = exc.retry_after if exc.retry_after is not None else min(cap, base * 2 ** (attempt - 1))
             delay = min(cap, delay) * random.uniform(0.85, 1.15)
             print(f"    retry {label}: attempt {attempt} failed ({' '.join(str(exc).split())[:110]}); "
                   f"waiting {delay:.0f}s")
             time.sleep(delay)
-    raise AssertionError("unreachable")
+            attempt += 1
 
 
 EXHAUSTED: set[str] = set()  # models whose daily quota ran out during this run

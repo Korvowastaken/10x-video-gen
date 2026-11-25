@@ -25,7 +25,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import revise
+from . import keys, revise
 from . import storyboard as sbmod
 from .cache import StageCache, key_for, sha256_bytes
 from .config import ROOT, Project, load_env
@@ -62,6 +62,7 @@ def start_job(kind: str, work: Callable[[], Any]) -> dict[str, Any]:
         if busy:
             raise HTTPException(409, f"'{busy[0]['kind']}' is still running")
         job = {"id": uuid.uuid4().hex[:8], "kind": kind, "status": "running", "log": [], "started": time.time()}
+        keys.new_run()
         JOBS[job["id"]] = job
 
     def target() -> None:
@@ -345,6 +346,54 @@ def delete_reference(owner_id: str) -> dict[str, Any]:
             for old in (PROJECT.root / "references").glob(f"{owner_id}.*"):
                 old.unlink()
     return _save_or_422(sb)
+
+
+# ---------------------------------------------------------------- keys
+
+class NewKey(BaseModel):
+    values: dict[str, str]
+
+
+def _service(service: str) -> str:
+    if service not in keys.SERVICES:
+        raise HTTPException(404, "no such service")
+    return service
+
+
+@app.get("/api/keys")
+def get_keys() -> list[dict[str, Any]]:
+    """Saved keys, masked to their last four characters. A key itself never leaves this machine's .env."""
+    return keys.describe()
+
+
+@app.post("/api/keys/{service}")
+def post_key(service: str, body: NewKey) -> dict[str, Any]:
+    _service(service)
+    values = {f: (body.values.get(f) or "").strip() for f in keys.SERVICES[service]["fields"]}
+    problem = keys.check(service, values) if all(values.values()) else None
+    if problem:
+        raise HTTPException(422, problem)
+    try:
+        slot = keys.save(service, values)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc))
+    keys.new_run()  # a new key may bring back models skipped as used up
+    return {"ok": True, "slot": slot}
+
+
+@app.delete("/api/keys/{service}/{slot}")
+def delete_key(service: str, slot: int) -> dict[str, Any]:
+    _service(service)
+    keys.remove(service, slot)
+    return {"ok": True}
+
+
+@app.post("/api/keys/{service}/{slot}/use")
+def use_key(service: str, slot: int) -> dict[str, Any]:
+    if slot not in keys.slots(_service(service)):
+        raise HTTPException(404, "no such key")
+    keys.use(service, slot)
+    return {"ok": True}
 
 
 # ---------------------------------------------------------------- stage runs

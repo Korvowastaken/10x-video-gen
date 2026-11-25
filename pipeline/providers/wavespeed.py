@@ -22,6 +22,7 @@ import httpx
 
 from .. import runlog
 from ..config import Project, env
+from .. import keys
 from ..retry import ProviderError, QuotaExhausted, RetryableError, http_request, with_retries
 
 API = "https://api.wavespeed.ai/api/v3"
@@ -82,6 +83,8 @@ def submit(model: str, payload: dict[str, Any]) -> str:
             code = body.get("code")
             message = body.get("message") or response.text[:300]
             if code in CREDIT_CODES or "credit" in str(message).lower() or "balance" in str(message).lower():
+                if keys.switch("wavespeed"):  # nothing was created: submit again on the next account
+                    continue
                 raise QuotaExhausted(f"WaveSpeed credit used up: {message}")
             raise ProviderError(f"WaveSpeed submit failed: HTTP {response.status_code} code {code}: {message}")
         task_id = _data(response).get("id")

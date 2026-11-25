@@ -38,7 +38,10 @@ export function ReferencesView({ studio }: { studio: Studio }) {
           {(old > 0 || undrawn > 0) && (
             <StatusDot status="stale">{[undrawn && `${undrawn} not drawn`, old && `${old} out of date`].filter(Boolean).join(" · ")}</StatusDot>
           )}
-          <RunButton cost={FREE("Cloudflare")} disabled={busy} onRun={() => track(api.run("keyframes"))}>
+          {state.limits?.pictures && !state.limits.pictures.used_up && state.limits.pictures.left != null && (
+            <span className="text-[12px] text-subtle">~{state.limits.pictures.left} pictures left today</span>
+          )}
+          <RunButton cost={FREE("Cloudflare", "pictures")} disabled={busy} onRun={() => track(api.run("keyframes"))}>
             Redraw sheets and stills
           </RunButton>
           <Button variant="ghost" onClick={() => go("scenes")}>

@@ -1,13 +1,15 @@
-import { Check, ChevronDown, Loader2, Lock, RefreshCw } from "lucide-react"
+import { Check, ChevronDown, KeyRound, Loader2, Lock, RefreshCw } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { Toaster, toast } from "sonner"
 
 import { api, type Job, type State } from "@/api"
 import { RunButton } from "@/components/run-button"
 import { Button } from "@/components/ui/button"
-import { next, steps, usd, type Step, type StepId } from "@/lib/progress"
+import { LimitsContext } from "@/lib/limits"
+import { back, blocked, next, steps, usd, type Step, type StepId } from "@/lib/progress"
 import { cn } from "@/lib/utils"
 import { FilmView } from "@/views/FilmView"
+import { KeysView } from "@/views/KeysView"
 import { ReferencesView } from "@/views/ReferencesView"
 import { ScenesView } from "@/views/ScenesView"
 import { StoryView } from "@/views/StoryView"
@@ -20,7 +22,7 @@ export type Studio = {
   busy: boolean
   job: Job | null
   /** Open a step, and optionally one scene in it. */
-  go: (view: StepId, scene?: string) => void
+  go: (view: View, scene?: string) => void
   scene: string
 }
 
@@ -39,9 +41,12 @@ const write = (key: string, value: string) => {
   }
 }
 
+/** The four steps, plus the Keys page beside them. */
+export type View = StepId | "keys"
+
 export default function App() {
   const [state, setState] = useState<State | null>(null)
-  const [view, setView] = useState<StepId>(() => (read("view") as StepId) || "scenes")
+  const [view, setView] = useState<View>(() => (read("view") as View) || "scenes")
   const [scene, setScene] = useState(() => read("scene") ?? "")
   const [job, setJob] = useState<Job | null>(null)
   const poll = useRef<number | null>(null)
@@ -86,7 +91,7 @@ export default function App() {
     [follow],
   )
 
-  const go = useCallback((v: StepId, s?: string) => {
+  const go = useCallback((v: View, s?: string) => {
     setView(v)
     if (s) setScene(s)
   }, [])
@@ -101,6 +106,13 @@ export default function App() {
       follow(running.id)
     }
   }, [state, follow])
+  // A used-up free limit comes back at its reset time; look again each minute so the page notices.
+  const waiting = Object.values(state?.limits ?? {}).some((l) => l.used_up)
+  useEffect(() => {
+    if (!waiting) return
+    const id = window.setInterval(refresh, 60_000)
+    return () => window.clearInterval(id)
+  }, [waiting, refresh])
   useEffect(() => write("view", view), [view])
   useEffect(() => write("scene", scene), [scene])
 
@@ -108,6 +120,7 @@ export default function App() {
   const studio: Studio | null = state ? { state, refresh, track, busy, job, go, scene } : null
 
   return (
+    <LimitsContext.Provider value={state?.limits}>
     <div className="grid h-screen grid-cols-[240px_minmax(0,1fr)] overflow-hidden">
       <aside className="flex h-screen flex-col border-r bg-card/40 px-3 py-4">
         <div className="mb-5 flex items-center gap-2 px-2">
@@ -120,7 +133,18 @@ export default function App() {
               <StepLink key={s.id} step={s} n={i + 1} active={view === s.id} onClick={() => s.state !== "locked" && setView(s.id)} />
             ))}
         </nav>
+        <button
+          onClick={() => setView("keys")}
+          className={cn(
+            "mt-4 flex items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-[13px] font-medium text-secondary-foreground transition-colors hover:bg-muted",
+            view === "keys" && "bg-muted text-foreground",
+          )}
+        >
+          <KeyRound className="size-[18px] p-0.5 text-subtle" />
+          Keys
+        </button>
         {studio && <NextStep studio={studio} onGo={setView} />}
+        {state?.limits && <FreeToday limits={state.limits} onKeys={() => setView("keys")} />}
         {state && (
           <div className="mt-3 px-2 text-[12px] text-subtle">
             <span className="text-muted-foreground">{usd(state.spent)}</span> spent at WaveSpeed · {state.calls} calls
@@ -133,10 +157,12 @@ export default function App() {
         {studio && view === "references" && <ReferencesView studio={studio} />}
         {studio && view === "scenes" && <ScenesView studio={studio} onScene={setScene} />}
         {studio && view === "film" && <FilmView studio={studio} />}
+        {studio && view === "keys" && <KeysView studio={studio} />}
       </main>
       {job && <JobBar job={job} onClose={() => job.status !== "running" && setJob(null)} />}
       <Toaster theme="system" position="bottom-right" />
     </div>
+    </LimitsContext.Provider>
   )
 }
 
@@ -170,9 +196,10 @@ function StepLink({ step, n, active, onClick }: { step: Step; n: number; active:
   )
 }
 
-function NextStep({ studio, onGo }: { studio: Studio; onGo: (v: StepId) => void }) {
+function NextStep({ studio, onGo }: { studio: Studio; onGo: (v: View) => void }) {
   const { state, track, busy, job } = studio
   const n = next(state)
+  const out = blocked(n.cost, state.limits)
   return (
     <div className="mt-auto rounded-lg border bg-background p-3">
       <div className="mb-1 text-[11px] font-medium tracking-wide text-primary uppercase">Next step</div>
@@ -184,7 +211,17 @@ function NextStep({ studio, onGo }: { studio: Studio; onGo: (v: StepId) => void 
       ) : (
         <>
           <div className="text-[13px] leading-snug font-medium">{n.title}</div>
-          <p className="mt-1 mb-3 text-[12px] leading-snug text-muted-foreground">{n.detail}</p>
+          {out ? (
+            <p className="mt-1 mb-3 text-[12px] leading-snug text-warn">
+              {out.label} is used up for today. It comes back {back(out).text}, or{" "}
+              <button className="text-foreground underline-offset-2 hover:underline" onClick={() => onGo("keys")}>
+                add a key
+              </button>{" "}
+              from another account to go on now.
+            </p>
+          ) : (
+            <p className="mt-1 mb-3 text-[12px] leading-snug text-muted-foreground">{n.detail}</p>
+          )}
           {n.run ? (
             <RunButton size="sm" className="w-full" cost={n.cost} spent={state.spent} onRun={() => (onGo(n.step), track(n.run!()))}>
               {n.label}
@@ -195,6 +232,29 @@ function NextStep({ studio, onGo }: { studio: Studio; onGo: (v: StepId) => void 
             </Button>
           )}
         </>
+      )}
+    </div>
+  )
+}
+
+/** What is left of each free limit today, and when a used-up one comes back. */
+function FreeToday({ limits, onKeys }: { limits: NonNullable<State["limits"]>; onKeys: () => void }) {
+  return (
+    <div className="mt-3 space-y-1 px-2">
+      <div className="text-[11px] font-medium tracking-wide text-subtle uppercase">Free today</div>
+      {Object.entries(limits).map(([id, l]) => (
+        <div key={id} className="flex items-center gap-2 text-[12px]" title={l.used_up ? `Back ${back(l).text}` : undefined}>
+          <span className={cn("size-1.5 shrink-0 rounded-full", l.used_up ? "bg-warn" : "bg-free")} />
+          <span className="truncate text-muted-foreground">{l.label}</span>
+          <span className={cn("ml-auto shrink-0 tabular-nums", l.used_up ? "text-warn" : "text-subtle")}>
+            {l.used_up ? `back ${back(l).time}` : l.left != null ? `~${l.left} left` : "available"}
+          </span>
+        </div>
+      ))}
+      {Object.values(limits).some((l) => l.used_up) && (
+        <button onClick={onKeys} className="text-[12px] text-primary hover:underline">
+          Add a key to go on today
+        </button>
       )}
     </div>
   )

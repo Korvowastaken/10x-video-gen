@@ -15,7 +15,8 @@ import httpx
 
 from .. import runlog
 from ..config import Project, env
-from ..retry import ProviderError, QuotaExhausted, http_request, with_retries
+from .. import keys
+from ..retry import KeySwitched, ProviderError, QuotaExhausted, http_request, with_retries
 
 API = "https://api.cloudflare.com/client/v4/accounts/{account}/ai"
 
@@ -40,6 +41,8 @@ def _auth() -> dict[str, str]:
 def _on_throttle(response: httpx.Response) -> float | None:
     text = response.text.lower()
     if "neuron" in text and ("daily" in text or "allocation" in text or "limit" in text):
+        if keys.switch("cloudflare"):  # another account has its own 10,000 neurons
+            raise KeySwitched("QuotaExhausted on this account: switched to the next saved Cloudflare key")
         raise QuotaExhausted(f"Cloudflare daily neuron allowance used up: {response.text[:240]}")
     return None
 

@@ -78,7 +78,12 @@ def load_env() -> None:
 
 
 def env(name: str, *alternatives: str) -> str:
-    """Return the first set variable among name/alternatives, or raise ConfigError."""
+    """Return the first set variable among name/alternatives, or raise ConfigError.
+    A service with several saved keys answers with the one in use (keys.py)."""
+    from . import keys
+    chosen = keys.current(name)
+    if chosen:
+        return chosen
     for candidate in (name, *alternatives):
         value = os.environ.get(candidate, "").strip()
         if value:

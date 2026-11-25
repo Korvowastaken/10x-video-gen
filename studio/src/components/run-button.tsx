@@ -11,19 +11,23 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { usd, type Cost } from "@/lib/progress"
+import { useBlocked } from "@/lib/limits"
+import { back, usd, type Cost } from "@/lib/progress"
 
 /** "Free" in green or the price in orange, so the cost is read before the click. */
 export function CostTag({ cost, className }: { cost: Cost; className?: string }) {
+  const out = useBlocked(cost)
   return (
     <span
+      title={out ? `${out.label}: today's free limit is used up. Back ${back(out).text}.` : undefined}
       className={cn(
         "inline-flex h-[18px] items-center rounded-[4px] px-1.5 text-[11px] font-medium tabular-nums",
         cost.paid ? "bg-paid/15 text-paid" : "bg-free/12 text-free",
         className,
+        out && "bg-warn/15 text-warn",
       )}
     >
-      {cost.paid ? usd(cost.usd) : "Free"}
+      {cost.paid ? usd(cost.usd) : out ? `Back ${back(out).time}` : "Free"}
     </span>
   )
 }
@@ -60,18 +64,20 @@ export function RunButton({
   className?: string
 }) {
   const [open, setOpen] = useState(false)
+  const out = useBlocked(cost)
   const ask = cost.paid || confirm
   return (
     <>
       <Button
         variant={variant ?? (cost.paid ? "outline" : "default")}
         size={size}
-        disabled={disabled}
+        disabled={disabled || !!out}
+        title={out ? `${out.label}: today's free limit is used up. Back ${back(out).text}.` : undefined}
         className={cn(cost.paid && !variant && "border-paid/40 text-paid hover:bg-paid/10 hover:text-paid", className)}
         onClick={() => (ask ? setOpen(true) : onRun())}
       >
         {children}
-        <CostTag cost={cost} className={cn("-mr-1", !cost.paid && (variant ?? "default") === "default" && "bg-white/15 text-white")} />
+        <CostTag cost={cost} className={cn("-mr-1", !cost.paid && !out && (variant ?? "default") === "default" && "bg-white/15 text-white")} />
       </Button>
       {ask && (
         <AlertDialog open={open} onOpenChange={setOpen}>

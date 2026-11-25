@@ -61,6 +61,29 @@ export type ShotState = {
   stale: { keyframe: boolean; voice: boolean[]; clip: boolean }
   lines: { audio: string | null; cer: number | null; heard: string | null; seconds: number | null }[]
 }
+/** A free tier's state today: used up or not, when it comes back, and how much is left (when measurable). */
+export type Limit = {
+  label: string
+  used_up: boolean
+  resets_at: string
+  left: number | null
+  /** The same, per saved key (by fingerprint). */
+  keys?: Record<string, { used_up: boolean; left?: number }>
+}
+/** One service's saved keys, masked: a key itself never reaches the browser. */
+export type KeyService = {
+  id: "gemini" | "cloudflare" | "wavespeed" | "kaggle"
+  label: string
+  paid: boolean
+  /** Only one key: the service reads it directly, so there is nothing to switch to. */
+  single: boolean
+  url: string
+  for: string
+  limit: string
+  fields: { name: string; label: string }[]
+  keys: { slot: number; n: number; active: boolean; fingerprint: string; masked: Record<string, string> }[]
+}
+export type LimitId = "writing" | "voices" | "pictures"
 export type Job = { id: string; kind: string; status: "running" | "done" | "error"; log: string[]; error?: string }
 export type State = {
   story: string
@@ -76,6 +99,7 @@ export type State = {
   music: (string | null)[]
   /** What a music run would spend now: only candidates not made yet are bought. */
   music_price: number
+  limits?: Record<LimitId, Limit>
   spent: number
   calls: number
   jobs: Job[]
@@ -123,6 +147,10 @@ export const api = {
   },
   removePhoto: (owner: string) => call("DELETE", `/api/references/${owner}`),
   chooseMusic: (chosen: number, reason: string) => call("PUT", "/api/music", { chosen, reason }),
+  keys: () => call<KeyService[]>("GET", "/api/keys"),
+  addKey: (service: string, values: Record<string, string>) => call("POST", `/api/keys/${service}`, { values }),
+  removeKey: (service: string, slot: number) => call("DELETE", `/api/keys/${service}/${slot}`),
+  useKey: (service: string, slot: number) => call("POST", `/api/keys/${service}/${slot}/use`),
 }
 
 export const MODES: Record<string, { label: string; paid: boolean }> = {

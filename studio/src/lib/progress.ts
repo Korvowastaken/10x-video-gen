@@ -1,14 +1,33 @@
 // Where the film stands: each step's status, each scene's parts, and the one next step.
 
-import { api, diff, MODES, type Job, type Shot, type ShotState, type State } from "@/api"
+import { api, diff, MODES, type Job, type Limit, type LimitId, type Shot, type ShotState, type State } from "@/api"
 
 export type StepId = "story" | "references" | "scenes" | "film"
 export type StepState = "done" | "todo" | "stale" | "locked"
 export type Step = { id: StepId; label: string; state: StepState; note: string }
 
-/** Free work runs at once; paid work names its price and is confirmed first. */
-export type Cost = { paid: false; via?: string } | { paid: true; usd: number; via: string }
-export const FREE = (via?: string): Cost => ({ paid: false, via })
+/** Free work runs at once, within a daily free limit; paid work names its price and is confirmed first. */
+export type Cost = { paid: false; via?: string; limit?: LimitId } | { paid: true; usd: number; via: string }
+export const FREE = (via?: string, limit?: LimitId): Cost => ({ paid: false, via, limit })
+/** The free limit each kind of work draws on. */
+export const LIMIT_OF: Record<Part, LimitId | undefined> = { keyframe: "pictures", voice: "voices", clip: undefined }
+
+/** When a used-up limit comes back, in the viewer's time.
+ *  time: "11 AM" for tags; text: "tomorrow at 11 AM (in 14 h 22 min)" for sentences. */
+export function back(limit: Limit, now = new Date()) {
+  const at = new Date(limit.resets_at)
+  const mins = Math.max(1, Math.round((at.getTime() - now.getTime()) / 60000))
+  const time = at.toLocaleTimeString([], at.getMinutes() ? { hour: "numeric", minute: "2-digit" } : { hour: "numeric" })
+  const day = at.toDateString() === now.toDateString() ? "today" : "tomorrow"
+  const wait = mins < 60 ? `${mins} min` : `${Math.floor(mins / 60)} h${mins % 60 ? ` ${mins % 60} min` : ""}`
+  return { time, wait: `in ${wait}`, text: `${day} at ${time} (in ${wait})` }
+}
+
+export function blocked(cost: Cost, limits: State["limits"]): Limit | null {
+  if (cost.paid || !cost.limit || !limits) return null
+  const l = limits[cost.limit]
+  return l?.used_up ? l : null
+}
 export const PAID = (usd: number, via = "WaveSpeed"): Cost => ({ paid: true, usd, via })
 export const usd = (n: number) => `$${n < 0.1 && n > 0 ? n.toFixed(3).replace(/0$/, "") : n.toFixed(2)}`
 
@@ -123,24 +142,31 @@ export function next(state: State): Next {
       title: "Draft the scenes",
       detail: "Gemini reads your story and writes the scenes, lines and pictures.",
       label: "Draft storyboard",
-      cost: FREE("Gemini"),
+      cost: FREE("Gemini", "writing"),
       run: state.story.trim() ? () => api.run("script", { force: true }) : undefined,
     }
   const scenes = state.shots.map(scene)
   const sheets = Object.entries(state.sheets)
   const sheetWork = sheets.filter(([id, urls]) => urls.some((u) => !u) || state.sheets_stale?.[id]).length
   const stills = scenes.filter((s) => s.stale.includes("keyframe") || s.missing.includes("keyframe")).length
-  if (sheetWork || stills)
+  if (sheetWork || stills) {
+    const pictures = state.limits?.pictures
+    const wanted =
+      sheets.filter(([id, urls]) => urls.some((u) => !u) || state.sheets_stale?.[id]).reduce((n, [, urls]) => n + urls.length, 0) + stills
+    const short = pictures && !pictures.used_up && pictures.left != null && pictures.left < wanted
     return {
       step: sheetWork ? "references" : "scenes",
       title: [sheetWork && `${sheetWork} sheet${sheetWork > 1 ? "s" : ""}`, stills && `${stills} still${stills > 1 ? "s" : ""}`]
         .filter(Boolean)
         .join(" and ") + " to redraw",
-      detail: "Only what changed is drawn again, from the approved sheets.",
+      detail: short
+        ? `About ${wanted} pictures to draw, ${pictures!.left} left in today's free limit. The rest can wait until ${back(pictures!).text}.`
+        : "Only what changed is drawn again, from the approved sheets.",
       label: "Redraw",
-      cost: FREE("Cloudflare"),
+      cost: FREE("Cloudflare", "pictures"),
       run: () => api.run("keyframes"),
     }
+  }
   const voices = state.shots.reduce((n, m) => n + m.lines.filter((l, i) => !l.audio || m.stale.voice[i]).length, 0)
   if (voices)
     return {
@@ -148,7 +174,7 @@ export function next(state: State): Next {
       title: `${voices} line${voices > 1 ? "s" : ""} to record`,
       detail: "New voice takes for the lines you changed, checked by listening back.",
       label: "Record",
-      cost: FREE("Gemini"),
+      cost: FREE("Gemini", "voices"),
       run: () => api.run("narration"),
     }
   const cut = state.film.vertical ?? state.film.rough ?? state.film.radio

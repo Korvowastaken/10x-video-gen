@@ -11,12 +11,8 @@ __pycache__/
 *.pyc
 .pytest_cache/
 
-# scratch, staging and edit intermediates (deterministic, rebuilt on every run)
-outputs/_tmp/
-outputs/_kaggle/
-outputs/assemble/
-# rendered films: rebuilt from the cached inputs by `make film`, shared as links
-outputs/final/*.mp4
+# everything the pipeline makes: rebuilt from story.md by `make film`, shared as links
+outputs/
 
 # OS / editor
 .DS_Store

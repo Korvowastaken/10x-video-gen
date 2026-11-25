@@ -200,29 +200,46 @@ function StepLink({ step, n, active, onClick }: { step: Step; n: number; active:
 
 /** Free limits today (and when a used-up one comes back), what the film has spent of its budget, and the keys. */
 function Account({ state, flow, active, onKeys }: { state: State; flow: Flow | null; active: boolean; onKeys: () => void }) {
+  const [open, setOpen] = useState(() => read("account-open") === "1")
+  useEffect(() => write("account-open", open ? "1" : "0"), [open])
   const limits = Object.entries(state.limits ?? {})
+  const out = limits.filter(([, l]) => l.used_up)
   const budget = flow?.budget?.budget_usd ?? 0
   const share = budget ? Math.min(1, state.spent / budget) : 0
   return (
-    <div className="relative z-10 mt-auto border-t bg-card pt-4 pr-10 pb-5 pl-6 text-[12px]">
-      <h2 className="mb-1.5 text-[12px] text-subtle">Free limits today</h2>
-      {limits.map(([id, l]) => (
-        <div key={id} className="flex justify-between gap-3 py-0.5" title={l.used_up ? `Back ${back(l).text}` : undefined}>
-          <span className="truncate">{l.label}</span>
-          <span className={cn("shrink-0 tabular-nums", l.used_up ? "text-warn" : "text-muted-foreground")}>
-            {l.used_up ? `Used up · back ${back(l).time}` : l.left != null ? `~${l.left} left` : "Free"}
-          </span>
+    <div className="relative z-10 mt-auto border-t bg-card px-6 pt-3 pb-4 text-[12px]">
+      <button
+        onClick={() => setOpen(!open)}
+        aria-expanded={open}
+        className="-mx-2 flex w-[calc(100%+16px)] items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors duration-150 hover:bg-secondary"
+      >
+        <span className={cn("size-1.5 shrink-0 rounded-full", out.length ? "bg-warn" : "bg-free")} />
+        <span className={cn("min-w-0 flex-1 truncate", out.length && "text-warn")}>
+          {out.length ? `${out.length} free limit${out.length > 1 ? "s" : ""} used up` : "Free limits available"}
+        </span>
+        <span className="shrink-0 text-muted-foreground tabular-nums">{usd(state.spent)}</span>
+        <ChevronDown className={cn("size-3.5 shrink-0 text-subtle transition-transform duration-150", open && "rotate-180")} />
+      </button>
+      {open && (
+        <div className="mt-2 mb-1">
+          {limits.map(([id, l]) => (
+            <div key={id} className="flex justify-between gap-3 py-0.5" title={l.used_up ? `Back ${back(l).text}` : undefined}>
+              <span className="truncate">{l.label}</span>
+              <span className={cn("shrink-0 tabular-nums", l.used_up ? "text-warn" : "text-muted-foreground")}>
+                {l.used_up ? `back ${back(l).time}` : l.left != null ? `~${l.left} left` : "Free"}
+              </span>
+            </div>
+          ))}
+          <div className="mt-3 mb-1.5 h-1 bg-border" title={`${state.calls} paid calls so far`}>
+            <div className="h-1 bg-free" style={{ width: `${Math.max(share * 100, state.spent ? 2 : 0)}%` }} />
+          </div>
+          <div className="flex justify-between tabular-nums">
+            <span>{usd(state.spent)} spent</span>
+            {budget > 0 && <span className="text-muted-foreground">of {usd(budget)} film budget</span>}
+          </div>
         </div>
-      ))}
-      <h2 className="mt-3.5 text-[12px] text-subtle">Spending</h2>
-      <div className="mt-2 mb-1.5 h-1 bg-border" title={`${state.calls} paid calls so far`}>
-        <div className="h-1 bg-free" style={{ width: `${Math.max(share * 100, state.spent ? 2 : 0)}%` }} />
-      </div>
-      <div className="flex justify-between tabular-nums">
-        <span>{usd(state.spent)} spent</span>
-        {budget > 0 && <span className="text-muted-foreground">of {usd(budget)} film budget</span>}
-      </div>
-      <div className="mt-3 flex items-center justify-between">
+      )}
+      <div className="mt-2 flex items-center justify-between">
         <button
           onClick={onKeys}
           aria-current={active ? "page" : undefined}

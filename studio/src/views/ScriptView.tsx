@@ -4,12 +4,13 @@ import { toast } from "sonner"
 
 import { api, diff, type Shot, type Storyboard } from "@/api"
 import type { Studio } from "@/App"
-import { ProvidersPanel, TaskPicker, useTaskModel } from "@/components/providers-panel"
+import { ProvidersPanel, TaskPicker } from "@/components/providers-panel"
+import { useTaskCost } from "@/lib/models"
 import { RunButton } from "@/components/run-button"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { FREE, fieldLabel } from "@/lib/progress"
+import { fieldLabel } from "@/lib/progress"
 import { cn } from "@/lib/utils"
 import { ApproveBar, NextStep, NotYet, Page, Section, StepHeader } from "@/views/parts"
 
@@ -22,20 +23,22 @@ export function ScriptView({ studio }: { studio: Studio }) {
   const { state, flow, track, busy, go } = studio
   const sb = state.storyboard
   const step = flow.steps.find((s) => s.id === "script")!
+  // The draft writes the storyboard, then the lines: priced and held back by the models picked for both.
+  const draft = useTaskCost(studio, ["script", "lines"], "writing")
   if (step.locked && !sb) return <NotYet studio={studio} step="script" n={2} title="Script" lead={LEAD} needs="The script is drafted from your story: the scenes, who speaks and what they say." />
   return (
     <Page>
       <StepHeader n={2} title="Script" lead={LEAD}>
         <RunButton
           variant={sb ? "secondary" : "default"}
-          cost={FREE("Gemini", "writing")}
+          cost={draft}
           disabled={busy || step.locked}
           onRun={() => track(api.draftScript())}
           confirm={
             sb
               ? {
                   title: "Draft the whole script again?",
-                  body: "Gemini writes every scene again from the story. Your edits to scenes are replaced; the old storyboard is kept as a backup in outputs/script.",
+                  body: `${draft.via ?? "The writer"} writes every scene again from the story. Your edits to scenes are replaced; the old storyboard is kept as a backup in outputs/script.`,
                   action: "Draft again",
                 }
               : undefined
@@ -70,8 +73,8 @@ function Revise({ studio, sb }: { studio: Studio; sb: Storyboard }) {
   const [text, setText] = useState("")
   const [writing, setWriting] = useState(false)
   const [proposal, setProposal] = useState<{ sb: Storyboard; errors: string[] } | null>(null)
-  const { chosen } = useTaskModel(studio, "revise")
-  const writer = chosen?.provider ?? "Gemini"
+  const cost = useTaskCost(studio, ["revise"], "writing")
+  const writer = cost.via ?? "The writer"
 
   async function ask() {
     setWriting(true)
@@ -114,7 +117,7 @@ function Revise({ studio, sb }: { studio: Studio; sb: Storyboard }) {
         className="min-h-16 text-[13px]"
       />
       <div className="mt-2 flex items-center gap-2">
-        <RunButton size="sm" cost={FREE(writer, !chosen || chosen.service === "gemini" ? "writing" : undefined)} disabled={busy || writing || !text.trim()} onRun={ask}>
+        <RunButton size="sm" cost={cost} disabled={busy || writing || !text.trim()} onRun={ask}>
           {writing ? `${writer} is writing…` : "Revise the script"}
         </RunButton>
         <TaskPicker studio={studio} task="revise" />

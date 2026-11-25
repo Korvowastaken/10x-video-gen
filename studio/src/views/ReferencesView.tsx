@@ -5,6 +5,7 @@ import { toast } from "sonner"
 import { api, type Character, type Place, type Shot } from "@/api"
 import type { Studio } from "@/App"
 import { ProvidersPanel } from "@/components/providers-panel"
+import { useTaskCost } from "@/lib/models"
 import { RunButton } from "@/components/run-button"
 import {
   AlertDialog,
@@ -17,7 +18,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { FREE } from "@/lib/progress"
+import type { Cost } from "@/lib/progress"
 import { cn } from "@/lib/utils"
 import { ApproveBar, NextStep, NotYet, Page, StatusDot, StepHeader } from "@/views/parts"
 
@@ -27,6 +28,7 @@ export function ReferencesView({ studio }: { studio: Studio }) {
   const { state, flow, track, busy, go } = studio
   const step = flow.steps.find((s) => s.id === "references")!
   const sb = state.storyboard
+  const draw = useTaskCost(studio, ["image"], "pictures")
   if (!sb) return <NotYet studio={studio} step="references" n={4} title="References" lead={LEAD} needs="The sheets are drawn for the people and places the script names, so the script comes first." />
   const people = sb.characters.filter((c) => c.visible)
   const old = Object.values(state.sheets_stale ?? {}).filter(Boolean).length
@@ -44,7 +46,7 @@ export function ReferencesView({ studio }: { studio: Studio }) {
         {state.limits?.pictures && !state.limits.pictures.used_up && state.limits.pictures.left != null && (
           <span className="text-[12px] text-subtle">~{state.limits.pictures.left} pictures left today</span>
         )}
-        <RunButton cost={FREE("Cloudflare", "pictures")} disabled={busy || step.locked} onRun={() => track(api.drawSheets())}>
+        <RunButton cost={draw} disabled={busy || step.locked} onRun={() => track(api.drawSheets())}>
           {undrawn ? "Draw sheets" : "Redraw what changed"}
         </RunButton>
         {step.state === "approved" && <NextStep to="Scenes" onClick={() => go("scenes")} />}
@@ -55,20 +57,20 @@ export function ReferencesView({ studio }: { studio: Studio }) {
       <h2 className="mb-1 text-[13px] font-semibold">People</h2>
       <div className="divide-y border-y">
         {people.map((c) => (
-          <Owner key={c.id} studio={studio} shots={sb.shots} id={c.id} name={c.name} sub={c.role} character={c} />
+          <Owner key={c.id} studio={studio} draw={draw} shots={sb.shots} id={c.id} name={c.name} sub={c.role} character={c} />
         ))}
       </div>
       <h2 className="mt-10 mb-1 text-[13px] font-semibold">Places</h2>
       <div className="divide-y border-y">
         {sb.locations.map((p) => (
-          <Owner key={p.id} studio={studio} shots={sb.shots} id={p.id} name={p.name} place={p} />
+          <Owner key={p.id} studio={studio} draw={draw} shots={sb.shots} id={p.id} name={p.name} place={p} />
         ))}
       </div>
     </Page>
   )
 }
 
-function Owner({ studio, shots, id, name, sub, character, place }: { studio: Studio; shots: Shot[]; id: string; name: string; sub?: string; character?: Character; place?: Place }) {
+function Owner({ studio, draw, shots, id, name, sub, character, place }: { studio: Studio; draw: Cost; shots: Shot[]; id: string; name: string; sub?: string; character?: Character; place?: Place }) {
   const { state, refresh, track, busy } = studio
   const input = useRef<HTMLInputElement>(null)
   const [text, setText] = useState(character?.look ?? place?.look ?? "")
@@ -208,7 +210,7 @@ function Owner({ studio, shots, id, name, sub, character, place }: { studio: Stu
               size="sm"
               variant="ghost"
               className="mt-1.5 text-subtle"
-              cost={FREE("Cloudflare", "pictures")}
+              cost={draw}
               disabled={busy}
               onRun={async () => {
                 await api.anotherSheet(id)

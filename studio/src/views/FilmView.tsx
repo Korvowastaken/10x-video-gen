@@ -4,6 +4,7 @@ import { toast } from "sonner"
 import { api, MODES, type Storyboard } from "@/api"
 import type { Studio } from "@/App"
 import { ProvidersPanel } from "@/components/providers-panel"
+import { useTaskCost } from "@/lib/models"
 import { RunButton } from "@/components/run-button"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -26,6 +27,7 @@ export function FilmView({ studio }: { studio: Studio }) {
   const toBuy = paid.filter((s) => !s.clip)
   const buyPrice = toBuy.reduce((n, s) => n + s.price, 0)
   const voicesPending = state.shots.some((m) => m.lines.some((l, i) => !l.audio || m.stale.voice[i]))
+  const record = useTaskCost(studio, ["tts"], "voices")
 
   const cuts = [
     {
@@ -34,7 +36,7 @@ export function FilmView({ studio }: { studio: Studio }) {
       note: "Voices and placeholder music on black. For a first listen with the family.",
       url: state.film.radio,
       // It records any missing or changed line first, which draws on the free voice limit.
-      cost: FREE("Gemini", voicesPending ? "voices" : undefined),
+      cost: voicesPending ? record : FREE(),
     },
     { id: "rough", label: "Rough cut", note: "Free motion over every still, with voice and captions. No paid clip used.", url: state.film.rough, cost: FREE() },
     {

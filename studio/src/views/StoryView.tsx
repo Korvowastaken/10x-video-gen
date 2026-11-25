@@ -122,10 +122,10 @@ function SettingsPanel({ studio }: { studio: Studio }) {
         />
       </Setting>
       <Setting label="Who watches">
-        <Input value={draft.audience} placeholder="Gemini guesses from the story" onChange={(e) => setDraft({ ...draft, audience: e.target.value })} />
+        <Input value={draft.audience} placeholder="Guessed from the story when left empty" onChange={(e) => setDraft({ ...draft, audience: e.target.value })} />
       </Setting>
       <Setting label="How it should feel at the end">
-        <Input value={draft.feel} placeholder="Gemini guesses from the story" onChange={(e) => setDraft({ ...draft, feel: e.target.value })} />
+        <Input value={draft.feel} placeholder="Guessed from the story when left empty" onChange={(e) => setDraft({ ...draft, feel: e.target.value })} />
       </Setting>
       <Button variant="secondary" className="w-full" disabled={!changed} onClick={save}>
         Save settings

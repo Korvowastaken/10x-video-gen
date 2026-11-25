@@ -1,5 +1,8 @@
 // Which provider and key each kind of work uses, and what is left there (pipeline/accounts.py).
 
+import type { LimitId } from "@/api"
+import { FREE, type Cost } from "@/lib/progress"
+
 export type Purpose = "writing" | "voices" | "pictures" | "clips" | "music"
 
 export type ProviderKey = {
@@ -78,4 +81,28 @@ export const modelsApi = {
 export const providersApi = {
   get: () => call<Providers>("GET", "/api/providers"),
   chooseKey: (purpose: Purpose, slot: number | null) => call("PUT", `/api/providers/${purpose}`, { slot, set_slot: true }),
+}
+
+/** The service each daily free limit counts. */
+const LIMIT_SERVICE: Record<LimitId, string> = { writing: "gemini", voices: "gemini", pictures: "cloudflare" }
+
+/** The models a task can run on now, in the order it tries them: connected and not paused. */
+export const usable = (info: TaskInfo) =>
+  info.chain.map((id) => info.options.find((o) => o.id === id)).filter((o): o is ModelOption => !!o && o.connected && !o.paused)
+
+/**
+ * The cost of work that runs these tasks, read from the models picked for them: named after the
+ * service that answers first, and held back by a free limit only when a task can run nowhere else
+ * (a used-up Gemini does not stop a draft that starts on Groq, or that falls back to Claude).
+ * While the pickers load, it counts the limit, as before.
+ */
+export function taskCost(infos: (TaskInfo | null | undefined)[], limit: LimitId): Cost {
+  const known = infos.filter((i): i is TaskInfo => !!i)
+  if (!known.length) return FREE(undefined, limit)
+  const first = usable(known[0])[0]
+  const bound = known.some((i) => {
+    const can = usable(i)
+    return can.length > 0 && can.every((o) => o.service === LIMIT_SERVICE[limit])
+  })
+  return FREE(first?.provider, bound ? limit : undefined)
 }

@@ -4,7 +4,8 @@ import { toast } from "sonner"
 import type { Studio } from "@/App"
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { back, usd } from "@/lib/progress"
-import { modelsApi, providersApi, type Models, type ProviderKey, type Providers, type Purpose, type PurposeInfo, type TaskInfo } from "@/lib/providers"
+import { useModels } from "@/lib/models"
+import { modelsApi, providersApi, usable, type Models, type ProviderKey, type Providers, type Purpose, type PurposeInfo, type TaskInfo } from "@/lib/providers"
 import { cn } from "@/lib/utils"
 
 /** Services billed per use: they have no free limit to report. */
@@ -120,17 +121,7 @@ function ModelPicker({ task, info, onPick }: { task: string; info: TaskInfo; onP
 
 /** The model a task starts with, its picker's data, and a way to pick: for a picker beside an action. */
 export function useTaskModel(studio: Studio, task: string) {
-  const [models, setModels] = useState<Models | null>(null)
-  useEffect(() => {
-    let live = true
-    modelsApi
-      .get()
-      .then((m) => live && setModels(m))
-      .catch(() => live && setModels(null))
-    return () => {
-      live = false
-    }
-  }, [studio.state])
+  const [models, setModels] = useModels(studio)
   const info = models?.tasks[task] ?? null
   const chosen = info?.options.find((o) => o.id === info.model) ?? null
   async function pick(t: string, id: string) {
@@ -182,8 +173,10 @@ export function ProvidersPanel({ studio, step }: { studio: Studio; step: string 
     await studio.refresh() // prices and out-of-date marks follow the model
   }
 
-  // The service status shows once per kind of work, after its last task (Storyboard and Lines share Writing's).
-  const lastOfPurpose = new Map(tasks.map((t) => [models.tasks[t].purpose, t]))
+  // The service status shows once per kind of work, after its last task (Storyboard and Lines share Writing's),
+  // and only for a task that starts on that service: a Gemini limit says nothing about a Groq model.
+  const onService = (t: string) => usable(models.tasks[t])[0]?.service === data[models.tasks[t].purpose as Purpose]?.service
+  const lastOfPurpose = new Map(tasks.filter(onService).map((t) => [models.tasks[t].purpose, t]))
   return (
     <div className="mb-6 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-[12px]">
       {tasks.map((t) => {

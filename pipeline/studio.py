@@ -25,7 +25,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import accounts, keys, revise, stories
+from . import accounts, catalog, keys, revise, stories
 from . import storyboard as sbmod
 from .cache import StageCache, key_for, sha256_bytes
 from .config import ROOT, Project, load_env
@@ -196,12 +196,11 @@ def state() -> dict[str, Any]:
     story = PROJECT.story.read_text("utf-8") if PROJECT.story.exists() else ""
     if not PROJECT.storyboard.exists():
         # A new story: nothing drafted or made yet, but every field the page reads is there.
-        from .script import SCRIPT_MODELS
         costs = summarise(PROJECT)
         return {"story": story, "story_changed": False, "storyboard": None, "errors": [], "shots": [],
                 "sheets": {}, "sheets_stale": {}, "photos": {},
                 "film": {"vertical": None, "wide": None, "radio": None, "rough": None, "report": {}, "stale": False},
-                "music": [], "music_price": 0.0, "limits": free_limits(PROJECT, {"script": SCRIPT_MODELS}),
+                "music": [], "music_price": 0.0, "limits": free_limits(PROJECT, catalog.models_block(PROJECT, None)),
                 "spent": round(sum(s["usd_list"] for k, s in costs.items() if k in ("shots", "music")), 4),
                 "calls": int(sum(s["calls"] for s in costs.values())), "jobs": _jobs()}
     sb = sbmod.load(PROJECT)
@@ -456,10 +455,8 @@ def get_providers() -> dict[str, Any]:
     """Per purpose (writing, voices, pictures, clips, music): the provider, the choices, the
     saved keys (masked) with what is left on each, and which key it starts with."""
     sb = sbmod.load(PROJECT) if PROJECT.storyboard.exists() else None
-    models = (sb or {}).get("models") or {}
-    if not sb:
-        from .script import SCRIPT_MODELS
-        models = {"script": SCRIPT_MODELS}
+    # Before a storyboard, the pickers' choices say which models the draft will use.
+    models = (sb or {}).get("models") or catalog.models_block(PROJECT, None)
     return accounts.overview(sb, free_limits(PROJECT, models))
 
 

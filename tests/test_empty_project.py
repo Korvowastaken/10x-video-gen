@@ -63,3 +63,14 @@ def test_unknown_or_unsafe_story_ids_are_refused(empty):
     client = TestClient(studio.app)
     assert client.put("/api/stories/current", json={"id": "../.."}).status_code == 404
     assert client.put("/api/stories/current", json={"id": "missing"}).status_code == 404
+
+
+def test_free_limits_follow_the_models_picked_before_a_draft(empty, monkeypatch):
+    """A used-up Gemini must not hold back a draft that starts on another service."""
+    from pipeline import catalog
+    catalog.choose(Project(empty), "script", "groq/allam-2-7b", None)
+    seen = []
+    monkeypatch.setattr(studio, "free_limits", lambda project, models: seen.append(models) or {})
+    studio.state()
+    studio.get_providers()
+    assert all(m["script"][0] == "groq/allam-2-7b" for m in seen) and len(seen) == 2

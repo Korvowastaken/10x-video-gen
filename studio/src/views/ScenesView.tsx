@@ -4,7 +4,8 @@ import { toast } from "sonner"
 
 import { ApiError, api, diff, MODES, type Flow, type Shot, type ShotState } from "@/api"
 import type { Studio, View } from "@/App"
-import { ProvidersPanel, TaskPicker, useTaskModel } from "@/components/providers-panel"
+import { ProvidersPanel, TaskPicker } from "@/components/providers-panel"
+import { useTaskCost, useTaskCosts } from "@/lib/models"
 import { CostTag, RunButton } from "@/components/run-button"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -15,7 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { LimitsContext } from "@/lib/limits"
-import { affected, back, blocked, FREE, fieldLabel, LIMIT_OF, PAID, PART_LABEL, scene, usd, type Part } from "@/lib/progress"
+import { affected, back, blocked, FREE, fieldLabel, PAID, PART_LABEL, scene, usd, type Cost, type Part } from "@/lib/progress"
 import { cn } from "@/lib/utils"
 import { ApproveBar, NextStep, NotYet, StatusDot, StepHeader } from "@/views/parts"
 import { VoicePanel } from "@/views/VoicePanel"
@@ -157,6 +158,7 @@ function SceneWorkspace({
   onScene: (id: string) => void
 }) {
   const { refresh, track, busy } = studio
+  const make = useTaskCost(studio, ["image"], "pictures")
   const [draft, setDraft] = useState<Shot>(shot)
   const [errors, setErrors] = useState<string[]>([])
   const [tab, setTab] = useState<"feedback" | "edit" | "voice">("feedback")
@@ -211,7 +213,7 @@ function SceneWorkspace({
         <div className="flex shrink-0 items-center gap-4">
           <RunButton
             variant={flowScene?.blockers.length ? "default" : "secondary"}
-            cost={FREE("Cloudflare", "pictures")}
+            cost={make}
             disabled={busy || dirty || studio.flow.steps[4].locked}
             onRun={() => track(api.makeScene(shot.id))}
           >
@@ -423,13 +425,11 @@ function FeedbackPanel({
   const changes = proposal ? diff(shot, proposal.shot) : []
   const parts = proposal ? affected(shot, proposal.shot, hasClip) : []
   const limits = useContext(LimitsContext)
-  // Gemini's daily writing limit only matters when the Revisions picker starts with a Gemini model.
-  const { chosen } = useTaskModel(studio, "revise")
-  const onGemini = !chosen || chosen.service === "gemini"
-  const writer = chosen?.provider ?? "Gemini"
-  const cost = FREE(writer, onGemini ? "writing" : undefined)
-  const writing = onGemini ? blocked(cost, limits) : null
-  const waitsFor = (p: Part) => blocked(FREE(undefined, LIMIT_OF[p]), limits)
+  // Gemini's daily writing limit only matters when the Revisions picker can run on nothing but Gemini.
+  const cost = useTaskCost(studio, ["revise"], "writing")
+  const writer = cost.via ?? "The writer"
+  const writing = blocked(cost, limits)
+  const waitsFor = useWaits(studio)
   const free = parts.filter((p) => p !== "clip" && !waitsFor(p))
   const waiting = parts.filter((p) => p !== "clip" && waitsFor(p))
 
@@ -514,13 +514,13 @@ function FeedbackPanel({
       {proposal && (
         <div className="rounded-lg border bg-card">
           <div className="flex items-center justify-between border-b px-4 py-2.5">
-            <span className="text-[13px] font-medium">Gemini's revision</span>
+            <span className="text-[13px] font-medium">The proposed revision</span>
             <span className="text-[12px] text-subtle">
               {changes.length} change{changes.length === 1 ? "" : "s"}
             </span>
           </div>
           <div className="divide-y">
-            {changes.length === 0 && <p className="px-4 py-3 text-[13px] text-muted-foreground">Gemini proposed no change. Try saying it differently.</p>}
+            {changes.length === 0 && <p className="px-4 py-3 text-[13px] text-muted-foreground">{writer} proposed no change. Try saying it differently.</p>}
             {changes.map((c) => (
               <div key={c.path} className="grid grid-cols-[120px_minmax(0,1fr)] gap-4 px-4 py-3 text-[13px]">
                 <div className="text-[12px] text-subtle">{fieldLabel(c.path)}</div>
@@ -588,8 +588,8 @@ function RedoPanel({
   onRedo: (parts: Part[]) => void
 }) {
   const status = scene(media)
-  const limits = useContext(LimitsContext)
-  const waitsFor = (p: Part) => blocked(FREE(undefined, LIMIT_OF[p]), limits)
+  const partCost = usePartCosts(studio)
+  const waitsFor = useWaits(studio)
   const flf = shot.motion.mode === "flf_inbetween"
   const options: { id: Part; label: string; state: string; tone: "ok" | "stale" | "missing" | "paid"; off?: string }[] = [
     {
@@ -644,7 +644,7 @@ function RedoPanel({
       </div>
       <div className="mt-3 divide-y rounded-lg border">
         {options.map((o) => {
-          const price = o.id === "clip" ? PAID(media.price) : FREE(o.id === "keyframe" ? "Cloudflare" : "Gemini", LIMIT_OF[o.id])
+          const price = o.id === "clip" ? PAID(media.price) : partCost[o.id]
           const out = waitsFor(o.id)
           return (
             <label
@@ -921,6 +921,18 @@ function Versions({ studio, id, history }: { studio: Studio; id: string; history
 const STEP_VIEW: Record<string, View> = { story: "story", script: "script", sketch: "sketch", references: "references", scenes: "scenes", final: "film" }
 
 /** A scene's band colour: green approved, red changed or out of date, gold ready to approve, bare thread when not made. */
+/** What redoing a scene's still or voice costs, from the Pictures and Voices pickers. */
+function usePartCosts(studio: Studio): Record<"keyframe" | "voice", Cost> {
+  return useTaskCosts(studio, { keyframe: [["image"], "pictures"], voice: [["tts"], "voices"] })
+}
+
+/** The used-up free limit a part waits for, if the model picked for it can run nowhere else. */
+function useWaits(studio: Studio) {
+  const limits = useContext(LimitsContext)
+  const costs = usePartCosts(studio)
+  return (p: Part) => (p === "clip" ? null : blocked(costs[p], limits))
+}
+
 function toneOf(f: Flow["scenes"][number] | undefined, status: ReturnType<typeof scene>) {
   if (f?.state === "approved") return "weave-done"
   if (f?.state === "stale" || status.stale.length) return "weave-stale"

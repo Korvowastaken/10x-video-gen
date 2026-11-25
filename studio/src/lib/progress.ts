@@ -16,8 +16,6 @@ export type Step = { id: StepId; label: string; state: StepState; note: string }
 /** Free work runs at once, within a daily free limit; paid work names its price and is confirmed first. */
 export type Cost = { paid: false; via?: string; limit?: LimitId } | { paid: true; usd: number; via: string }
 export const FREE = (via?: string, limit?: LimitId): Cost => ({ paid: false, via, limit })
-/** The free limit each kind of work draws on. */
-export const LIMIT_OF: Record<Part, LimitId | undefined> = { keyframe: "pictures", voice: "voices", clip: undefined }
 
 /** When a used-up limit comes back, in the viewer's time.
  *  time: "11 AM" for tags; text: "tomorrow at 11 AM (in 14 h 22 min)" for sentences. */

@@ -87,6 +87,8 @@ if a line changes after consent, they hear the new line before it is used.
 - When posting: switch on TikTok's "AI-generated content" label, YouTube's
   "altered or synthetic content" disclosure, and Instagram's "AI info" label.
   The post says in plain words that the pictures, voices and music are AI-made.
+- Done on 2026-11-26: both films are on YouTube (the vertical one as a Short)
+  with YouTube's "altered or synthetic content" label switched on.
 - Provenance: nothing in the pipeline removes watermarks or metadata from
   model outputs.
 - Style: prompts describe qualities (low-poly 3D, warm lamp light, bokeh),

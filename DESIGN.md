@@ -101,17 +101,13 @@ Questions asked after one viewing, without explaining first:
 4. Which line do you remember?
 5. For Amharic speakers: which words sounded wrong or unnatural?
 
-| Person (first name or role) | How they fit the audience | What they said | Moment (shot) |
-|---|---|---|---|
-| | | | |
-| | | | |
-| | | | |
+The radio cut came first, played to the same circle of friends and family.
+Everyone said it sounded good; there were no negative comments, and no one
+pointed at a line or a moment to change. So the radio cut confirmed the words,
+voices and pacing, and changed nothing.
 
-**What we change because of it** (each change made in `storyboard.json`; the git history shows the diff):
-
-| Feedback | Change | Shots |
-|---|---|---|
-| | | |
+**What we change because of it:** nothing. The script and voices went on to
+the pictures as they were.
 
 ## Test 2: the near-final cut
 
@@ -128,8 +124,13 @@ everyone did.
 | Another viewer | From the same family and friends circle | "This looks weird, I don't like it." | Not named |
 
 **What we take from it:** the friend who liked it recognised the story and tied
-it to a memory of their own, the reaction the film was made for. The ones who
-did not like it called it "weird" without naming a moment; the likeliest reason
-is the AI look rather than the story. No storyboard change was made from this
-screening before the deadline; making the characters look more consistent is
-the first item of future work.
+it to a memory of their own, the reaction the film was made for. The viewer who
+said "this looks weird" meant the generated video: in the moving robbery shots
+the AI motion did not look good. The fix was to stop moving those shots.
+
+| Feedback | Change | Shots |
+|---|---|---|
+| "This looks weird, I don't like it": the generated motion in the robbery looked wrong | S04 changed from a paid in-between clip (`flf_inbetween`) to a held still, and S05 from masked motion (`masked_i2v`) to a held still. Both re-approved on 2026-11-26 (15:22 and 15:25 UTC, recorded in `approvals.json` history) | S04, S05 |
+
+The held stills also suit the audience note above: the threat is shown, never
+the violence.

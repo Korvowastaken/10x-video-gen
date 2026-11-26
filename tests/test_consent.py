@@ -90,6 +90,7 @@ def test_the_read_out_comes_from_ethics_md():
     blocks = consent.wording()
     assert [b["label"] for b in blocks][:2] == ["English", "Amharic"]
     assert "Do you agree?" in blocks[0]["text"]
+    assert "photo" in blocks[0]["text"]  # the person hears how their photo is used
 
 
 def test_the_switch_protects_a_person_at_once_and_confirming_keeps_their_id(project):
@@ -106,3 +107,19 @@ def test_the_switch_protects_a_person_at_once_and_confirming_keeps_their_id(proj
     assert next(x for x in out["characters"] if x["id"] == b)["consent"] == "C2" and len(_blocked(project)) == 1
     out = client.post("/api/consent/C1/fictional").json()  # switched off again before confirming
     assert next(x for x in out["characters"] if x["id"] == a)["status"] == "fictional" and not _blocked(project)
+
+
+def test_the_record_says_when_a_photo_was_used(project):
+    sb = sbmod.load(project)
+    c = next(x for x in sb["characters"] if x["visible"])
+    c.setdefault("reference", {})["photo"] = "references/someone.jpg"
+    rec = consent.record(project, sb, c["id"], self=False, read_out=True, agreed=True,
+                         recording_kept=True, how="voice note", evidence="")
+    assert rec["shown_as"].endswith("drawn from their photo")
+    assert "their photo given to the image model" in rec["agreed_to"]
+    c2 = next((x for x in sb["characters"] if x["visible"] and x["id"] != c["id"]), None)
+    if c2 is not None:
+        (c2.get("reference") or {}).pop("photo", None)
+        rec2 = consent.record(project, sb, c2["id"], self=True, read_out=False, agreed=False,
+                              recording_kept=False, how="", evidence="")
+        assert "photo" not in rec2["agreed_to"]

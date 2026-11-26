@@ -19,8 +19,8 @@ keeps that rule in place.
 | ID | Person | Shown as | Voiced as | What they agreed to | How recorded | Date | Evidence kept |
 |---|---|---|---|---|---|---|---|
 | C1 | Robel (narrator) | Not shown (voice only) | A computer voice (Gemini "Achird"), not their own | Withdrawn on 2026-11-26 and replaced by C4 | Robel is the filmmaker | 2026-11-26 | Kept in `consent.json` as withdrawn |
-| C2 | Robel | An AI-made animated character | A computer voice (Gemini "Puck"), not their own | To appear and be voiced saying the lines of shots S08 and S09, in a short film posted publicly on TikTok and YouTube with an AI label; may ask for it to be taken down | Robel is the filmmaker, consenting for themselves | 2026-11-26 | Record in `consent.json`; no recording needed |
-| C3 | Samuel | An AI-made animated character | A computer voice (Gemini "Zubenelgenubi"), not their own | To appear and be voiced saying the line of shot S10, under the same terms as C2 | The request and his line were read out to him and he agreed verbally | 2026-11-26 | Recording kept privately by Robel, not in this repository |
+| C2 | Robel | An AI-made animated character, drawn from their photo | A computer voice (Gemini "Puck"), not their own | To appear and be voiced saying the lines of shots S08 and S09, in a short film posted publicly on TikTok and YouTube with an AI label; may ask for it to be taken down | Robel is the filmmaker, consenting for themselves | 2026-11-26 | Record in `consent.json`; no recording needed |
+| C3 | Samuel | An AI-made animated character, drawn from his photo | A computer voice (Gemini "Zubenelgenubi"), not their own | To appear and be voiced saying the line of shot S10, under the same terms as C2, and for his photo to be given to the image model as a reference for his character | The request, the use of his photo and his line were read out to him, and he agreed verbally | 2026-11-26 | Recording kept privately by Robel, not in this repository |
 | C4 | Robel (narrator) | Not shown (voice only) | A computer voice (Gemini "Achird"), not their own | To narrate the lines of shots S01 to S07 and S11, under the same terms as C2 | Robel is the filmmaker, consenting for themselves | 2026-11-26 | Record in `consent.json` |
 
 The film is *From Fear to Laughter*: a true story from Robel's Grade Nine
@@ -30,8 +30,9 @@ not shown as real people: they are generic, faceless characters, need no row,
 and are not modelled on anyone. A photo of each real person (`references/robel.jpg`,
 `references/samuel.jpg`) was given to the image model as a reference for the
 face, hair and build of their animated character, which is drawn in the film's
-low-poly style and not as a photograph. The photos are kept out of this
-repository (`references/` is git-ignored). The full lines each person heard are in `consent.json`, in Amharic with
+low-poly style and not as a photograph. Both agreed to this; Samuel was
+asked about his photo along with the rest of the request. The photos are kept
+out of this repository (`references/` is git-ignored). The full lines each person heard are in `consent.json`, in Amharic with
 an English translation.
 
 The brief's example story (a girl walking to the market in Dessie), used to
@@ -47,14 +48,17 @@ repository; write here only that it exists and where.
 > **English.** I am making a short film, 60 to 90 seconds, about your story,
 > using AI. A cartoon-like 3D character that represents you will appear in it,
 > and a computer voice (not your real voice) will say these words in Amharic,
-> which I will read to you now. The film will be posted publicly on TikTok and
+> which I will read to you now. If I use a photo of you, the AI model sees it
+> only to draw your character's face; the photo itself is not shown in the film
+> or published. The film will be posted publicly on TikTok and
 > YouTube with a label saying it was made with AI. You can say no now, or ask
 > me to take it down at any time. Do you agree?
 
 > **Amharic** (my draft; Robel to check the wording).
 > ስለ ታሪክዎ ከ60 እስከ 90 ሰከንድ የሚረዝም አጭር ፊልም በአርቴፊሻል ኢንተለጀንስ (AI) እየሰራሁ ነው።
 > በፊልሙ ውስጥ እርስዎን የሚወክል የካርቱን ገጸ-ባህሪ ይታያል፤ የእርስዎ ያልሆነ፣ በኮምፒውተር የተሰራ ድምፅም
-> እነዚህን ቃላት በአማርኛ ይናገራል። ቃላቱን አሁን አነብልዎታለሁ። ፊልሙ በቲክቶክና በዩቲዩብ ላይ
+> እነዚህን ቃላት በአማርኛ ይናገራል። ቃላቱን አሁን አነብልዎታለሁ። ፎቶዎን ከተጠቀምኩ፣ የAI ሞዴሉ የሚያየው
+> የገጸ-ባህሪዎን ፊት ለመሳል ብቻ ነው፤ ፎቶው ራሱ በፊልሙ ውስጥ አይታይም፣ በይፋም አይለጠፍም። ፊልሙ በቲክቶክና በዩቲዩብ ላይ
 > "በAI የተሰራ" የሚል ምልክት ተደርጎበት በይፋ ይለጠፋል። አሁን "አልፈልግም" ማለት፣ ወይም በማንኛውም ጊዜ
 > እንዲነሳ መጠየቅ ይችላሉ። ይስማማሉ?
 

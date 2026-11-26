@@ -138,16 +138,20 @@ def record(project: Project, sb: dict[str, Any], cid: str, *, self: bool, read_o
         raise ValueError("Confirm all three, and say how the answer was recorded")
     lines = lines_of(sb, cid)
     voice = (character.get("voice") or {}).get("name")
+    photo = bool((character.get("reference") or {}).get("photo"))
     # a character marked real before confirming keeps the id it holds, unless a record already took it
     held = character.get("consent")
     fresh = held if held and character.get("real_person") and held not in {r["id"] for r in load(project)}         and held not in _ethics_ids(project) else _next_id(project, sb)
     rec = {
         "id": fresh, "character": cid, "person": character["name"], "status": AGREED, "self": self,
-        "shown_as": "an AI-made animated character" if character["visible"] else "not shown (voice only)",
+        "shown_as": ("an AI-made animated character" + (", drawn from their photo" if photo else ""))
+                    if character["visible"] else "not shown (voice only)",
         "voiced_as": f"a computer voice ({voice}), not their own" if lines else "no spoken lines",
         "lines": lines,
-        "agreed_to": "appear and be voiced as above, saying these lines, in a short film posted publicly "
-                     "on TikTok and YouTube with a label saying it was made with AI; may ask for it to be taken down",
+        "agreed_to": "appear and be voiced as above, "
+                     + ("with their photo given to the image model only as a reference for their character, " if photo else "")
+                     + "saying these lines, in a short film posted publicly on TikTok and YouTube with a label "
+                       "saying it was made with AI; may ask for it to be taken down",
         "read_out": True if self else read_out, "agreed": True if self else agreed,
         "recording_kept": recording_kept, "how": how.strip() or ("It is me" if self else ""),
         "evidence": evidence.strip(), "date": today or dt.date.today().isoformat(),

@@ -65,7 +65,7 @@
       "person": "Robel",
       "status": "agreed",
       "self": true,
-      "shown_as": "an AI-made animated character",
+      "shown_as": "an AI-made animated character, drawn from their photo",
       "voiced_as": "a computer voice (Puck), not their own",
       "lines": [
         {
@@ -79,7 +79,7 @@
           "en": "You won't believe what happened on my way over!"
         }
       ],
-      "agreed_to": "appear and be voiced as above, saying these lines, in a short film posted publicly on TikTok and YouTube with a label saying it was made with AI; may ask for it to be taken down",
+      "agreed_to": "appear and be voiced as above, with their photo given to the image model only as a reference for their character, saying these lines, in a short film posted publicly on TikTok and YouTube with a label saying it was made with AI; may ask for it to be taken down",
       "read_out": true,
       "agreed": true,
       "recording_kept": false,
@@ -93,7 +93,7 @@
       "person": "Samuel",
       "status": "agreed",
       "self": false,
-      "shown_as": "an AI-made animated character",
+      "shown_as": "an AI-made animated character, drawn from their photo",
       "voiced_as": "a computer voice (Zubenelgenubi), not their own",
       "lines": [
         {
@@ -102,7 +102,7 @@
           "en": "Wait, what?! Only you could turn that into a wild story!"
         }
       ],
-      "agreed_to": "appear and be voiced as above, saying these lines, in a short film posted publicly on TikTok and YouTube with a label saying it was made with AI; may ask for it to be taken down",
+      "agreed_to": "appear and be voiced as above, with their photo given to the image model only as a reference for their character, saying these lines, in a short film posted publicly on TikTok and YouTube with a label saying it was made with AI; may ask for it to be taken down",
       "read_out": true,
       "agreed": true,
       "recording_kept": true,

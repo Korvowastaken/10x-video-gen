@@ -119,7 +119,7 @@ no model calls and reuses every file.
 | `story.md` | your story, with an optional settings block at the top |
 | `storyboard.json` | the script, scenes, prompts, seeds, modes and limits: the contract between steps |
 | `approvals.json` | what you approved, and when, with every scene's earlier versions |
-| `references/` | uploaded photos (git-ignored: they can show real family members) |
+| `references/` | uploaded photos (git-ignored: they can show real family members; a fresh clone draws the characters from their descriptions instead) |
 | `outputs/refs/`, `outputs/keyframes/` | reference sheets and scene pictures |
 | `outputs/narration/`, `outputs/music/`, `outputs/shots/` | voices, score candidates, bought clips |
 | `outputs/preview/` | one preview per scene |

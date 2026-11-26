@@ -199,3 +199,13 @@ def test_switching_back_to_a_model_keeps_the_chosen_sheet(tmp_path):
     assert cache.current("char_robel_1").name == f"char_robel_1__{key_for(chosen)}.png"
     other = {**old, "prompt": "Robel in red"}
     assert cache.usable("char_robel_1", key_for(other), (".png",), other, ("model",)) is None
+
+
+def test_a_missing_reference_photo_draws_from_the_description(tmp_path, capsys):
+    # references/ is git-ignored, so a fresh clone has no photos: the run goes on without them.
+    project = Project(tmp_path)
+    assert keyframes._photo(project, {"photo": "references/someone.jpg"}) is None
+    assert "references/someone.jpg is missing" in capsys.readouterr().err
+    (tmp_path / "references").mkdir()
+    (tmp_path / "references" / "someone.jpg").write_bytes(b"jpg")
+    assert keyframes._photo(project, {"photo": "references/someone.jpg"}) == tmp_path / "references" / "someone.jpg"

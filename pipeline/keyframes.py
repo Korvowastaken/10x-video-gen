@@ -21,6 +21,8 @@ chain. runs.jsonl records which model drew each image.
 """
 from __future__ import annotations
 
+import sys
+
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -367,13 +369,25 @@ def references(project: Project, sb: dict[str, Any], *, force: bool = False,
 
 
 def _photo(project: Project, ref: dict[str, Any]) -> Path | None:
-    """An uploaded reference photo (references/<file>) for a character or place, if there is one."""
+    """An uploaded reference photo (references/<file>) for a character or place, if there is one.
+
+    references/ is git-ignored (the photos can show real family members), so a
+    fresh clone has none. Then the sheet is drawn from its description alone,
+    with a warning: the run still finishes, the faces just follow the prompt.
+    """
     if not ref.get("photo"):
         return None
     path = project.root / ref["photo"]
     if not path.exists():
-        raise FileNotFoundError(f"reference photo {ref['photo']} is missing")
+        if ref["photo"] not in _WARNED:
+            _WARNED.add(ref["photo"])
+            print(f"reference photo {ref['photo']} is missing; drawing from the description alone",
+                  file=sys.stderr)
+        return None
     return path
+
+
+_WARNED: set[str] = set()
 
 
 def _all_current(cache: StageCache) -> dict[str, Path]:

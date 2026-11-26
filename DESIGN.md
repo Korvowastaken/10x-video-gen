@@ -118,12 +118,18 @@ Questions asked after one viewing, without explaining first:
 `outputs/final/heritage_short_9x16.mp4`, shown to at least three people from
 the audience (at least one new person).
 
+Shown to friends and family on 2026-11-26. Most of them liked it; not
+everyone did.
+
 | Person | How they fit the audience | What they said | Moment (shot) |
 |---|---|---|---|
-| | | | |
-| | | | |
-| | | | |
+| My parents | Family, Amharic speakers | "This is weird." Did not like it | Not named |
+| A friend | A friend, part of the audience | "Oh, this is interesting, I remember that. This is very similar to that." Liked it | Not named |
+| Another viewer | From the same family and friends circle | "This looks weird, I don't like it." | Not named |
 
-| Feedback | Change | Shots |
-|---|---|---|
-| | | |
+**What we take from it:** the friend who liked it recognised the story and tied
+it to a memory of their own, the reaction the film was made for. The ones who
+did not like it called it "weird" without naming a moment; the likeliest reason
+is the AI look rather than the story. No storyboard change was made from this
+screening before the deadline; making the characters look more consistent is
+the first item of future work.

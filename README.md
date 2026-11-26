@@ -6,6 +6,10 @@ original score under the voice, and an end card that says it was made with AI.
 You go through four steps, and each one waits for your approval before the next
 one opens. Every model call is logged in `runs.jsonl`.
 
+**The film:** *From Fear to Laughter*, in Amharic with English subtitles.
+[Vertical (9:16) on YouTube Shorts](https://youtube.com/shorts/9ImFfuoJOWg) ·
+[Horizontal (16:9) on YouTube](https://youtu.be/Y67MnH4GBXk)
+
 ## Setup
 
 1. Install these once, then **open a new terminal** so it finds them (in VS

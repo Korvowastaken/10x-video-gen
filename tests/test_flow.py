@@ -65,11 +65,8 @@ def _step(project, name):
 
 
 def _open_through_references(project):
-    from pipeline import sketch
     flow.approve(project, "story")
     flow.approve(project, "script")
-    sketch.run(project)
-    flow.approve(project, "sketch")
     _draw_references(project)
     flow.approve(project, "references")
 
@@ -77,7 +74,7 @@ def _open_through_references(project):
 def test_a_fresh_film_starts_at_the_story_with_everything_after_it_locked(project):
     st = flow.status(project)
     assert st["current"] == "story"
-    assert [s["locked"] for s in st["steps"]] == [False, True, True, True, True, True]
+    assert [s["locked"] for s in st["steps"]] == [False, True, True, True, True]
 
 
 def test_a_locked_step_cannot_be_approved_or_worked_on(project):
@@ -90,21 +87,20 @@ def test_a_locked_step_cannot_be_approved_or_worked_on(project):
 def test_approving_a_step_unlocks_the_next(project):
     flow.approve(project, "story")
     flow.approve(project, "script")
-    sketch = _step(project, "sketch")
-    assert not sketch["locked"] and sketch["state"] == "todo"
-    assert sketch["blockers"], "nothing drawn yet, so the sketch cannot be approved"
+    references = _step(project, "references")
+    assert not references["locked"] and references["state"] == "todo"
+    assert references["blockers"], "nothing drawn yet, so the references cannot be approved"
     with pytest.raises(flow.GateError, match="not ready"):
-        flow.approve(project, "sketch")
+        flow.approve(project, "references")
 
 
-def test_editing_a_line_makes_the_script_and_sketch_stale_but_not_the_references(project):
+def test_editing_a_line_makes_the_script_stale_but_not_the_references(project):
     _open_through_references(project)
     sb = _sb(project)
     sb["shots"][0]["lines"][0]["en"] = "A different subtitle."
     sbmod.save(project, sb)
     st = {s["id"]: s for s in flow.status(project)["steps"]}
     assert st["script"]["state"] == "stale" and st["script"]["changed"] == ["the script"]
-    assert st["sketch"]["state"] == "stale" and "the script" in st["sketch"]["changed"]
     assert st["references"]["state"] == "approved"
     assert st["references"]["locked"], "a stale step before it locks it again"
 
@@ -118,7 +114,7 @@ def test_editing_the_story_makes_the_script_stale_and_says_why(project):
     assert st["script"]["state"] == "stale" and st["script"]["changed"] == ["the story"]
 
 
-def test_reordering_scenes_reopens_the_sketch_not_the_script(project):
+def test_reordering_scenes_keeps_the_script_approved(project):
     flow.approve(project, "story")
     flow.approve(project, "script")
     sb = _sb(project)
@@ -128,7 +124,6 @@ def test_reordering_scenes_reopens_the_sketch_not_the_script(project):
     assert reordered["shots"][0]["beat"] == sb["shots"][1]["beat"]
     sbmod.save(project, reordered)
     assert _step(project, "script")["state"] == "approved"
-    assert flow.key_for(flow.sketch_view(reordered)) != flow.key_for(flow.sketch_view(sb))
 
 
 def test_a_scene_goes_stale_when_redrawn_and_an_old_version_can_be_restored(project):
@@ -222,9 +217,49 @@ def test_a_settings_typo_is_a_story_blocker_not_a_crash(project):
     assert story["blockers"] and "typo" in story["blockers"][0]
 
 
+def test_the_story_needs_an_audience_and_a_feeling_before_approval(project):
+    project.story.write_text("A long enough story. " * 10, "utf-8")
+    assert _step(project, "story")["blockers"] == ["in Settings, say who watches, and say how it should feel at the end"]
+    project.story.write_text("---\naudience: Cousins abroad\n---\n" + "A long enough story. " * 10, "utf-8")
+    assert _step(project, "story")["blockers"] == ["in Settings, say how it should feel at the end"]
+    with pytest.raises(Exception):
+        flow.approve(project, "story")
+
+
 def test_settings_round_trip_keeps_unknown_keys_and_drops_defaults():
     from pipeline.script import join_story, split_story
     text = join_story({**split_story("x")[0], "look": "painted-2d", "placeholder": True}, "The story.")
     settings, body = split_story(text)
     assert settings["look"] == "painted-2d" and settings["placeholder"] is True and body == "The story."
     assert "language" not in text
+
+
+def test_a_redo_saves_the_edits_takes_a_new_still_when_nothing_changed_and_retunes_for_free(project, monkeypatch):
+    from pipeline import narration, steps
+
+    made = []
+    monkeypatch.setattr(flow, "require", lambda *a: None)
+    monkeypatch.setattr(steps, "make_scene", lambda p, s, redo, buy: made.append((redo, buy)) or {"file": "x", "used": "y"})
+    monkeypatch.setattr(narration, "run", lambda *a, **k: {})
+    sb = _sb(project)
+    shot = next(s for s in sb["shots"] if s["lines"])
+    sid, seed = shot["id"], shot["keyframe"]["seed"]
+
+    steps.redo_scene(project, sid, parts=["keyframe"])  # never drawn: the first still keeps its seed
+    assert next(s for s in _sb(project)["shots"] if s["id"] == sid)["keyframe"]["seed"] == seed
+    _draw_references(project)
+    _draw_scene(project, sid)
+    steps.redo_scene(project, sid, parts=["keyframe"])
+    assert next(s for s in _sb(project)["shots"] if s["id"] == sid)["keyframe"]["seed"] == seed + 1
+    assert made[-1] == ({"keyframe"}, False)
+
+    edited = copy.deepcopy(next(s for s in _sb(project)["shots"] if s["id"] == sid))
+    edited["lines"][0]["tune"] = {"speed": 1.2}
+    steps.redo_scene(project, sid, parts=["voice"], shot=edited)
+    saved = next(s for s in _sb(project)["shots"] if s["id"] == sid)
+    assert saved["lines"][0]["tune"]["speed"] == 1.2
+    assert made[-1] == (set(), False)  # same words: re-rendered from the saved take, no new recording
+
+    edited["lines"][0]["text"] = edited["lines"][0]["text"] + "።"
+    with pytest.raises(ValueError):  # an id change is refused before anything is saved
+        steps.redo_scene(project, sid, parts=["voice"], shot={**edited, "id": "S99"})

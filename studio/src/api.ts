@@ -138,6 +138,8 @@ export type Job = {
   ended?: number
   /** Stop was asked for; the job ends at its next safe point. */
   stopping?: boolean
+  /** The job is waiting: a service ran out or failed, and the next one in line needs a yes (pipeline/switch.py). */
+  question?: { from: string; to: string; reason: string; what: string; note: string }
   totals?: { calls: number; failed: number; usd: number }
   /** What the job made, for jobs that hand something back (a revision's proposal). */
   result?: unknown
@@ -165,7 +167,7 @@ export type State = {
 }
 
 /** The six steps, from pipeline/flow.py. "final" is the final cut. */
-export type FlowStepId = "story" | "script" | "sketch" | "references" | "scenes" | "final"
+export type FlowStepId = "story" | "script" | "references" | "scenes" | "final"
 export type FlowState = "approved" | "stale" | "todo"
 export type FlowStep = {
   id: FlowStepId
@@ -198,8 +200,12 @@ export type Flow = {
   budget: { budget_usd: number; planned_usd: number; to_buy_usd: number; spent_usd: number; music_usd: number; allowed_modes: string[] } | null
   settings: Settings
   story_text: string
-  catalog: { modes: Record<string, ModeInfo>; default_engine: string; music_usd: number | null }
-  sketch?: { frames: Record<string, string | null>; animatic: string | null }
+  catalog: {
+    modes: Record<string, ModeInfo>
+    engines: Record<string, { provider: string; clip_s: number[]; usd: Record<string, number> }>
+    default_engine: string
+    music_usd: number | null
+  }
 }
 export type Choices = { languages: Record<string, string>; looks: string[]; defaults: Settings }
 
@@ -232,13 +238,18 @@ export const api = {
   state: () => call<State>("GET", "/api/state"),
   job: (id: string) => call<Job>("GET", `/api/jobs/${id}`),
   stopJob: (id: string) => call<Job>("POST", `/api/jobs/${id}/stop`),
+  answerJob: (id: string, use: boolean) => call<Job>("POST", `/api/jobs/${id}/answer`, { use }),
   saveStory: (text: string) => call("PUT", "/api/story", { text }),
   run: (stage: string, body: Record<string, unknown> = {}) => call<Job>("POST", `/api/run/${stage}`, body),
   saveShot: (shot: Shot) => call("PUT", `/api/shots/${shot.id}`, shot),
   saveCharacter: (c: Character) => call("PUT", `/api/characters/${c.id}`, c),
-  /** A scene revision, run as a job: the finished job's result is a Revision<Shot>. */
-  feedback: (id: string, text: string) => call<Job>("POST", `/api/shots/${id}/feedback`, { text }),
-  redo: (id: string, parts: string[]) => call<Job>("POST", `/api/shots/${id}/redo`, { parts }),
+  savePlace: (p: Place) => call("PUT", `/api/places/${p.id}`, p),
+  /** Redo parts of a scene from the scene panel, as one job: save the edits, let the writer rewrite the
+   * chosen parts from the note, then remake them. The finished job's result says what the note changed. */
+  redoScene: (
+    id: string,
+    body: { parts: string[]; shot?: Shot; voices?: Record<string, Tune | null>; note?: string; confirm_usd?: number },
+  ) => call<Job>("POST", `/api/scenes/${id}/redo`, body),
   previewVoice: (item: string, tune: Tune) => call<{ audio: string; seconds: number; older: boolean }>("POST", "/api/voice/preview", { item, tune }),
   tuneVoices: (body: { characters?: Record<string, Tune | null>; lines?: Record<string, Tune | null> }) => call<Job>("PUT", "/api/voice", body),
   upload: (owner: string, file: File) => {
@@ -258,11 +269,12 @@ export const api = {
   /** A script revision, run as a job: the finished job's result is a Revision<Storyboard>. */
   reviseScript: (text: string) => call<Job>("POST", "/api/script/revise", { text }),
   acceptScript: (proposal: Storyboard) => call("PUT", "/api/script", proposal),
-  drawSketch: () => call<Job>("POST", "/api/sketch"),
-  reorder: (order: string[]) => call("POST", "/api/sketch/order", { order }),
+  reorder: (order: string[]) => call("POST", "/api/scenes/order", { order }),
   drawSheets: () => call<Job>("POST", "/api/sheets/draw"),
   anotherSheet: (owner: string) => call("POST", `/api/sheets/${owner}/another`),
   setVideo: (v: { allowed_modes?: string[]; budget_usd?: number }) => call("PUT", "/api/video", v),
+  /** Make several scenes in one free job, in film order. Nothing is bought. */
+  makeScenes: (ids: string[]) => call<Job>("POST", "/api/scenes/make", { scenes: ids }),
   makeScene: (id: string, body: { redo?: string[]; buy?: boolean; confirm_usd?: number } = {}) => call<Job>("POST", `/api/scenes/${id}/make`, body),
   restoreScene: (id: string, version: number) => call("POST", `/api/scenes/${id}/restore`, { version }),
   setCut: (use: Record<string, string>) => call("PUT", "/api/cut", { use }),
@@ -293,7 +305,7 @@ export const MODES: Record<string, { label: string; paid: boolean }> = {
   still: { label: "Still", paid: false },
 }
 
-/** Field-by-field differences between two scenes, for the feedback review. */
+/** Field-by-field differences between two scenes or storyboards. */
 export function diff(a: unknown, b: unknown, path = ""): { path: string; before: string; after: string }[] {
   if (JSON.stringify(a) === JSON.stringify(b)) return []
   if (a && b && typeof a === "object" && typeof b === "object" && !Array.isArray(a) === !Array.isArray(b)) {

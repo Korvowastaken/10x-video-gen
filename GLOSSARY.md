@@ -6,7 +6,7 @@ studio, the command line, the code and the docs all use them the same way.
 ## The workflow
 
 **Step**:
-One of the six stages a person goes through, in order: story, script, sketch, references, scenes, final cut. Each ends with an approval.
+One of the five stages a person goes through, in order: story, script, references, scenes, final cut (the studio shows the last two as one Film page). Each ends with an approval.
 _Avoid_: phase, gate (as a noun for the step itself)
 
 **Approval**:
@@ -39,8 +39,8 @@ A change to the script or to one scene that Gemini proposes from a note in plain
 _Avoid_: feedback (that is the note), edit (that is done by hand)
 
 **Sketch**:
-One quick frame per scene drawn from simple shapes: coloured figures, a flat place, arrows for movement, size for framing. Played in order at each scene's length it is the **animatic**.
-_Avoid_: shape storyboard, thumbnail, previs
+The layout guide: one plain frame per scene, outline figures with simple arms and legs on white, showing where each person stands, how big they appear and which way they face. It is sent to FLUX.2 with the reference sheets when a slot is left, so the keyframe follows the composition. Internal to the pipeline: it is not a step and nobody edits it.
+_Avoid_: shape storyboard, thumbnail, previs, animatic
 
 **Reference sheet**:
 The generated picture of one character, or the establishing picture of one place, that every keyframe copies. One candidate is chosen per character.

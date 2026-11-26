@@ -1,4 +1,4 @@
-"""The studio's API for the six steps (flow.py, steps.py), mounted by studio.py.
+"""The studio's API for the five steps (flow.py, steps.py), mounted by studio.py.
 
 GET /api/flow says where the film is. Every action that makes something runs
 as a studio job and refuses while its step is locked. Paid actions need
@@ -28,14 +28,14 @@ def _project():
     return _studio().PROJECT
 
 
-def _job(step: str, kind: str, work) -> dict[str, Any]:
+def _job(step: str, kind: str, work, *, keep_result: bool = False) -> dict[str, Any]:
     """Run `work` as a studio job, once `step` is unlocked."""
     project = _project()
     try:
         flow.require(project, step)
     except flow.GateError as exc:
         raise HTTPException(409, str(exc))
-    return _studio().start_job(kind, work)
+    return _studio().start_job(kind, work, keep_result=keep_result)
 
 
 def _save(sb: dict[str, Any]) -> dict[str, Any]:
@@ -63,9 +63,7 @@ def get_flow() -> dict[str, Any]:
         out["settings"], out["story_text"] = dict(SETTINGS_DEFAULTS), story
     out["catalog"] = flow.catalog(sb)
     if sb:
-        sketch, previews = StageCache(project, "sketch"), StageCache(project, "preview")
-        out["sketch"] = {"frames": {s["id"]: url(sketch.current(s["id"])) for s in sb["shots"]},
-                         "animatic": url(sketch.current("animatic"))}
+        previews = StageCache(project, "preview")
         history = flow.load_approvals(project)["history"]
         for scene in out["scenes"]:
             scene["preview"] = url(previews.current(scene["id"]))
@@ -176,23 +174,18 @@ def put_script(proposal: dict[str, Any]) -> dict[str, Any]:
     return {"ok": True}
 
 
-# ---------------------------------------------------------------- 3 sketch
-
-@router.post("/sketch")
-def post_sketch() -> dict[str, Any]:
-    return _job("sketch", "draw the sketch", lambda: steps.make_sketch(_project()))
-
+# ---------------------------------------------------------------- scene order
 
 class Order(BaseModel):
     order: list[str]
 
 
-@router.post("/sketch/order")
+@router.post("/scenes/order")
 def post_order(body: Order) -> dict[str, Any]:
     """Put the scenes in a new order. Each scene keeps its files and approvals."""
     project = _project()
     try:
-        flow.require(project, "sketch")
+        flow.require(project, "references")
         old = sbmod.load(project)
         new = sbmod.reorder(old, body.order)
     except flow.GateError as exc:
@@ -206,7 +199,7 @@ def post_order(body: Order) -> dict[str, Any]:
     return {"ok": True}
 
 
-# ---------------------------------------------------------------- 4 references
+# ---------------------------------------------------------------- 3 references
 
 @router.post("/sheets/draw")
 def post_references() -> dict[str, Any]:
@@ -226,7 +219,7 @@ def post_another(owner_id: str) -> dict[str, Any]:
     raise HTTPException(404, "no such character or place")
 
 
-# ---------------------------------------------------------------- 5 scenes
+# ---------------------------------------------------------------- 4 scenes
 
 class Video(BaseModel):
     allowed_modes: list[str] | None = None
@@ -258,6 +251,79 @@ def post_make(scene: str, body: Make) -> dict[str, Any]:
     parts = ", ".join(body.redo) or "make"
     return _job("scenes", f"scene {scene}: {parts}{' + buy' if price else ''}",
                 lambda: steps.make_scene(_project(), scene, redo=set(body.redo), buy=bool(price)))
+
+
+class Redo(BaseModel):
+    parts: list[str] = []
+    shot: dict[str, Any] | None = None
+    voices: dict[str, dict[str, float] | None] = {}
+    note: str = ""
+    confirm_usd: float = 0.0
+
+
+@router.post("/scenes/{scene}/redo")
+def post_redo(scene: str, body: Redo) -> dict[str, Any]:
+    """Redo a scene's still, voice and/or clip from the scene panel: its unsaved edits and a
+    note for the writer travel along, so one click saves, rewrites and remakes. Only the clip
+    costs money, and it needs `confirm_usd`. With no parts it saves and renders the preview."""
+    project = _project()
+    sb = sbmod.load(project)
+    shot = next((s for s in sb["shots"] if s["id"] == scene), None)
+    if shot is None:
+        raise HTTPException(404, "no such scene")
+    if unknown := set(body.parts) - set(steps.PARTS):
+        raise HTTPException(400, f"no such part: {', '.join(sorted(unknown))}")
+    if body.note.strip() and not body.parts:
+        raise HTTPException(400, "pick what the note is for: the still, the voice or the clip")
+    target = body.shot or shot
+    if body.shot is not None:
+        if body.shot.get("id") != scene:
+            raise HTTPException(400, "the scene id cannot change")
+        if errors := revise.check(project, sb, body.shot):  # say so in the panel, not in the job log
+            raise HTTPException(422, {"errors": errors})
+    price = flow.scene_price(sb, target) if "clip" in body.parts else 0.0
+    if price and body.confirm_usd + 1e-9 < price:
+        raise HTTPException(402, f"buying this clip costs ${price:.2f}; confirm it first")
+    what = " + ".join(body.parts) or "update the preview"
+    note = " from a note" if body.note.strip() else ""
+    return _job("scenes", f"redo {scene}: {what}{note}",
+                lambda: steps.redo_scene(project, scene, parts=body.parts, shot=body.shot, voices=body.voices,
+                                         note=body.note, buy=bool(price)), keep_result=True)
+
+
+class Batch(BaseModel):
+    scenes: list[str]
+
+
+@router.post("/scenes/make")
+def post_make_many(body: Batch) -> dict[str, Any]:
+    """Make several scenes in one job, in film order. Free only: nothing is bought, and a
+    scene that fails is noted and skipped so the rest still get made."""
+    sb = sbmod.load(_project())
+    order = [s["id"] for s in sb["shots"]]
+    unknown = [s for s in body.scenes if s not in order]
+    if unknown:
+        raise HTTPException(404, f"no such scene: {', '.join(unknown)}")
+    wanted = [s for s in order if s in set(body.scenes)]
+    if not wanted:
+        raise HTTPException(422, "pick at least one scene")
+
+    def work() -> dict[str, Any]:
+        from . import jobs
+        failed = []
+        for n, scene in enumerate(wanted, 1):
+            jobs.check()
+            print(f"  scene {n} of {len(wanted)}: {scene}")
+            try:
+                steps.make_scene(_project(), scene)
+            except Exception as exc:  # one bad scene should not stop the batch
+                failed.append(scene)
+                print(f"  {scene} failed: {' '.join(str(exc).split())[:200]}")
+        if failed:
+            raise RuntimeError(f"{len(failed)} of {len(wanted)} scenes failed ({', '.join(failed)}); the rest were made")
+        return {"made": wanted}
+
+    return _job("scenes", f"make {len(wanted)} scene{'s' if len(wanted) > 1 else ''} ({', '.join(wanted)})", work)
 
 
 class Version(BaseModel):

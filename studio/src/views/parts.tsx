@@ -39,7 +39,7 @@ export function StepHeader({ n, title, lead, className, children }: { n: number;
       <div className="min-w-0 flex-1">
         <h1 className="text-[28px] leading-tight font-semibold tracking-[-0.01em]">{title}</h1>
         <p className="mt-1 max-w-2xl text-muted-foreground">
-          <span className="text-subtle tabular-nums">Step {n} of 6 · </span>
+          <span className="text-subtle tabular-nums">Step {n} of 4 · </span>
           {lead}
         </p>
       </div>
@@ -64,7 +64,6 @@ export function NextStep({ to, onClick }: { to: string; onClick: () => void }) {
 const FIRST: Record<FlowStepId, string> = {
   story: "Approve your story first",
   script: "Draft and approve the script first",
-  sketch: "Approve the sketch first",
   references: "Approve the references first",
   scenes: "Approve every scene first",
   final: "Approve the final cut first",

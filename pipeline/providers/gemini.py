@@ -1,4 +1,4 @@
-"""Gemini API with a Google AI Studio key: script drafting, TTS and a listening check.
+"""Gemini API with a Google AI Studio key: script drafting, TTS, a listening check and (paid) pictures.
 
 REST is used directly (no SDK) so every request and its usage numbers are easy
 to log. Docs: https://ai.google.dev/gemini-api/docs/speech-generation
@@ -227,5 +227,86 @@ def _transcribe_once(project: Project, *, stage: str, item: str, model: str, wav
             payload = _generate(model, body, timeout)
             call.cost = _usage(payload)
             return "".join(p.get("text", "") for p in _first_candidate_parts(payload) if not p.get("thought")).strip()
+
+    return with_retries(attempt, attempts=3, label=f"{stage}/{item}")
+
+
+# ---------------------------------------------------------------- pictures
+
+# Native image models (Nano Banana). The free tier has no image quota, so these are paid:
+# a 429 "limit: 0" on a free key ends up as QuotaExhausted and the picture chain moves on.
+# Per-image list prices at 1K, from the pricing page read 2026-11-26, for the cost column only.
+IMAGE_PRICES = {
+    "gemini-3.1-flash-lite-image": 0.0336,
+    "gemini-3.1-flash-image": 0.067,
+    "gemini-3-pro-image": 0.134,
+}
+ASPECTS = {"1:1": 1.0, "2:3": 2 / 3, "3:2": 1.5, "3:4": 0.75, "4:3": 4 / 3, "4:5": 0.8, "5:4": 1.25,
+           "9:16": 9 / 16, "16:9": 16 / 9}
+
+
+def is_image_model(model: str) -> bool:
+    return model.startswith("gemini-") and model.endswith("-image")
+
+
+def aspect_ratio(width: int, height: int) -> str:
+    """The supported aspect ratio closest to width:height."""
+    return min(ASPECTS, key=lambda name: abs(ASPECTS[name] - width / height))
+
+
+def fit(data: bytes, width: int, height: int) -> bytes:
+    """Cover-crop to width:height and resize, so every model hands back the size the stage asked for."""
+    import io
+
+    from PIL import Image
+
+    with Image.open(io.BytesIO(data)) as img:
+        img = img.convert("RGB")
+        w, h = img.size
+        if w / h > width / height:
+            new_w = round(h * width / height)
+            img = img.crop(((w - new_w) // 2, 0, (w - new_w) // 2 + new_w, h))
+        else:
+            new_h = round(w * height / width)
+            img = img.crop((0, (h - new_h) // 2, w, (h - new_h) // 2 + new_h))
+        if img.size != (width, height):
+            img = img.resize((width, height), Image.LANCZOS)
+        out = io.BytesIO()
+        img.save(out, "PNG")
+        return out.getvalue()
+
+
+@keys.for_purpose("pictures")
+def generate_image(project: Project, *, stage: str, item: str, model: str, prompt: str, seed: int,
+                   width: int, height: int, references: list[Path] | None = None,
+                   timeout: float = 240) -> tuple[bytes, str]:
+    """Draw one picture with a Nano Banana model, the references sent before the prompt.
+    Returns (PNG bytes, ".png") at exactly width x height."""
+    parts: list[dict[str, Any]] = []
+    for ref in references or []:
+        mime = "image/png" if ref.suffix.lower() == ".png" else "image/jpeg"
+        parts.append({"inlineData": {"mimeType": mime, "data": base64.b64encode(ref.read_bytes()).decode("ascii")}})
+    parts.append({"text": prompt})
+    ratio = aspect_ratio(width, height)
+    body: dict[str, Any] = {
+        "contents": [{"role": "user", "parts": parts}],
+        "generationConfig": {"responseModalities": ["IMAGE"], "seed": seed,
+                             "imageConfig": {"aspectRatio": ratio, "imageSize": "1K"}},
+    }
+
+    def attempt(n: int) -> tuple[bytes, str]:
+        params = {"width": width, "height": height, "aspect": ratio, "refs": [p.name for p in references or []],
+                  "prompt_chars": len(prompt), "prompt_sha": runlog.text_digest(prompt)}
+        with runlog.model_call(project, stage=stage, item=item, provider="gemini", model=model,
+                               params=params, seed=seed, attempt=n) as call:
+            payload = _generate(model, body, timeout)
+            for part in _first_candidate_parts(payload):
+                inline = part.get("inlineData") or part.get("inline_data")
+                if inline and inline.get("data") and not part.get("thought"):
+                    usage = _usage(payload)
+                    call.cost = {"unit": "image", "count": 1, "usd_list": IMAGE_PRICES.get(model, 0.0),
+                                 "tokens_in": usage["input"], "tokens_out": usage["output"]}
+                    return fit(base64.b64decode(inline["data"]), width, height), ".png"
+            raise ProviderError("Gemini returned no picture (refused, or answered in text)")
 
     return with_retries(attempt, attempts=3, label=f"{stage}/{item}")

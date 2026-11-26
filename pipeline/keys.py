@@ -47,7 +47,7 @@ SERVICES: dict[str, dict[str, Any]] = {
         "label": "Gemini", "fields": ["GEMINI_API_KEY"], "aliases": {"GEMINI_API_KEY": "GOOGLE_API_KEY"},
         "names": {"GEMINI_API_KEY": "API key"}, "paid": False,
         "url": "https://aistudio.google.com/apikey",
-        "for": "Fallback for writing and voices, and finds the moving part of masked scenes.",
+        "for": "Fallback for writing and voices, finds the moving part of masked scenes, and can draw pictures (paid).",
         "limit": "Free, with a small daily limit per Google Cloud project. A key from another project has its own limit.",
     },
     "cloudflare": {
@@ -67,7 +67,7 @@ SERVICES: dict[str, dict[str, Any]] = {
         "label": "Kaggle", "fields": ["KAGGLE_API_TOKEN"], "names": {"KAGGLE_API_TOKEN": "API token"},
         "paid": False, "single": True,  # the kaggle library reads its token itself, so no switching
         "url": "https://www.kaggle.com/settings",
-        "for": "Optional free GPU fallback for clips and music.",
+        "for": "Optional free GPU fallback for pictures, clips and music.",
         "limit": "Free, 6 GPU hours a week per account. One token: Kaggle reads it directly.",
     },
     "groq": {
@@ -356,7 +356,8 @@ def check(service: str, values: dict[str, str]) -> str | None:
 def new_run() -> None:
     """A studio job is a new run: keys and models that ran out before get another try,
     since a daily limit may have reset or a key been added since."""
-    from . import retry
+    from . import retry, switch
+    switch.new_run()
     with _LOCK:
         _OUT.clear()
         _ACTIVE.clear()

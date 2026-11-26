@@ -123,7 +123,7 @@ def rule_errors(sb: dict[str, Any], project: Project | None = None, *, check_scr
                 errors.append(
                     f"characters/{character['id']}: portrays a real person but consent "
                     f"'{character.get('consent', '?')}' is not confirmed. Confirm their consent in the "
-                    "studio's Script step first; nothing of a real person is generated without it.")
+                    "studio's References step first; nothing of a real person is generated without it.")
     return errors
 
 

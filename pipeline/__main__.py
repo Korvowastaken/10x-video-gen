@@ -1,17 +1,16 @@
 """Command line: `python -m pipeline <command>`.
 
-The six steps, each approved before the next unlocks (the studio runs the same ones):
-  studio     the web app for all six steps: http://127.0.0.1:8765
+The five steps, each approved before the next unlocks (the studio runs the same ones):
+  studio     the web app for all five steps: http://127.0.0.1:8765
   flow       where the film is: each step approved, stale or locked, and what is next
   approve STEP [SCENE]    accept a step as it is now (scenes one at a time: approve scenes S03)
   unapprove STEP [SCENE]
   1 story    write story.md in plain words, then: approve story
   2 script   draft the script from the story; revise script "make the ending shorter"
-  3 sketch   draw the shape storyboard and its animatic (free, local)
-  4 references   draw the reference sheets (free tier); pick one with reference.chosen
-  5 scene S03    draw the picture, record the voice and preview free motion; --buy buys its clip
+  3 references   draw the reference sheets (free tier); pick one with reference.chosen
+  4 scene S03    draw the picture, record the voice and preview free motion; --buy buys its clip
              revise S03 "she should smile here"
-  6 cut      the final cut, 9:16 and 16:9
+  5 cut      the final cut, 9:16 and 16:9
 
 Stages without the gates (for scripting and experiments):
   film       every stage in order -> outputs/final/*_9x16.mp4 and *_16x9.mp4
@@ -90,9 +89,8 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("flow")
     for name in ("approve", "unapprove"):
         sp = sub.add_parser(name)
-        sp.add_argument("step", help="story | script | sketch | references | scenes | final")
+        sp.add_argument("step", help="story | script | references | scenes | final")
         sp.add_argument("scene", nargs="?", help="scene id, for scenes")
-    sub.add_parser("sketch").add_argument("--force", action="store_true")
     sub.add_parser("references").add_argument("--force", action="store_true")
     sp = sub.add_parser("scene")
     sp.add_argument("scene", help="scene id, e.g. S03")
@@ -117,6 +115,8 @@ def main(argv: list[str] | None = None) -> int:
         if hasattr(stream, "reconfigure"):
             stream.reconfigure(encoding="utf-8", errors="replace")
     config.load_env()
+    from . import switch
+    switch.INTERACTIVE = args.command != "studio" and sys.stdin.isatty()  # ask y/n before using the next service
     project = Project(Path(args.project).resolve())
     only = _only(getattr(args, "only", None))
     force = getattr(args, "force", False)
@@ -137,7 +137,7 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command in STAGES:
             run_stage(args.command, project, only=only, force=force, mode=getattr(args, "mode", "final"),
                       max_paid=max_paid, kaggle=getattr(args, "kaggle", False))
-        elif args.command in ("flow", "approve", "unapprove", "sketch", "references", "scene", "revise", "cut"):
+        elif args.command in ("flow", "approve", "unapprove", "references", "scene", "revise", "cut"):
             from . import steps
             return steps.run(args, project)
         elif args.command == "validate":

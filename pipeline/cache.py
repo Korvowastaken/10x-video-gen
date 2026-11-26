@@ -40,6 +40,23 @@ def key_for(spec: dict[str, Any]) -> str:
     return sha256_bytes(canonical_json(spec))[:16]
 
 
+def _without(spec: dict[str, Any], paths: tuple[str, ...]) -> Any:
+    out = json.loads(canonical_json(spec))  # tuples and lists compare alike, as in the key
+    for path in paths:
+        *parents, last = path.split(".")
+        node = out
+        for part in parents:
+            node = node.get(part) if isinstance(node, dict) else None
+        if isinstance(node, dict):
+            node.pop(last, None)
+    return out
+
+
+def same_except(made: dict[str, Any], now: dict[str, Any], ignore: tuple[str, ...]) -> bool:
+    """`made` and `now` are the same spec once the `ignore` fields are left out of both."""
+    return _without(made, ignore) == _without(now, ignore)
+
+
 class StageCache:
     """outputs/<stage>/<item>__<key><ext>, indexed by outputs/<stage>/manifest.json."""
 
@@ -68,6 +85,23 @@ class StageCache:
             entry["updated"] = previous.get("updated", entry["updated"])  # no churn on re-runs
         self.manifest[item] = entry
         self.save()
+
+    def usable(self, item: str, key: str, exts: tuple[str, ...], now: dict[str, Any] | None = None,
+               ignore: tuple[str, ...] = ()) -> Path | None:
+        """The file made for exactly `key`, or else the current file when what it was made from
+        differs from `now` only in the `ignore` fields (dotted paths: "tts.model"). Those are
+        settings around an item, like which model drew it, not the item itself: changing them
+        alone is no reason to make it again, so nothing should call it out of date. The current
+        file wins over an older file made for exactly `key`, so switching back to a model used
+        before never swaps in that model's old take for the one the person chose."""
+        made = (self.entry(item) or {}).get("spec")
+        if now is not None and ignore and made is not None and same_except(made, now, ignore):
+            if current := self.current(item):
+                return current
+        for ext in exts:
+            if hit := self.hit(item, key, ext):
+                return hit
+        return None
 
     def current(self, item: str) -> Path | None:
         entry = self.manifest.get(item)

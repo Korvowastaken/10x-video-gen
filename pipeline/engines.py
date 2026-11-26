@@ -24,6 +24,12 @@ MUSIC_ENGINES = {
     "kaggle-ace-step-1.5": {"provider": "kaggle", "model": "ACE-Step/Ace-Step1.5"},
 }
 
+# Picture models that run as one Kaggle batch per pass (keyframes.run_batch), not one call each.
+# The same FLUX.2 klein 4B that Cloudflare serves (Apache-2.0), so the look matches.
+IMAGE_KAGGLE = {
+    "kaggle-flux-2-klein-4b": {"provider": "kaggle", "model": "black-forest-labs/FLUX.2-klein-4B"},
+}
+
 # label: the name people see. paid: needs a generated clip. subject: decides the slow-motion cap (research 3c).
 MODES = {
     "full_i2v": {"label": "Full motion", "paid": True, "subject": "character",

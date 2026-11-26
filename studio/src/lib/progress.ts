@@ -2,13 +2,10 @@
 
 import { api, diff, MODES, type Flow, type FlowStepId, type Job, type Limit, type LimitId, type Shot, type ShotState, type State } from "@/api"
 
-/** The studio's pages for the six steps. "film" is the final cut (flow step "final"). */
-export type StepId = "story" | "script" | "sketch" | "references" | "scenes" | "film"
+/** The studio's four pages. "film" holds two flow steps: approving each scene, then the final cut. */
+export type StepId = "story" | "script" | "references" | "film"
 export const VIEW_OF: Record<FlowStepId, StepId> = {
-  story: "story", script: "script", sketch: "sketch", references: "references", scenes: "scenes", final: "film",
-}
-export const STEP_OF: Record<StepId, FlowStepId> = {
-  story: "story", script: "script", sketch: "sketch", references: "references", scenes: "scenes", film: "final",
+  story: "story", script: "script", references: "references", scenes: "film", final: "film",
 }
 export type StepState = "done" | "todo" | "stale" | "locked"
 export type Step = { id: StepId; label: string; state: StepState; note: string }
@@ -93,20 +90,29 @@ export function fieldLabel(path: string) {
 }
 
 const LABEL: Record<FlowStepId, string> = {
-  story: "Story", script: "Script", sketch: "Sketch", references: "References", scenes: "Scenes", final: "Film",
+  story: "Story", script: "Script", references: "References", scenes: "Film", final: "Film",
 }
 
-/** The six steps as the server sees them: approved, stale (with why), to do, or locked. */
+/** The flow step by id. */
+export const flowStep = (flow: Flow, id: FlowStepId) => flow.steps.find((s) => s.id === id)!
+
+/** The four pages as the server sees them: approved, stale (with why), to do, or locked.
+ *  Film stands for the scenes until every one is approved, then for the final cut. */
 export function steps(flow: Flow): Step[] {
-  return flow.steps.map((s, i) => {
-    const before = flow.steps[i - 1]
-    if (s.locked) return { id: VIEW_OF[s.id], label: LABEL[s.id], state: "locked", note: `After ${LABEL[before.id]}` }
-    if (s.state === "approved") return { id: VIEW_OF[s.id], label: LABEL[s.id], state: "done", note: "Approved" }
-    if (s.state === "stale") return { id: VIEW_OF[s.id], label: LABEL[s.id], state: "stale", note: `Changed: ${s.changed.join(", ")}` }
-    if (s.id === "scenes")
-      return { id: "scenes", label: LABEL.scenes, state: "todo", note: `${flow.scenes.filter((x) => x.state === "approved").length} of ${flow.scenes.length} approved` }
-    return { id: VIEW_OF[s.id], label: LABEL[s.id], state: "todo", note: s.blockers[0] ? upper(s.blockers[0]) : "Ready to approve" }
-  })
+  // A step the studio has no page for (an older server's, say) is left out rather than shown blank.
+  const known = flow.steps.filter((s) => s.id in VIEW_OF)
+  const pages = known.filter((s) => s.id !== "final" || flowStep(flow, "scenes").state === "approved")
+  return pages
+    .filter((s) => !(s.id === "scenes" && s.state === "approved"))
+    .map((s) => {
+      const before = known[known.indexOf(s) - 1]
+      if (s.locked) return { id: VIEW_OF[s.id], label: LABEL[s.id], state: "locked", note: `After ${LABEL[before.id]}` }
+      if (s.state === "approved") return { id: VIEW_OF[s.id], label: LABEL[s.id], state: "done", note: "Approved" }
+      if (s.state === "stale") return { id: VIEW_OF[s.id], label: LABEL[s.id], state: "stale", note: `Changed: ${s.changed.join(", ")}` }
+      if (s.id === "scenes")
+        return { id: "film", label: LABEL.scenes, state: "todo", note: `${flow.scenes.filter((x) => x.state === "approved").length} of ${flow.scenes.length} scenes approved` }
+      return { id: VIEW_OF[s.id], label: LABEL[s.id], state: "todo", note: s.blockers[0] ? upper(s.blockers[0]) : "Ready to approve" }
+    })
 }
 
 export const upper = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
@@ -123,7 +129,6 @@ export type Next = {
 const GATE_ACTION: Partial<Record<FlowStepId, { title: string; detail: string; label: string; cost: Cost; run?: () => Promise<Job> }>> = {
   story: { title: "Approve your story", detail: "Check the settings, then approve to open the script.", label: "Open Story", cost: FREE() },
   script: { title: "Draft and approve the script", detail: "Gemini writes the scenes, lines and subtitles. Edit them, then approve.", label: "Open Script", cost: FREE("Gemini", "writing") },
-  sketch: { title: "Draw and approve the sketch", detail: "A quick shape frame per scene, drawn on this computer. Check order and framing.", label: "Draw sketch", cost: FREE(), run: () => api.drawSketch() },
   references: { title: "Draw and approve the references", detail: "One sheet per person and place, which every scene copies.", label: "Draw sheets", cost: FREE("Cloudflare", "pictures"), run: () => api.drawSheets() },
 }
 
@@ -161,7 +166,7 @@ export function next(state: State, flow?: Flow): Next {
       sheets.filter(([id, urls]) => urls.some((u) => !u) || state.sheets_stale?.[id]).reduce((n, [, urls]) => n + urls.length, 0) + stills
     const short = pictures && !pictures.used_up && pictures.left != null && pictures.left < wanted
     return {
-      step: sheetWork ? "references" : "scenes",
+      step: sheetWork ? "references" : "film",
       title: [sheetWork && `${sheetWork} sheet${sheetWork > 1 ? "s" : ""}`, stills && `${stills} still${stills > 1 ? "s" : ""}`]
         .filter(Boolean)
         .join(" and ") + " to redraw",
@@ -176,7 +181,7 @@ export function next(state: State, flow?: Flow): Next {
   const voices = state.shots.reduce((n, m) => n + m.lines.filter((l, i) => !l.audio || (m.stale.voice[i] && !l.tunable)).length, 0)
   if (voices)
     return {
-      step: "scenes",
+      step: "film",
       title: `${voices} line${voices > 1 ? "s" : ""} to record`,
       detail: "New voice takes for the lines you changed, checked by listening back.",
       label: "Record",
@@ -194,10 +199,10 @@ export function next(state: State, flow?: Flow): Next {
       run: () => api.run("rough"),
     }
   return {
-    step: "scenes",
-    title: "Watch, then give feedback",
-    detail: "Pick a scene that feels off, say what should change, and redo it.",
-    label: "Open scenes",
+    step: "film",
+    title: "Watch, then redo what feels off",
+    detail: "Open a scene, edit it or leave a note, tick what to redo and redo it.",
+    label: "Open Film",
     cost: FREE(),
   }
 }

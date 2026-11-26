@@ -1,7 +1,14 @@
 """Shared fixtures."""
 import pytest
 
-from pipeline import keys
+from pipeline import keys, switch
+
+
+@pytest.fixture(autouse=True)
+def switch_without_asking(monkeypatch):
+    """Chains move to the next service as before; tests of the question turn this off."""
+    monkeypatch.setattr(switch, "AUTO", True)
+    switch.new_run()
 
 
 @pytest.fixture

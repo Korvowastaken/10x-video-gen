@@ -609,11 +609,11 @@ def preview(project: Project, shot_id: str) -> dict[str, Any]:
     shot = next(s for s in sb["shots"] if s["id"] == shot_id)
     edit = sbmod.edit_settings(sb)
     fps, (w, h) = edit["fps"], PREVIEW_SIZE
-    from .narration import spec_for
+    from .narration import line_file
     cache = StageCache(project, "narration")
     lines = []
     for n, line in enumerate(shot["lines"], 1):
-        path = cache.hit(f"{shot_id}_L{n}", key_for(spec_for(sb, line)), ".wav")
+        path = line_file(cache, f"{shot_id}_L{n}", sb, line)
         if path:
             lines.append((path, probe_duration(path), line["en"]))
     speech = sum(d for _, d, _ in lines) + edit["gap_s"] * max(0, len(lines) - 1)

@@ -129,34 +129,35 @@ def _key_status(purpose: str, service: str, slot: int, limits: dict[str, Any]) -
     return {"used_up": False}
 
 
-def _first_service(purpose: str, models: dict[str, Any], default: str) -> str:
-    """Writing and voices run down a chain of providers: show the first one with a saved key."""
+CHAINS = {"writing": ("script", "lines"), "voices": ("tts", "listen"), "pictures": ("image",)}
+
+
+def _services(purpose: str, models: dict[str, Any]) -> list[str] | None:
+    """The services a chained purpose runs on, in the order it tries them (None: not chained)."""
+    from .catalog import provider_of
     from .config import DEFAULT_MODELS
-    from .providers.route import services
-    names = {"writing": ("script", "lines"), "voices": ("tts", "listen")}.get(purpose)
+    names = CHAINS.get(purpose)
     if not names:
-        return default
+        return None
     chain: list[str] = []
     for name in names:
         value = models.get(name) or DEFAULT_MODELS.get(name) or []
         chain += [value] if isinstance(value, str) else list(value)
-    found = [s for s in services(chain) if s in keys.SERVICES]
+    return [s for s in dict.fromkeys(provider_of(m) for m in chain) if s in keys.SERVICES]
+
+
+def _first_service(purpose: str, models: dict[str, Any], default: str) -> str:
+    """Writing, voices and pictures run down a chain of providers: show the first one with a saved key."""
+    found = _services(purpose, models)
+    if found is None:
+        return default
     from . import paused
     return next((s for s in found if keys.slots(s) and not paused.is_paused(s)), found[0] if found else default)
 
 
 def _chain(purpose: str, models: dict[str, Any], service: str) -> list[dict[str, Any]]:
     """Every service this work can run on, in the order it tries them, and whether each has a key."""
-    from .config import DEFAULT_MODELS
-    from .providers.route import services
-    names = {"writing": ("script", "lines"), "voices": ("tts", "listen")}.get(purpose)
-    order = [service]
-    if names:
-        chain: list[str] = []
-        for name in names:
-            value = models.get(name) or DEFAULT_MODELS.get(name) or []
-            chain += [value] if isinstance(value, str) else list(value)
-        order = [s for s in services(chain) if s in keys.SERVICES] or order
+    order = _services(purpose, models) or [service]
     from . import paused
     return [{"service": s, "provider": PROVIDER_LABEL[s], "connected": bool(keys.slots(s)), "paused": paused.is_paused(s)}
             for s in order]

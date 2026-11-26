@@ -37,8 +37,12 @@ export function StoryView({ studio }: { studio: Studio }) {
             autoFocus={!flow.story_text.trim()}
             aria-label="Your story"
             placeholder="Every Saturday when she was a girl, my grandmother walked to the market…"
-            className="min-h-[calc(100vh-300px)] text-[14px] leading-7"
+            className="min-h-[calc(100vh-320px)] text-[14px] leading-7"
           />
+          <p className="mt-2 text-[12.5px] text-muted-foreground">
+            Tip: call people by their names, yourself included. Write “Abebe walked to Samuel’s house”, not “I walked to his house”, so the
+            script doesn’t have to guess who is who.
+          </p>
           <div className="mt-2 flex items-center gap-3">
             <Button onClick={save} disabled={!dirty}>
               Save story
@@ -121,11 +125,11 @@ function SettingsPanel({ studio }: { studio: Studio }) {
           onChange={(e) => setDraft({ ...draft, target_seconds: Number(e.target.value) })}
         />
       </Setting>
-      <Setting label="Who watches">
-        <Input value={draft.audience} placeholder="Guessed from the story when left empty" onChange={(e) => setDraft({ ...draft, audience: e.target.value })} />
+      <Setting label="Who watches" hint="Required">
+        <Input value={draft.audience} placeholder="e.g. Young Ethiopians abroad, 18–35" onChange={(e) => setDraft({ ...draft, audience: e.target.value })} />
       </Setting>
-      <Setting label="How it should feel at the end">
-        <Input value={draft.feel} placeholder="Guessed from the story when left empty" onChange={(e) => setDraft({ ...draft, feel: e.target.value })} />
+      <Setting label="How it should feel at the end" hint="Required">
+        <Input value={draft.feel} placeholder="e.g. Warm, and wanting to call home" onChange={(e) => setDraft({ ...draft, feel: e.target.value })} />
       </Setting>
       <Button variant="secondary" className="w-full" disabled={!changed} onClick={save}>
         Save settings

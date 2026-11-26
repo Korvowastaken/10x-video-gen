@@ -28,12 +28,53 @@ const day = (iso?: string) => (iso ? new Date(`${iso}T12:00:00`).toLocaleDateStr
 const toneOf = (c: ConsentCharacter) => (c.status === "fictional" ? "off" : c.status === "agreed" && !c.lines_changed ? "ok" : "held")
 
 /**
+ * The consent popup for one character, opened from anywhere through `studio.askConsent`: the People
+ * list, a photo of a real person, or a run that stopped because their consent is missing.
+ */
+export function ConsentHost({ character, onClose, onDone }: { character: string | null; onClose: () => void; onDone: () => Promise<void> }) {
+  const [data, setData] = useState<Consent | null>(null)
+  useEffect(() => {
+    if (!character) return
+    let live = true
+    api
+      .consent()
+      .then((d) => live && setData(d))
+      .catch((err) => {
+        toast.error((err as Error).message)
+        onClose()
+      })
+    return () => {
+      live = false
+    }
+  }, [character, onClose])
+  const c = character ? data?.characters.find((x) => x.id === character) : undefined
+  if (!c || !data) return null
+  return (
+    <ConsentDialog
+      key={c.id}
+      character={c}
+      wording={data.wording}
+      onClose={onClose}
+      onConfirm={async (body) => {
+        try {
+          await api.confirmConsent({ character: c.id, ...body })
+          toast.success(`${c.name}'s consent is recorded`)
+          onClose()
+          await onDone()
+        } catch (err) {
+          toast.error((err as Error).message)
+        }
+      }}
+    />
+  )
+}
+
+/**
  * The script's characters, each with a Real person switch. A real person is drawn and voiced only once
- * their consent is confirmed here; the record is kept with the story (pipeline/consent.py).
+ * their consent is confirmed; the record is kept with the story (pipeline/consent.py).
  */
 export function PeopleConsent({ studio }: { studio: Studio }) {
   const [data, setData] = useState<Consent | null>(null)
-  const [asking, setAsking] = useState<ConsentCharacter | null>(null)
   const [unmarking, setUnmarking] = useState<ConsentCharacter | null>(null)
   const [pending, setPending] = useState<string | null>(null)
   useEffect(() => {
@@ -67,15 +108,14 @@ export function PeopleConsent({ studio }: { studio: Studio }) {
     if (!on) return setUnmarking(c)
     // Protected at once; the confirmation follows. Cancelling it leaves them protected.
     const next = await act(c.id, api.markRealPerson(c.id))
-    const marked = next?.characters.find((x) => x.id === c.id)
-    if (marked) setAsking(marked)
+    if (next?.characters.some((x) => x.id === c.id && x.status !== "agreed")) studio.askConsent(c.id)
   }
 
   if (!data?.characters.length) return null
   const held = data.characters.filter((c) => toneOf(c) === "held").length
   return (
     <Section
-      title="People"
+      title="Real people"
       aside={
         <span className={cn("text-[12px]", held ? "text-warn" : "text-subtle")}>
           {held
@@ -99,23 +139,12 @@ export function PeopleConsent({ studio }: { studio: Studio }) {
               record={data.records.find((r) => r.id === c.consent)}
               busy={pending === c.id}
               onToggle={(on) => toggle(c, on)}
-              onAsk={() => setAsking(c)}
+              onAsk={() => studio.askConsent(c.id)}
               onWithdraw={() => c.consent && act(c.id, api.withdrawConsent(c.consent), `${c.name}'s consent is withdrawn`)}
             />
           ))}
         </div>
       </div>
-
-      {asking && (
-        <ConsentDialog
-          character={asking}
-          wording={data.wording}
-          onClose={() => setAsking(null)}
-          onConfirm={async (body) => {
-            if (await act(asking.id, api.confirmConsent({ character: asking.id, ...body }), `${asking.name}'s consent is recorded`)) setAsking(null)
-          }}
-        />
-      )}
 
       <AlertDialog open={!!unmarking} onOpenChange={(o) => !o && setUnmarking(null)}>
         <AlertDialogContent>
@@ -250,9 +279,15 @@ function ConsentDialog({
   const [lang, setLang] = useState(0)
   const [saving, setSaving] = useState(false)
   const set = (patch: Partial<Answers>) => setA((x) => ({ ...x, ...patch }))
-  const ready = a.self || (a.read_out && a.agreed && a.recording_kept && a.how.trim().length > 0)
   const name = character.name
   const block = wording[lang]
+  const hasLines = character.lines.length > 0
+  const ticks = [a.read_out, a.agreed, a.recording_kept].filter(Boolean).length
+  const ready = a.self || (ticks === 3 && a.how.trim().length > 0)
+  const left = a.self ? "" : ticks < 3 ? `${3 - ticks} left to tick` : !a.how.trim() ? "Say how it was recorded" : ""
+  const again = character.status === "withdrawn" || character.lines_changed
+  const shown = character.visible ? "drawn as an animated character" : "heard, not shown"
+  const voiced = hasLines ? `, and a computer voice${character.voice ? ` (${character.voice})` : ""} says their lines` : ""
 
   async function confirm() {
     setSaving(true)
@@ -262,61 +297,67 @@ function ConsentDialog({
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[calc(100vh-48px)] overflow-y-auto sm:max-w-xl">
-        <DialogHeader>
-          <DialogTitle>Confirm {name}'s consent</DialogTitle>
-          <DialogDescription>
-            {name} is {character.visible ? "shown as an AI-made animated character" : "heard, not shown"}
-            {character.lines.length ? `, and a computer voice${character.voice ? ` (${character.voice})` : ""} says their lines` : ""}. Until they agree,
-            nothing of them is drawn or voiced.
-          </DialogDescription>
+      <DialogContent className="max-h-[calc(100vh-48px)] gap-5 overflow-y-auto sm:max-w-xl">
+        <DialogHeader className="flex-row items-start gap-3.5 space-y-0">
+          <span aria-hidden className="grid size-10 shrink-0 place-items-center rounded-full bg-warn/10 text-[15px] font-semibold text-warn">
+            {name.trim().charAt(0).toUpperCase()}
+          </span>
+          <span className="min-w-0 space-y-1">
+            <DialogTitle className="text-balance">{again ? `Ask ${name} again` : `Did ${name} agree to be in the film?`}</DialogTitle>
+            <DialogDescription className="text-pretty">
+              {character.lines_changed && character.status === "agreed" ? "Their lines changed since they agreed. " : ""}
+              {name} is {shown}
+              {voiced}. Until they agree, nothing of them is made.
+            </DialogDescription>
+          </span>
         </DialogHeader>
 
-        <label className="flex cursor-pointer items-center justify-between gap-4 rounded-md border px-3.5 py-3">
+        <label
+          className={cn(
+            "flex cursor-pointer items-center justify-between gap-4 rounded-md border px-3.5 py-3 transition-colors duration-150 hover:bg-muted/40",
+            a.self && "border-free/40 bg-free/5 hover:bg-free/5",
+          )}
+        >
           <span>
-            <span className="block text-[13px] font-medium">This is me</span>
-            <span className="block text-[12px] text-subtle">You agree for yourself, so there is nothing to read out.</span>
+            <span className="block text-[13px] font-medium">I am {name}</span>
+            <span className="block text-[12px] text-subtle">You agree for yourself, so there is nothing to read out or record.</span>
           </span>
           <Switch checked={a.self} onCheckedChange={(on) => set({ self: on })} aria-label={`I am ${name}`} />
         </label>
 
         {!a.self && block && (
-          <div>
-            <div className="mb-1.5 flex items-center gap-2">
-              <span className="text-[12.5px] font-medium">{character.lines.length ? "1. " : ""}Read this to {name}</span>
-              {wording.length > 1 && (
-                <span role="tablist" className="ml-auto flex rounded-md border p-0.5">
-                  {wording.map((w, i) => (
-                    <button
-                      key={w.label}
-                      role="tab"
-                      aria-selected={i === lang}
-                      onClick={() => setLang(i)}
-                      className={cn(
-                        "rounded-[4px] px-2 py-0.5 text-[12px] text-subtle transition-colors duration-150 hover:text-foreground",
-                        i === lang && "bg-secondary text-foreground",
-                      )}
-                    >
-                      {w.label}
-                    </button>
-                  ))}
-                </span>
-              )}
-            </div>
+          <Stage n={1} title={`Read this to ${name}`}>
+            {wording.length > 1 && (
+              <span role="tablist" aria-label="Language" className="absolute top-0 right-0 flex rounded-md border p-0.5">
+                {wording.map((w, i) => (
+                  <button
+                    key={w.label}
+                    role="tab"
+                    aria-selected={i === lang}
+                    onClick={() => setLang(i)}
+                    className={cn(
+                      "rounded-[4px] px-2 py-0.5 text-[12px] text-subtle transition-colors duration-150 hover:text-foreground",
+                      i === lang && "bg-secondary text-foreground",
+                    )}
+                  >
+                    {w.label}
+                  </button>
+                ))}
+              </span>
+            )}
             <blockquote lang={block.label === "Amharic" ? "am" : undefined} className="rounded-md bg-muted/60 px-3.5 py-3 text-[13px] leading-6">
               {block.text}
             </blockquote>
-            {block.note && <p className="mt-1 text-[11.5px] text-subtle">{block.note}</p>}
-          </div>
+            {block.note && <p className="mt-1.5 text-[11.5px] text-subtle">{block.note}</p>}
+          </Stage>
         )}
 
-        {character.lines.length > 0 && (
-          <div>
-            <div className="mb-1.5 text-[12.5px] font-medium">{a.self ? "Your lines" : `2. Play ${name} their lines`}</div>
+        {hasLines && (
+          <Stage n={a.self ? undefined : 2} title={a.self ? "Your lines" : `Play ${name} their lines`}>
             <ol className="max-h-44 divide-y overflow-y-auto rounded-md border text-[13px]">
               {character.lines.map((l, i) => (
                 <li key={i} className="grid grid-cols-[36px_minmax(0,1fr)] gap-2 px-3 py-1.5">
-                  <span className="text-[12px] text-subtle tabular-nums">{l.shot}</span>
+                  <span className="pt-px text-[12px] text-subtle tabular-nums">{l.shot}</span>
                   <span>
                     <span lang="am" className="block">
                       {l.text}
@@ -326,22 +367,24 @@ function ConsentDialog({
                 </li>
               ))}
             </ol>
-          </div>
+          </Stage>
         )}
 
         {!a.self && (
-          <div className="space-y-2.5 border-t pt-4">
-            <Tick checked={a.read_out} onChange={(on) => set({ read_out: on })}>
-              I read this to {name}
-              {character.lines.length ? " and played them their lines" : ""}
-            </Tick>
-            <Tick checked={a.agreed} onChange={(on) => set({ agreed: on })}>
-              {name} said yes
-            </Tick>
-            <Tick checked={a.recording_kept} onChange={(on) => set({ recording_kept: on })}>
-              I recorded their answer and keep it privately, outside this project
-            </Tick>
-            <div className="grid grid-cols-2 gap-3 pt-1.5">
+          <Stage n={hasLines ? 3 : 2} title="Confirm what happened">
+            <div className="space-y-2.5">
+              <Tick checked={a.read_out} onChange={(on) => set({ read_out: on })}>
+                I read this to {name}
+                {hasLines ? " and played them their lines" : ""}
+              </Tick>
+              <Tick checked={a.agreed} onChange={(on) => set({ agreed: on })}>
+                {name} said yes
+              </Tick>
+              <Tick checked={a.recording_kept} onChange={(on) => set({ recording_kept: on })}>
+                I recorded their answer and keep it privately, outside this project
+              </Tick>
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-3">
               <label className="block">
                 <span className="mb-1 block text-[12px] text-secondary-foreground">How was it recorded?</span>
                 <Input value={a.how} onChange={(e) => set({ how: e.target.value })} placeholder="Voice note on my phone" />
@@ -353,19 +396,41 @@ function ConsentDialog({
                 <Input value={a.evidence} onChange={(e) => set({ evidence: e.target.value })} placeholder="Phone, Voice Memos" />
               </label>
             </div>
-          </div>
+          </Stage>
         )}
 
-        <DialogFooter>
-          <Button variant="ghost" onClick={onClose}>
-            Not now
-          </Button>
-          <Button disabled={!ready || saving} onClick={confirm}>
-            <ShieldCheck /> {a.self ? "Confirm, it's me" : "Confirm consent"}
-          </Button>
+        <DialogFooter className="items-center sm:justify-between">
+          <span aria-live="polite" className="text-[12px] text-subtle">
+            {left}
+          </span>
+          <span className="flex gap-2">
+            <Button variant="ghost" onClick={onClose}>
+              Not now
+            </Button>
+            <Button disabled={!ready || saving} onClick={confirm}>
+              <ShieldCheck /> {a.self ? "Confirm, it's me" : `${name} agreed`}
+            </Button>
+          </span>
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  )
+}
+
+/** One part of the consent popup, numbered where the order matters (read, play, then confirm). */
+function Stage({ n, title, children }: { n?: number; title: string; children: React.ReactNode }) {
+  return (
+    <section className="relative">
+      <h3 className="mb-2 flex h-6 items-center gap-2 text-[12.5px] font-medium">
+        {n !== undefined && (
+          <span aria-hidden className="grid size-5 place-items-center rounded-full border border-thread text-[11px] text-subtle tabular-nums">
+            {n}
+          </span>
+        )}
+        {title}
+      </h3>
+      {children}
+    </section>
   )
 }
 

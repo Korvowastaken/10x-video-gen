@@ -1,0 +1,50 @@
+{
+  "script": [
+    "gemini-3.5-flash",
+    "openrouter/google/gemma-4-31b-it:free",
+    "openrouter/baidu/ernie-5.5-flash-preview:free",
+    "groq/allam-2-7b",
+    "claude-haiku-5-5",
+    "gemini-3.7-flash",
+    "gemini-3.8-flash"
+  ],
+  "lines": [
+    "gemini-3.5-flash",
+    "openrouter/google/gemma-4-31b-it:free",
+    "openrouter/baidu/ernie-5.5-flash-preview:free",
+    "groq/allam-2-7b",
+    "claude-sonnet-5-5",
+    "gemini-3.7-flash",
+    "gemini-3.8-flash"
+  ],
+  "revise": [
+    "openrouter/nvidia/nemotron-3.5-lightning:free",
+    "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+    "openrouter/google/gemma-4-31b-it:free",
+    "openrouter/baidu/ernie-5.5-flash-preview:free",
+    "groq/allam-2-7b",
+    "claude-sonnet-5-5",
+    "gemini-3.5-flash",
+    "gemini-3.7-flash",
+    "gemini-3.8-flash",
+    "claude-haiku-5-5"
+  ],
+  "image": [
+    "@cf/black-forest-labs/flux-2-klein-4b",
+    "gemini-3.1-flash-lite-image",
+    "kaggle-flux-2-klein-4b",
+    "@cf/black-forest-labs/flux-1-schnell"
+  ],
+  "mask": [
+    "groq/allam-2-7b",
+    "gemini-3.5-flash",
+    "gemini-3.7-flash",
+    "gemini-3.8-flash",
+    "gemini-3.5-flash-lite",
+    "gemini-3.1-flash-lite",
+    "openrouter/google/gemma-4-31b-it:free",
+    "openrouter/baidu/ernie-5.5-flash-preview:free",
+    "claude-haiku-5-5"
+  ],
+  "video": "kaggle-wan22-ti2v-5b"
+}

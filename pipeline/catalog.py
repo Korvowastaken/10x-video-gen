@@ -29,7 +29,7 @@ import httpx
 
 from . import keys, paused
 from .config import DEFAULT_MODELS, Project
-from .engines import MUSIC_ENGINES, VIDEO_ENGINES
+from .engines import IMAGE_KAGGLE, MUSIC_ENGINES, VIDEO_ENGINES
 
 TASKS: dict[str, dict[str, str]] = {
     "script": {"label": "Storyboard", "purpose": "writing", "kind": "text",
@@ -54,7 +54,7 @@ TASKS: dict[str, dict[str, str]] = {
 # Tasks a storyboard may leave out: until one is chosen, it follows the writing models (derived()).
 OPTIONAL = {"revise", "mask"}
 
-# The tasks each studio step's line shows (Story and Sketch call no model). Revisions have their
+# The tasks each studio step's line shows (Story calls no model). Revisions have their
 # picker beside the revise buttons instead, where the feedback is written.
 STEP_TASKS: dict[str, list[str]] = {
     "script": ["script", "lines"],
@@ -78,6 +78,11 @@ IMAGE_MODELS = {
     "@cf/black-forest-labs/flux-2-klein-4b": ("FLUX.2 klein 4B", "Keeps faces from the sheets"),
     "@cf/black-forest-labs/flux-2-klein-9b": ("FLUX.2 klein 9B", "Keeps faces from the sheets; sharper, costs more neurons"),
     "@cf/black-forest-labs/flux-1-schnell": ("FLUX.1 schnell", "Takes no sheets, so faces can drift between scenes"),
+    "gemini-3.1-flash-lite-image": ("Nano Banana 2 Lite", "Keeps faces from the sheets; paid, about $0.03 a picture"),
+    "gemini-3.1-flash-image": ("Nano Banana 2", "Keeps faces from the sheets; paid, about $0.07 a picture"),
+    "gemini-3-pro-image": ("Nano Banana Pro", "Keeps faces best; paid, about $0.13 a picture"),
+    "kaggle-flux-2-klein-4b": ("FLUX.2 klein 4B on Kaggle",
+                               "Free GPU hours; draws every waiting picture in one job, which takes minutes to start"),
 }
 CACHE_S = 600
 _CACHE: dict[str, tuple[float, list[str]]] = {}
@@ -154,6 +159,8 @@ def choose(project: Project, task: str, model: str, sb: dict[str, Any] | None) -
 def provider_of(model: str) -> str:
     if model.startswith("@cf/"):
         return "cloudflare"
+    if model in IMAGE_KAGGLE:
+        return "kaggle"
     if model in VIDEO_ENGINES:
         return VIDEO_ENGINES[model]["provider"]
     if model in MUSIC_ENGINES:
@@ -267,6 +274,11 @@ def _price(model: str, service: str) -> tuple[str, bool]:
         return "Free each month", False
     if service == "cloudflare":
         return "Free daily neurons", False
+    if service == "kaggle":
+        return "Free weekly GPU hours", False
+    if model in IMAGE_MODELS:  # Gemini's pictures: its free tier has no image quota
+        from .providers.gemini import IMAGE_PRICES
+        return f"About ${IMAGE_PRICES[model]:.2f} a picture", True
     return "Free tier", False
 
 

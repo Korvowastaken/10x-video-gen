@@ -1,6 +1,6 @@
-"""The six steps from a story to a film. Each one is approved before the next unlocks.
+"""The five steps from a story to a film. Each one is approved before the next unlocks.
 
-    story -> script -> sketch -> references -> scenes -> final
+    story -> script -> references -> scenes -> final
 
 A step's fingerprint is a hash of what the person looked at when they approved
 it: its own content, plus the fingerprints of what it was made from. Approving
@@ -10,7 +10,7 @@ as stale, with the reason ("the script changed"). Nothing is deleted: approving
 again, or redoing the part that changed, clears it.
 
 Fingerprints follow real dependencies, the way cache keys do. Editing a line
-makes the script and the sketch stale (the sketch shows the subtitles), not the
+makes the script stale, not the
 references. Unlocking follows the order: a step opens only when every step
 before it is approved and fresh. The studio and `python -m pipeline flow` both
 read this module, so they always agree on where you are and what comes next.
@@ -29,11 +29,11 @@ from .config import ConfigError, Project
 from .engines import MODES, MUSIC_ENGINES, VIDEO_ENGINES
 from .runlog import now_iso
 
-STEPS = ("story", "script", "sketch", "references", "scenes", "final")
-TITLES = {"story": "Story", "script": "Script", "sketch": "Sketch", "references": "References",
+STEPS = ("story", "script", "references", "scenes", "final")
+TITLES = {"story": "Story", "script": "Script", "references": "References",
           "scenes": "Scenes", "final": "Final cut"}
 # How a changed part is named when a step goes stale.
-PART_WORDS = {"story": "the story", "script": "the script", "sketch": "the sketch", "references": "the references",
+PART_WORDS = {"story": "the story", "script": "the script", "references": "the references",
               "scene": "the scene", "keyframe": "the picture", "voice": "the voice", "clip": "the clip",
               "scenes": "a scene", "cut": "the cut choices", "film": "the film"}
 FILM_REPORT = ("final", "heritage_short.report.json")
@@ -43,7 +43,6 @@ CUT_MADE_FROM = ("final", "heritage_short.flow.json")  # what the film on disk w
 ACTIONS = {
     "draft_script": {"usd": 0.0, "where": "Gemini, free tier"},
     "revise": {"usd": 0.0, "where": "Gemini, free tier"},
-    "sketch": {"usd": 0.0, "where": "drawn on this computer"},
     "references": {"usd": 0.0, "where": "FLUX.2 on Cloudflare, free tier (about 240 of 10,000 daily neurons each)"},
     "keyframe": {"usd": 0.0, "where": "FLUX.2 on Cloudflare, free tier"},
     "voice": {"usd": 0.0, "where": "Gemini TTS, free tier"},
@@ -86,8 +85,8 @@ def _print(parts: dict[str, Any]) -> dict[str, Any]:
 
 def script_view(sb: dict[str, Any]) -> dict[str, Any]:
     """The words of the film: who speaks, what they say, what happens. Order-free,
-    so reordering scenes in the sketch does not reopen the script. Voice tuning is
-    left out: it is set in Scenes and only re-renders saved takes."""
+    so reordering scenes does not reopen the script. Voice tuning is
+    left out: it is set per scene on the Film page and only re-renders saved takes."""
     def untuned(x: dict[str, Any]) -> dict[str, Any]:
         return {k: v for k, v in x.items() if k != "tune"}
 
@@ -99,12 +98,6 @@ def script_view(sb: dict[str, Any]) -> dict[str, Any]:
     return {"title": sb.get("title"), "logline": sb.get("logline"), "language": sb.get("language"),
             "cast": cast, "places": [{k: p.get(k) for k in ("id", "name")} for p in sb["locations"]],
             "scenes": scenes}
-
-
-def sketch_view(sb: dict[str, Any]) -> list[dict[str, Any]]:
-    """Composition: scene order, framing and where each figure stands."""
-    return [{k: s.get(k) for k in ("id", "size", "location", "characters", "duration_s", "sketch")}
-            for s in sb["shots"]]
 
 
 def _sheet_key(refs: StageCache, item: str) -> str | None:
@@ -149,7 +142,7 @@ def scene_parts(project: Project, sb: dict[str, Any], shot: dict[str, Any], cach
 
 
 def _caches(project: Project) -> dict[str, StageCache]:
-    return {s: StageCache(project, s) for s in ("refs", "keyframes", "narration", "shots", "shots/raw", "sketch")}
+    return {s: StageCache(project, s) for s in ("refs", "keyframes", "narration", "shots", "shots/raw")}
 
 
 def fingerprints(project: Project, sb: dict[str, Any] | None) -> dict[str, Any]:
@@ -160,7 +153,6 @@ def fingerprints(project: Project, sb: dict[str, Any] | None) -> dict[str, Any]:
         return out
     caches = _caches(project)
     out["script"] = _print({"script": key_for(script_view(sb)), "story": out["story"]["hash"]})
-    out["sketch"] = _print({"sketch": key_for(sketch_view(sb)), "script": out["script"]["hash"]})
     out["references"] = _print({"references": key_for(references_view(project, sb))})
     for shot in sb["shots"]:
         out[f"scene:{shot['id']}"] = _print(scene_parts(project, sb, shot, caches))
@@ -186,10 +178,15 @@ def _approved_sheet_files(sb: dict[str, Any], refs: StageCache) -> dict[str, Pat
     return {owner: path for owner, item in chosen_sheets(sb, refs).items() if (path := refs.current(item))}
 
 
+PICTURE = (".jpg", ".png")
+
+
 def scene_blockers(project: Project, sb: dict[str, Any], shot: dict[str, Any]) -> list[str]:
-    """What is missing or out of date before this scene can be approved."""
-    from .keyframes import end_keyframe_spec, keyframe_spec, shot_refs
-    from .narration import spec_for
+    """What is missing or out of date before this scene can be approved. A picture drawn
+    before a sheet or the image model changed, or a take spoken by another voice model, is
+    not: the person decides whether to redo it (keyframes.STILL_FREE, narration.TAKE_FREE)."""
+    from .keyframes import STILL_FREE, end_keyframe_spec, keyframe_spec, shot_refs
+    from .narration import line_file
 
     sid = shot["id"]
     model = sbmod.model_list(sb["models"]["image"])[0]
@@ -197,16 +194,16 @@ def scene_blockers(project: Project, sb: dict[str, Any], shot: dict[str, Any]) -
     approved = _approved_sheet_files(sb, StageCache(project, "refs"))
     refs = shot_refs(shot, approved)
     problems = []
-    still = kf.hit(sid, key_for(keyframe_spec(sb, shot, model, refs)), ".jpg") or \
-        kf.hit(sid, key_for(keyframe_spec(sb, shot, model, refs)), ".png")
+    spec = keyframe_spec(sb, shot, model, refs)
+    still = kf.usable(sid, key_for(spec), PICTURE, spec, STILL_FREE)
     if still is None:
         problems.append("draw the picture" if kf.current(sid) is None else "the picture is out of date: redraw it")
     elif shot["motion"]["mode"] == "flf_inbetween":
         spec, _ = end_keyframe_spec(sb, shot, model, still, refs, approved.get(f"place:{shot['location']}"))
-        if not (kf.hit(f"{sid}_end", key_for(spec), ".jpg") or kf.hit(f"{sid}_end", key_for(spec), ".png")):
+        if kf.usable(f"{sid}_end", key_for(spec), PICTURE, spec, STILL_FREE) is None:
             problems.append("draw the end picture")
     for n, line in enumerate(shot["lines"], 1):
-        if narration.hit(f"{sid}_L{n}", key_for(spec_for(sb, line)), ".wav") is None:
+        if line_file(narration, f"{sid}_L{n}", sb, line) is None:
             problems.append(f"record line {n}")
     return problems
 
@@ -231,23 +228,21 @@ def blockers(project: Project, step: str, sb: dict[str, Any] | None, errors: lis
         if not project.story.exists():
             return ["write the story"]
         try:
-            parse_story(project.story.read_text("utf-8"))
+            meta, _ = parse_story(project.story.read_text("utf-8"))
         except ScriptError as exc:
             return [str(exc).removeprefix("story.md: ")]
-        return []
+        missing = [what for key, what in (("audience", "say who watches"), ("feel", "say how it should feel at the end"))
+                   if not str(meta.get(key) or "").strip()]
+        return [f"in Settings, {', and '.join(missing)}"] if missing else []
     if sb is None:
         return ["draft the script from the story"]
     if errors:
         return errors[:5]
     if step == "script":
         return []
-    if step == "sketch":
-        from . import sketch
-        cache = StageCache(project, "sketch")
-        missing = [s["id"] for s in sb["shots"] if not cache.hit(s["id"], key_for(sketch.frame_spec(sb, s)), ".png")]
-        return [f"draw the sketch ({', '.join(missing)} not drawn yet)"] if missing else []
     if step == "references":
-        from .keyframes import KEYFRAME_SIZE, REFERENCE_SIZE, character_ref_prompt, location_ref_prompt, ref_spec
+        from .keyframes import (KEYFRAME_SIZE, REFERENCE_SIZE, SHEET_FREE, character_ref_prompt,
+                                location_ref_prompt, ref_spec)
         refs = StageCache(project, "refs")
         model = sbmod.model_list(sb["models"]["image"])[0]
         out = []
@@ -256,16 +251,14 @@ def blockers(project: Project, step: str, sb: dict[str, Any] | None, errors: lis
                 prompt, photo = character_ref_prompt(project, sb, c)
                 i = c["reference"].get("chosen", 0)
                 spec = ref_spec(prompt, c["reference"]["seeds"][i], model, REFERENCE_SIZE, photo)
-                if not (refs.hit(f"char_{c['id']}_{i}", key_for(spec), ".jpg")
-                        or refs.hit(f"char_{c['id']}_{i}", key_for(spec), ".png")):
+                if refs.usable(f"char_{c['id']}_{i}", key_for(spec), PICTURE, spec, SHEET_FREE) is None:
                     out.append(f"draw {c['name']}'s sheet")
         for p in sb["locations"]:
             if p.get("reference"):
                 prompt, photo = location_ref_prompt(project, sb, p)
                 spec = ref_spec(prompt, p["reference"]["seeds"][p["reference"].get("chosen", 0)], model,
                                 KEYFRAME_SIZE, photo)
-                if not (refs.hit(f"place_{p['id']}", key_for(spec), ".jpg")
-                        or refs.hit(f"place_{p['id']}", key_for(spec), ".png")):
+                if refs.usable(f"place_{p['id']}", key_for(spec), PICTURE, spec, SHEET_FREE) is None:
                     out.append(f"draw {p['name']}")
         return out
     if step == "scenes":

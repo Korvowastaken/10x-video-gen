@@ -1,4 +1,4 @@
-"""Revise one scene from a person's feedback.
+"""Revise one scene from a person's note.
 
 The writing model gets the story, the film's cast and style, the scene as it stands and
 the feedback, and returns the scene rewritten. The proposal is validated
@@ -21,7 +21,16 @@ SYSTEM = ("You are the writer and storyboard artist of a tiny animation studio. 
           "short film at a time, changing only what the feedback asks for. You answer with JSON only.")
 
 
-def _prompt(sb: dict[str, Any], shot: dict[str, Any], feedback: str, story: str) -> str:
+# What each part of a scene is made from: a note aimed at a part rewrites only these.
+PART_FIELDS = {
+    "keyframe": "keyframe.prompt (the still), and motion.end_keyframe.prompt if there is one",
+    "voice": "lines: each line's text and its English subtitle (keep speakers and their order)",
+    "clip": "motion: mode, prompt, clip_s, mask.target, parallax, kenburns",
+}
+
+
+def _prompt(sb: dict[str, Any], shot: dict[str, Any], feedback: str, story: str,
+            parts: list[str] | None = None) -> str:
     cast = [{k: c.get(k) for k in ("id", "name", "visible", "look")} for c in sb["characters"]]
     places = [{k: p[k] for k in ("id", "name", "look")} for p in sb["locations"]]
     return f"""The family story:
@@ -37,7 +46,7 @@ The scene now:
 Feedback on this scene from the person making the film:
 \"\"\"{feedback}\"\"\"
 
-Rewrite the scene to answer the feedback and change nothing else. Rules:
+Rewrite the scene to answer the feedback and change nothing else.{_scope(parts)} Rules:
 - Keep "id", every "seed", and only use speaker, character and location ids from the lists above.
 - Spoken lines ("text") stay in {sb['language']['name']}, written only in its own script, short and natural to say;
   "en" is a faithful English subtitle of at most 70 characters.
@@ -45,6 +54,40 @@ Rewrite the scene to answer the feedback and change nothing else. Rules:
 - motion.prompt describes only motion and camera. motion.mode is one of full_i2v, flf_inbetween, masked_i2v,
   cinemagraph, parallax, still_kenburns, still; masked modes need mask.target, flf_inbetween needs end_keyframe.
 - Return the whole scene as one JSON object in exactly the same shape."""
+
+
+def _scope(parts: list[str] | None) -> str:
+    if not parts:
+        return ""
+    return " Only change these fields, everything else stays exactly as it is: " + "; ".join(
+        PART_FIELDS[p] for p in parts if p in PART_FIELDS) + "."
+
+
+def keep_outside(old: dict[str, Any], new: dict[str, Any], parts: list[str]) -> dict[str, Any]:
+    """The model's scene with every field outside `parts` put back as it was. Seeds never change."""
+    out = copy.deepcopy(old)
+    if "clip" in parts:
+        motion = copy.deepcopy(new.get("motion") or old["motion"])
+        if "seed" in old["motion"]:
+            motion["seed"] = old["motion"]["seed"]
+        old_end = old["motion"].get("end_keyframe")
+        if motion.get("end_keyframe") is not None:
+            if old_end and "keyframe" not in parts:
+                motion["end_keyframe"] = copy.deepcopy(old_end)
+            else:
+                motion["end_keyframe"]["seed"] = (old_end or {}).get("seed", old["keyframe"]["seed"] + 1)
+        out["motion"] = motion
+    if "keyframe" in parts:
+        out["keyframe"]["prompt"] = (new.get("keyframe") or {}).get("prompt") or old["keyframe"]["prompt"]
+        end = (new.get("motion") or {}).get("end_keyframe")
+        if end and end.get("prompt") and out["motion"].get("end_keyframe"):
+            out["motion"]["end_keyframe"]["prompt"] = end["prompt"]
+    if "voice" in parts:
+        lines = new.get("lines") or []
+        if len(lines) == len(old["lines"]):
+            out["lines"] = [{**o, "text": n.get("text") or o["text"], "en": n.get("en") or o["en"]}
+                            for o, n in zip(old["lines"], lines)]
+    return out
 
 
 def writers(project: Project, sb: dict[str, Any]) -> list[str]:
@@ -64,17 +107,18 @@ def logged(propose_fn: Any, *args: Any, what: str) -> dict[str, Any]:
     return out
 
 
-def propose(project: Project, shot_id: str, feedback: str) -> dict[str, Any]:
+def propose(project: Project, shot_id: str, feedback: str, parts: list[str] | None = None) -> dict[str, Any]:
+    """`parts` limits the rewrite to what those parts are made from (see PART_FIELDS)."""
     sb = sbmod.load(project)
     shot = next(s for s in sb["shots"] if s["id"] == shot_id)
     story = project.story.read_text("utf-8") if project.story.exists() else ""
     text, used = route.generate_text(project, stage="studio", item=f"{shot_id}-revise", json_mode=True,
                                      models=writers(project, sb), temperature=0.5,
-                                     system=SYSTEM, prompt=_prompt(sb, shot, feedback, story))
+                                     system=SYSTEM, prompt=_prompt(sb, shot, feedback, story, parts))
     proposal = json.loads(text)
     if isinstance(proposal, list):
         proposal = proposal[0]
-    proposal = merge(shot, proposal)
+    proposal = keep_outside(shot, proposal, parts) if parts else merge(shot, proposal)
     return {"proposal": proposal, "errors": check(project, sb, proposal), "model": used}
 
 

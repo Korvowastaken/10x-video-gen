@@ -3,7 +3,7 @@
 You write a family story in plain words. The studio turns it into a 60-90
 second vertical film with narration in your language, English subtitles, an
 original score under the voice, and an end card that says it was made with AI.
-You go through six steps, and each one waits for your approval before the next
+You go through four steps, and each one waits for your approval before the next
 one opens. Every model call is logged in `runs.jsonl`.
 
 ## Setup
@@ -46,13 +46,13 @@ one opens. Every model call is logged in `runs.jsonl`.
 | `Errno 10048` or `address already in use` | The studio is already running: use that page, or press Ctrl+C in its terminal |
 | `needs Node.js` | Install Node.js (step 1), then open a new terminal |
 
-## The six steps
+## The four steps
 
 ```
- 1 Story ─► 2 Script ─► 3 Sketch ─► 4 References ─► 5 Scenes ─► 6 Final cut
- plain      lines,      shapes,     character and   picture,    9:16 + 16:9,
- words      subtitles   animatic    place sheets    voice,      captions, score,
-                                                    motion      end card
+ 1 Story ─► 2 Script ─► 3 References ─► 4 Film
+ plain      lines,      character and   each scene's picture, voice and motion,
+ words      subtitles   place sheets    then the cut: 9:16 + 16:9, captions,
+                                        score, end card
      each step: work on it ─► approve ─► the next step opens
      change something upstream ─► the steps after it turn stale (nothing is deleted)
 ```
@@ -61,10 +61,8 @@ one opens. Every model call is logged in `runs.jsonl`.
 |---|---|---|---|
 | 1. Story | Type or paste the story, in any language. Spoken language, look, length and audience have defaults; change them under Settings. | free | write `story.md`, then `approve story` |
 | 2. Script | Draft it: scenes, Amharic lines, English subtitles, who speaks. Edit lines in place, or ask for a revision in plain words. Accept it. | free (Gemini free tier) | `script --force`, `revise script "..." --accept`, `approve script` |
-| 3. Sketch | A quick frame per scene drawn from shapes: coloured figures, flat places, arrows for movement, size for framing. Play it as an animatic, change framing or order. Approve. | free (drawn on your computer) | `sketch`, `approve sketch` |
-| 4. References | Upload photos of the people and places you have. The pipeline draws a reference sheet for each character and place; pick one or draw another. Real people need a consent row in `ETHICS.md` first. | free (Cloudflare free tier) | `references`, `approve references` |
-| 5. Scenes | One scene at a time: tweak the picture prompt, choose a motion mode, preview, give feedback, redo, approve. Set which modes are allowed and the film's budget. | free, except paid motion modes ($0.05 a clip) | `scene S03`, `scene S03 --buy`, `revise S03 "..."`, `approve scenes S03` |
-| 6. Final cut | Choose which mode each scene uses in the cut and pick a score, then make the film. | free; the score is about $0.07 | `cut`, `approve final` |
+| 3. References | Upload photos of the people and places you have. The pipeline draws a reference sheet for each character and place; pick one or draw another. Real people need a consent row in `ETHICS.md` first. | free (Cloudflare free tier) | `references`, `approve references` |
+| 4. Film | Make scenes one at a time or several at once. For each, everything sits in one panel: edit the still, the lines and their voice tuning, and the motion, leave a note for the writer, tick what to redo (still, voice or clip) and redo it, then approve. Set which modes are allowed and the film's budget. Then choose which mode each scene uses in the cut, pick a score and make the film. | free, except paid motion modes ($0.05 a clip); the score is about $0.07 | `scene S03`, `scene S03 --buy`, `revise S03 "..."`, `approve scenes S03`, `cut`, `approve final` |
 
 Every command is `uv run python -m pipeline <command>`. `flow` prints where the
 film is: each step approved, stale or locked, what is missing, and the budget.
@@ -73,11 +71,11 @@ film is: each step approved, stale or locked, what is missing, and the budget.
 $ uv run python -m pipeline flow
   1. Story       ok
   2. Script      ok
-  3. Sketch      STALE  ; changed: the script
-  4. References  locked
+  3. References  STALE  ; changed: the references
+  4. Scenes      locked
   ...
   budget $0.60: chosen modes $0.38, still to buy $0.33, spent so far $0.05
-  next: Sketch
+  next: References
 ```
 
 Paid actions always show their price. The studio asks before spending, and the
@@ -122,7 +120,6 @@ no model calls and reuses every file.
 | `storyboard.json` | the script, scenes, prompts, seeds, modes and limits: the contract between steps |
 | `approvals.json` | what you approved, and when, with every scene's earlier versions |
 | `references/` | uploaded photos (git-ignored: they can show real family members) |
-| `outputs/sketch/` | sketch frames, `contact_sheet.jpg`, `animatic.mp4` |
 | `outputs/refs/`, `outputs/keyframes/` | reference sheets and scene pictures |
 | `outputs/narration/`, `outputs/music/`, `outputs/shots/` | voices, score candidates, bought clips |
 | `outputs/preview/` | one preview per scene |
@@ -136,14 +133,15 @@ no model calls and reuses every file.
 
 | Key | Used for | Cost | Where |
 |---|---|---|---|
-| `GEMINI_API_KEY` | script, revisions, narration, listen-back, masks | free tier | aistudio.google.com/app/apikey |
+| `GEMINI_API_KEY` | script, revisions, narration, listen-back, masks; pictures if a Nano Banana model is picked | free tier (pictures are paid, about $0.03-0.13 each) | aistudio.google.com/app/apikey |
 | `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN` | reference sheets and keyframes (FLUX.2 klein) | free 10,000 neurons a day | dash.cloudflare.com, Profile, API Tokens, "Workers AI" template |
 | `WAVESPEED_API_KEY` | paid clips (Wan 2.2 I2V) and the score (ACE-Step 1.5) | pay per use | wavespeed.ai |
-| `KAGGLE_API_TOKEN` | fallback engines only | free GPU hours | kaggle.com/settings, API |
+| `KAGGLE_API_TOKEN` | fallback engines, and pictures if FLUX.2 klein on Kaggle is picked | free GPU hours | kaggle.com/settings, API |
 
 `uv run python -m pipeline smoke` calls each provider once. When a free quota
-runs out the pipeline falls back instead of stopping: the next model in the
-list, then a free motion mode, then a placeholder.
+runs out, the pipeline asks before it uses the next provider in the list
+(on the studio's job bar, or y/n in a terminal). Shots then fall back to a
+free motion mode, and the score to a placeholder.
 
 ## Without the gates
 

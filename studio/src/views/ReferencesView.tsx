@@ -4,6 +4,7 @@ import { toast } from "sonner"
 
 import { api, type Character, type Place, type Shot } from "@/api"
 import type { Studio } from "@/App"
+import { PeopleConsent } from "@/components/people-consent"
 import { ProvidersPanel } from "@/components/providers-panel"
 import { useTaskCost } from "@/lib/models"
 import { RunButton } from "@/components/run-button"
@@ -29,14 +30,14 @@ export function ReferencesView({ studio }: { studio: Studio }) {
   const step = flow.steps.find((s) => s.id === "references")!
   const sb = state.storyboard
   const draw = useTaskCost(studio, ["image"], "pictures")
-  if (!sb) return <NotYet studio={studio} step="references" n={4} title="References" lead={LEAD} needs="The sheets are drawn for the people and places the script names, so the script comes first." />
+  if (!sb) return <NotYet studio={studio} step="references" n={3} title="References" lead={LEAD} needs="The sheets are drawn for the people and places the script names, so the script comes first." />
   const people = sb.characters.filter((c) => c.visible)
   const old = Object.values(state.sheets_stale ?? {}).filter(Boolean).length
   const undrawn = Object.values(state.sheets).filter((u) => u.some((x) => !x)).length
   return (
     <Page>
       <StepHeader
-        n={4}
+        n={3}
         title="References"
         lead={LEAD}
       >
@@ -49,10 +50,11 @@ export function ReferencesView({ studio }: { studio: Studio }) {
         <RunButton cost={draw} disabled={busy || step.locked} onRun={() => track(api.drawSheets())}>
           {undrawn ? "Draw sheets" : "Redraw what changed"}
         </RunButton>
-        {step.state === "approved" && <NextStep to="Scenes" onClick={() => go("scenes")} />}
+        {step.state === "approved" && <NextStep to="Film" onClick={() => go("film")} />}
       </StepHeader>
       <ProvidersPanel studio={studio} step="references" />
       <ApproveBar studio={studio} step="references" what="the references" />
+      <PeopleConsent studio={studio} />
 
       <h2 className="mb-1 text-[13px] font-semibold">People</h2>
       <div className="divide-y border-y">
@@ -71,7 +73,7 @@ export function ReferencesView({ studio }: { studio: Studio }) {
 }
 
 function Owner({ studio, draw, shots, id, name, sub, character, place }: { studio: Studio; draw: Cost; shots: Shot[]; id: string; name: string; sub?: string; character?: Character; place?: Place }) {
-  const { state, refresh, track, busy } = studio
+  const { state, refresh, track, busy, askConsent } = studio
   const input = useRef<HTMLInputElement>(null)
   const [text, setText] = useState(character?.look ?? place?.look ?? "")
   const [pending, setPending] = useState<File | null>(null)
@@ -93,15 +95,30 @@ function Owner({ studio, draw, shots, id, name, sub, character, place }: { studi
       await api.upload(id, file)
       toast.success(`Photo added to ${name}. Redraw to use it.`)
       await refresh()
+      return true
     } catch (err) {
       toast.error((err as Error).message)
+      return false
     }
   }
 
-  async function saveLook() {
-    if (!character) return
+  /** The photo shows a real person: switch them on, add the photo, then ask for their consent. */
+  async function addAsReal(file: File) {
     try {
-      await api.saveCharacter({ ...character, look: text })
+      await api.markRealPerson(id)
+    } catch (err) {
+      return toast.error((err as Error).message)
+    }
+    if (await upload(file)) askConsent(id)
+  }
+
+  const saved = character?.look ?? place?.look ?? ""
+
+  async function saveLook() {
+    try {
+      if (character) await api.saveCharacter({ ...character, look: text })
+      else if (place) await api.savePlace({ ...place, look: text })
+      else return
       toast.success(`${name}: look saved. Redraw to see it.`)
       await refresh()
     } catch (err) {
@@ -158,20 +175,24 @@ function Owner({ studio, draw, shots, id, name, sub, character, place }: { studi
           <div className="mt-0.5 mb-3 text-[12px] text-subtle">
             {sub && <span className="capitalize">{sub} · </span>}
             In {scenes.length ? scenes.join(", ") : "no scene"}
-            {character?.real_person && <span className="ml-2 text-warn">Real person · consent {character.consent}</span>}
+            {character?.real_person && <span className="ml-2 text-warn">Real person</span>}
           </div>
-          <Textarea value={text} onChange={(e) => setText(e.target.value)} disabled={!character} className="min-h-20 text-[13px]" />
-          {character && text !== character.look && (
+          <Textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder={place ? "Describe the place: time of day, light, colours, key objects" : "Describe how they look"}
+            className="min-h-20 text-[13px]"
+          />
+          {text !== saved && (
             <div className="mt-2 flex gap-2">
               <Button size="sm" onClick={saveLook}>
                 Save look
               </Button>
-              <Button size="sm" variant="ghost" onClick={() => setText(character.look ?? "")}>
+              <Button size="sm" variant="ghost" onClick={() => setText(saved)}>
                 Discard
               </Button>
             </div>
           )}
-          {!character && <p className="mt-1.5 text-[12px] text-subtle">Place looks are edited in storyboard.json.</p>}
         </div>
 
         <div>
@@ -228,19 +249,28 @@ function Owner({ studio, draw, shots, id, name, sub, character, place }: { studi
           <AlertDialogHeader>
             <AlertDialogTitle>Is this a photo of a real person?</AlertDialogTitle>
             <AlertDialogDescription>
-              {name} is marked as a made-up character. If the photo shows a real person, record their consent in ETHICS.md and mark {name} as a
-              real person first.
+              {name} is a made-up character. If the photo shows someone real, {name} becomes a real person, and nothing of them is drawn
+              or voiced until they agree.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <Button
+              variant="secondary"
               onClick={() => {
                 if (pending) upload(pending)
                 setPending(null)
               }}
             >
-              Not a real person, add it
+              No, add it
+            </Button>
+            <Button
+              onClick={() => {
+                if (pending) addAsReal(pending)
+                setPending(null)
+              }}
+            >
+              Yes, ask their consent
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>

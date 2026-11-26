@@ -2,8 +2,9 @@ import { Check, ChevronDown, ChevronsUpDown, KeyRound, Monitor, Moon, Pencil, Pl
 import { useCallback, useEffect, useRef, useState } from "react"
 import { Toaster, toast } from "sonner"
 
-import { api, type Flow, type Job, type State, type StoryItem } from "@/api"
+import { api, ApiError, type Flow, type Job, type State, type StoryItem } from "@/api"
 import { JobBar } from "@/components/job-bar"
+import { ConsentHost } from "@/components/people-consent"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import {
@@ -16,20 +17,19 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
+import { heldForConsent } from "@/lib/consent"
 import { LimitsContext } from "@/lib/limits"
 import { back, steps, usd, VIEW_OF, type Step, type StepId } from "@/lib/progress"
 import { cn } from "@/lib/utils"
 import { FilmView } from "@/views/FilmView"
 import { KeysView } from "@/views/KeysView"
 import { ScriptView } from "@/views/ScriptView"
-import { SketchView } from "@/views/SketchView"
 import { ReferencesView } from "@/views/ReferencesView"
-import { ScenesView } from "@/views/ScenesView"
 import { StoryView } from "@/views/StoryView"
 
 export type Studio = {
   state: State
-  /** The six steps: what is approved, stale or locked, prices and the budget (pipeline/flow.py). */
+  /** The five flow steps: what is approved, stale or locked, prices and the budget (pipeline/flow.py). */
   flow: Flow
   refresh: () => Promise<void>
   /** Start a pipeline job; the shell follows its log and refreshes when it ends. Gives the started job. */
@@ -38,9 +38,12 @@ export type Studio = {
   finish: (start: Promise<Job>) => Promise<Job | null>
   busy: boolean
   job: Job | null
-  /** Open a step, and optionally one scene in it. */
+  /** Open a page, and optionally one scene on the Film page ("" opens the cut itself). */
   go: (view: View, scene?: string) => void
+  /** The scene open on the Film page, or "" for the cut. */
   scene: string
+  /** Open the consent popup for a real person (a character id). */
+  askConsent: (character: string) => void
 }
 
 const read = (key: string) => {
@@ -58,13 +61,21 @@ const write = (key: string, value: string) => {
   }
 }
 
-/** The six steps, plus the Keys page beside them. */
+/** The four pages, plus the Keys page beside them. */
 export type View = StepId | "keys"
+
+/** A page remembered from before Sketch and Scenes were folded away opens where its work went. */
+const OLD_VIEW: Record<string, View> = { sketch: "references", scenes: "film" }
+const VIEWS = new Set<string>(["story", "script", "references", "film", "keys"])
+function remembered(): View {
+  const v = read("view") ?? "film"
+  return OLD_VIEW[v] ?? (VIEWS.has(v) ? (v as View) : "film")
+}
 
 export default function App() {
   const [state, setState] = useState<State | null>(null)
   const [flow, setFlow] = useState<Flow | null>(null)
-  const [view, setView] = useState<View>(() => (read("view") as View) || "scenes")
+  const [view, setView] = useState<View>(remembered)
   const [scene, setScene] = useState(() => read("scene") ?? "")
   const [job, setJob] = useState<Job | null>(null)
   const poll = useRef<number | null>(null)
@@ -72,6 +83,16 @@ export default function App() {
   const waiters = useRef(new Map<string, (job: Job) => void>())
   /** Set once the page has opened on a step it can work in; cleared when another story opens. */
   const landed = useRef(false)
+
+  const [asking, setAsking] = useState<string | null>(null)
+  const closeConsent = useCallback(() => setAsking(null), [])
+  /** Show a failed start or run; when it stopped for a real person's missing consent, ask for it instead. */
+  const failed = useCallback((title: string, more: string[] = []) => {
+    const held = heldForConsent([title, ...more].join(" "))
+    if (!held) return void toast.error(title)
+    toast.warning("Waiting on consent", { description: "A real person is drawn and voiced only once they agree. Confirm it to go on." })
+    setAsking(held)
+  }, [])
 
   const refresh = useCallback(async () => {
     try {
@@ -97,12 +118,12 @@ export default function App() {
           waiters.current.delete(id)
           if (current.status === "done") toast.success(`${current.kind}: done`)
           else if (current.status === "cancelled") toast(`${current.kind}: stopped`, { description: "What finished before the stop is kept." })
-          else toast.error(`${current.kind}: ${current.error ?? "failed"}`)
+          else failed(`${current.kind}: ${current.error ?? "failed"}`)
           refresh()
         }
       }, 1200)
     },
-    [refresh],
+    [refresh, failed],
   )
 
   const track = useCallback(
@@ -113,11 +134,11 @@ export default function App() {
         follow(started.id)
         return started
       } catch (err) {
-        toast.error((err as Error).message)
+        failed((err as Error).message, err instanceof ApiError ? err.errors : [])
         return null
       }
     },
-    [follow],
+    [follow, failed],
   )
 
   const finish = useCallback(
@@ -130,7 +151,7 @@ export default function App() {
 
   const go = useCallback((v: View, s?: string) => {
     setView(v)
-    if (s) setScene(s)
+    if (s !== undefined) setScene(s)
   }, [])
 
   useEffect(() => {
@@ -165,7 +186,7 @@ export default function App() {
     setJob(null)
     await refresh()
   }, [refresh])
-  const studio: Studio | null = state && flow ? { state, flow, refresh, track, finish, busy, job, go, scene } : null
+  const studio: Studio | null = state && flow ? { state, flow, refresh, track, finish, busy, job, go, scene, askConsent: setAsking } : null
 
   return (
     <LimitsContext.Provider value={state?.limits}>
@@ -187,12 +208,11 @@ export default function App() {
       </aside>
       <main className="relative min-w-0 overflow-y-auto">
         {!studio && <div className="p-10 text-muted-foreground">Loading the project…</div>}
+        <ConsentHost character={asking} onClose={closeConsent} onDone={refresh} />
         {studio && view === "story" && <StoryView studio={studio} />}
         {studio && view === "script" && <ScriptView studio={studio} />}
-        {studio && view === "sketch" && <SketchView studio={studio} />}
         {studio && view === "references" && <ReferencesView studio={studio} />}
-        {studio && view === "scenes" && <ScenesView studio={studio} onScene={setScene} />}
-        {studio && view === "film" && <FilmView studio={studio} />}
+        {studio && view === "film" && <FilmView studio={studio} onScene={setScene} />}
         {studio && view === "keys" && <KeysView studio={studio} />}
       </main>
       {job && <JobBar job={job} onClose={() => job.status !== "running" && setJob(null)} />}

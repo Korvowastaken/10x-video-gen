@@ -1,4 +1,4 @@
-import { Check, ChevronDown, Copy, Loader2, Square } from "lucide-react"
+import { Check, ChevronDown, CircleAlert, Copy, Loader2, Square } from "lucide-react"
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 
@@ -47,6 +47,7 @@ export function JobBar({ job, onClose }: { job: Job; onClose: () => void }) {
   const elapsed = useElapsed(job)
   const running = job.status === "running"
   const stopping = running && (job.stopping || asked)
+  const question = running && !stopping ? job.question : undefined
   const t = job.totals
 
   async function stop() {
@@ -63,7 +64,8 @@ export function JobBar({ job, onClose }: { job: Job; onClose: () => void }) {
     <div className="fixed right-6 bottom-5 left-[312px] z-20">
       <div className="mx-auto max-w-3xl overflow-hidden rounded-lg border bg-popover shadow-[0_8px_24px_-8px_rgb(29_29_27/0.25)]">
         {open && <Log log={log} running={running} />}
-        <div className={cn("flex items-center gap-3 px-4 py-2.5", open && "border-t")}>
+        {question && <Question key={`${question.from}>${question.to}`} job={job} q={question} onStop={() => setAsked(true)} />}
+        <div className={cn("flex items-center gap-3 px-4 py-2.5", (open || question) && "border-t")}>
           {running ? (
             <Loader2 className={cn("size-4 shrink-0 animate-spin", stopping ? "text-warn" : "text-primary")} />
           ) : (
@@ -104,6 +106,44 @@ export function JobBar({ job, onClose }: { job: Job; onClose: () => void }) {
             </Button>
           )}
         </div>
+      </div>
+    </div>
+  )
+}
+
+/** A service ran out or failed: the job waits until the person allows the next one, or stops. */
+function Question({ job, q, onStop }: { job: Job; q: NonNullable<Job["question"]>; onStop: () => void }) {
+  const [sent, setSent] = useState(false)
+
+  async function answer(use: boolean) {
+    setSent(true)
+    if (!use) onStop()
+    try {
+      await api.answerJob(job.id, use)
+    } catch (err) {
+      setSent(false)
+      toast.error((err as Error).message)
+    }
+  }
+
+  return (
+    <div role="alertdialog" aria-labelledby="job-question" className="flex items-start gap-3 bg-warn/8 px-4 py-3">
+      <CircleAlert className="mt-0.5 size-4 shrink-0 text-warn" />
+      <div className="min-w-0 flex-1">
+        <p id="job-question" className="font-medium">
+          {q.from} {q.reason} for {q.what}. Use {q.to} instead?
+        </p>
+        <p className="mt-0.5 text-[12px] text-muted-foreground">
+          {q.note} Nothing is sent to {q.to} until you choose. Stop keeps everything made so far.
+        </p>
+      </div>
+      <div className="flex shrink-0 gap-2">
+        <Button variant="outline" size="xs" disabled={sent} onClick={() => answer(false)}>
+          Stop
+        </Button>
+        <Button size="xs" disabled={sent} onClick={() => answer(true)}>
+          Use {q.to}
+        </Button>
       </div>
     </div>
   )

@@ -30,10 +30,35 @@ class Context:
         self.job = job
         self.stop = threading.Event()
         self.started = time.time()
+        self.switches: dict[str, bool] = {}  # services the person allowed in this job (switch.py)
+        self._answered = threading.Event()
+        self._answer = False
 
     def add(self, level: str, text: str, **extra: Any) -> None:
         entry = {"at": round(time.time() - self.started, 1), "level": level, "text": text, **extra}
         self.job["log"].append(entry)
+
+    def ask(self, question: dict[str, Any], text: str) -> bool:
+        """Wait, with `question` on the page, until the person answers. Stop also ends the wait."""
+        self._answered.clear()
+        self.job["question"] = question
+        self.add("warn", f"Waiting for you: {text}")
+        try:
+            while not self._answered.wait(0.5):
+                if self.stop.is_set():
+                    raise Cancelled("stopped")
+        finally:
+            self.job.pop("question", None)
+        self.add("info", f"You chose {'to use ' + question['to'] if self._answer else 'to stop'}")
+        return self._answer
+
+    def answer(self, use: bool) -> bool:
+        """The person's answer to the waiting question. False when nothing was asked."""
+        if "question" not in self.job:
+            return False
+        self._answer = use
+        self._answered.set()
+        return True
 
 
 def bind(ctx: Context | None) -> None:

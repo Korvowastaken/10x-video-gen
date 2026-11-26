@@ -10,13 +10,14 @@ Each model in a chain is tried in order. The chain moves on when a model is out
 of quota, stays unavailable, refuses the request, or has no key saved (a
 provider without a key is skipped, so a chain can name providers a person
 has not signed up for). A model out of quota is skipped for the rest of the run.
+Moving on to another service after a failed call first asks the person (switch.py).
 """
 from __future__ import annotations
 
 from pathlib import Path
 from typing import Callable, TypeVar
 
-from .. import keys, paused
+from .. import keys, paused, switch
 from ..config import ConfigError, Project
 from ..retry import EXHAUSTED, ProviderError, QuotaExhausted, RetryableError
 from . import anthropic_api, azure_speech, gemini, openai_compat
@@ -35,13 +36,15 @@ def provider_of(model: str) -> str:
     return "gemini"
 
 
-def _chain(models: str | list[str], fn: Callable[[str], T], label: str) -> tuple[T, str]:
+def _chain(models: str | list[str], fn: Callable[[str], T], label: str, what: str = "this step") -> tuple[T, str]:
     chain = [models] if isinstance(models, str) else list(models)
     last: Exception | None = None
+    failed: str | None = None  # the service whose call just failed: another one is asked for first
     for model in chain:
-        if model in EXHAUSTED:
-            continue
         service = provider_of(model)
+        if model in EXHAUSTED:  # used up earlier in this run: moving past it is still a switch
+            last, failed = last or QuotaExhausted(f"{model} is out of quota"), failed or service
+            continue
         if service in keys.SERVICES and not keys.slots(service):
             # No key saved: skip quietly, without a failed call in runs.jsonl.
             last = last or ConfigError(f"no {keys.SERVICES[service]['label']} key is saved")
@@ -50,17 +53,19 @@ def _chain(models: str | list[str], fn: Callable[[str], T], label: str) -> tuple
             # Switched off on the Connections page: its keys stay, the next service takes over.
             last = last or ConfigError(f"{keys.SERVICES[service]['label']} is paused")
             continue
+        if failed:
+            switch.allow(failed, last, service, what=what)
         try:
             return fn(model), model
         except QuotaExhausted as exc:
             EXHAUSTED.add(model)
-            last = exc
+            last, failed = exc, service
             print(f"    fallback {label}: {model} is out of quota; skipping it for this run")
-        except ConfigError as exc:
+        except ConfigError as exc:  # this model cannot do it (wrong kind, no voice for the language): no call made
             last = exc
             print(f"    fallback {label}: skipping {model} ({' '.join(str(exc).split())[:110]})")
         except (RetryableError, ProviderError) as exc:
-            last = exc
+            last, failed = exc, service
             print(f"    fallback {label}: {model} failed ({' '.join(str(exc).split())[:110]}); trying the next model")
     if last is None:
         raise QuotaExhausted(f"every model in {chain} is out of quota")
@@ -89,7 +94,7 @@ def generate_text(project: Project, *, stage: str, item: str, models: str | list
                                        system=system, json_mode=json_mode, temperature=temperature,
                                        seed=seed, timeout=timeout, image=image)
         return text
-    return _chain(models, one, f"{stage}/{item}")
+    return _chain(models, one, f"{stage}/{item}", "writing")
 
 
 def tts(project: Project, *, stage: str, item: str, models: str | list[str], text: str, voice: str,
@@ -102,7 +107,7 @@ def tts(project: Project, *, stage: str, item: str, models: str | list[str], tex
             raise ConfigError("not a speech model")
         pcm, rate, _ = gemini.tts(project, stage=stage, item=item, model=[model], text=text, voice=voice)
         return pcm, rate
-    (pcm, rate), used = _chain(models, one, f"{stage}/{item}")
+    (pcm, rate), used = _chain(models, one, f"{stage}/{item}", "the voices")
     return pcm, rate, used
 
 
@@ -117,7 +122,7 @@ def transcribe(project: Project, *, stage: str, item: str, models: str | list[st
         heard, _ = gemini.transcribe(project, stage=stage, item=item, model=[model], wav_bytes=wav_bytes,
                                      language=language_name)
         return heard
-    return _chain(models, one, f"{stage}/{item}")
+    return _chain(models, one, f"{stage}/{item}", "listening back to the voices")
 
 
 def label(model: str) -> str:

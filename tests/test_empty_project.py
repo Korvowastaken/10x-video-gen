@@ -26,7 +26,7 @@ def test_state_of_an_empty_project_has_every_field_the_page_reads(empty):
 def test_flow_of_an_empty_project_starts_at_the_story(empty):
     out = flow.status(Project(empty))
     assert out["current"] == "story"
-    assert [s["locked"] for s in out["steps"]] == [False, True, True, True, True, True]
+    assert [s["locked"] for s in out["steps"]] == [False, True, True, True, True]
     assert out["steps"][0]["blockers"] == ["write the story"]
 
 

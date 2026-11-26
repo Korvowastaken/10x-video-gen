@@ -1,8 +1,8 @@
 """`make studio`: a local web studio over the pipeline.
 
-Write the story, upload reference photos, edit every scene, give feedback on a
-scene and let Gemini revise it, then redo just that scene's still, voice or
-clip, and assemble the film. The browser app is in studio/ (React); this module
+Write the story, upload reference photos, edit every scene and redo just its
+still, voice or clip (with a note the writer turns into new prompts), and
+assemble the film. The browser app is in studio/ (React); this module
 is its API. Stages run one at a time as background jobs with a live log, so
 the page never waits on a model, and every edit goes through the same
 validation as the command line.
@@ -25,7 +25,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import accounts, catalog, consent, jobs, keys, revise, stories
+from . import accounts, catalog, consent, flow, jobs, keys, revise, stories
 from . import storyboard as sbmod
 from .cache import StageCache, key_for, sha256_bytes
 from .config import ROOT, Project, load_env
@@ -162,15 +162,16 @@ def approved_sheets(sb: dict[str, Any], refs: StageCache) -> dict[str, Path]:
 
 
 def stale_sheets(sb: dict[str, Any], refs: StageCache) -> dict[str, bool]:
-    """Sheets drawn from another look or photo than the storyboard holds now."""
-    from .keyframes import (KEYFRAME_SIZE, REFERENCE_SIZE, character_ref_prompt, location_ref_prompt,
-                            ref_spec)
+    """Sheets drawn from another look or photo than the storyboard holds now (not just
+    by another image model: keyframes.SHEET_FREE)."""
+    from .keyframes import (KEYFRAME_SIZE, REFERENCE_SIZE, SHEET_FREE, character_ref_prompt,
+                            location_ref_prompt, ref_spec)
 
     model = sbmod.model_list(sb["models"]["image"])[0]
     out: dict[str, bool] = {}
 
     def differs(item: str, spec: dict[str, Any]) -> bool:
-        return refs.current(item) is not None and (refs.entry(item) or {}).get("key") != key_for(spec)
+        return refs.current(item) is not None and refs.usable(item, key_for(spec), flow.PICTURE, spec, SHEET_FREE) is None
 
     for c in sb["characters"]:
         if c["visible"]:
@@ -189,20 +190,23 @@ def stale(sb: dict[str, Any], shot: dict[str, Any], kf: StageCache, raw: StageCa
           narration: StageCache, approved: dict[str, Path]) -> dict[str, Any]:
     """What a redo of this scene would remake: files that exist but were made from
     other inputs than the storyboard now holds. Same keys as the stages use, so
-    "stale" means a run would really make something new."""
-    from .keyframes import end_keyframe_spec, keyframe_spec, shot_refs
-    from .narration import line_items, spec_for
+    "stale" means a run would really make something new. Like the runs, it leaves out
+    what is only a setting around the scene: the model that drew or spoke it, and for a
+    still the sheets it was drawn from (keyframes.STILL_FREE, narration.TAKE_FREE)."""
+    from .keyframes import STILL_FREE, end_keyframe_spec, keyframe_spec, shot_refs
+    from .narration import line_file, line_items
     from .shots import clip_spec
 
     sid, mode = shot["id"], shot["motion"]["mode"]
     model = sbmod.model_list(sb["models"]["image"])[0]
     still, end = kf.current(sid), kf.current(f"{sid}_end") if mode == "flf_inbetween" else None
     refs = shot_refs(shot, approved)
-    keyframe = bool(still) and (kf.entry(sid) or {}).get("key") != key_for(keyframe_spec(sb, shot, model, refs))
+    spec = keyframe_spec(sb, shot, model, refs)
+    keyframe = bool(still) and kf.usable(sid, key_for(spec), flow.PICTURE, spec, STILL_FREE) is None
     if still and end:
         end_spec, _ = end_keyframe_spec(sb, shot, model, still, refs, approved.get(f"place:{shot['location']}"))
-        keyframe = keyframe or (kf.entry(f"{sid}_end") or {}).get("key") != key_for(end_spec)
-    voice = [narration.current(item) is not None and narration.hit(item, key_for(spec_for(sb, line)), ".wav") is None
+        keyframe = keyframe or kf.usable(f"{sid}_end", key_for(end_spec), flow.PICTURE, end_spec, STILL_FREE) is None
+    voice = [narration.current(item) is not None and line_file(narration, item, sb, line) is None
              for item, s, line in line_items(sb) if s["id"] == sid]
     clip = False
     if MODES[mode]["paid"] and still and raw.current(sid) and (mode != "flf_inbetween" or end):
@@ -224,9 +228,9 @@ def _tune_state(sb: dict[str, Any], item: str, line: dict[str, Any], raw: StageC
     applied = ((narration.entry(item) or {}).get("spec") or {}).get("tune") or {}
     if errors:
         return {"tune": {}, "applied": applied, "tunable": False, "previewable": False}
-    from .narration import line_tune, tts_spec
+    from .narration import line_tune, take_for
     return {"tune": line_tune(sb, line), "applied": applied,
-            "tunable": raw.hit(item, key_for(tts_spec(sb, line)), ".wav") is not None,
+            "tunable": take_for(raw, item, sb, line) is not None,
             "previewable": raw.current(item) is not None}
 
 
@@ -317,6 +321,19 @@ def post_stop(job_id: str) -> dict[str, Any]:
     return stop_job(job_id)
 
 
+class Answer(BaseModel):
+    use: bool
+
+
+@app.post("/api/jobs/{job_id}/answer")
+def post_answer(job_id: str, body: Answer) -> dict[str, Any]:
+    """The person's answer to a job waiting on a question: use the next service, or stop (switch.py)."""
+    ctx = _CONTEXTS.get(job_id)
+    if ctx is None or not ctx.answer(body.use):
+        raise HTTPException(409, "this job is not waiting for an answer")
+    return JOBS[job_id]
+
+
 @app.get("/api/jobs/{job_id}")
 def get_job(job_id: str) -> dict[str, Any]:
     if job_id not in JOBS:
@@ -361,6 +378,17 @@ def put_character(cid: str, character: dict[str, Any]) -> dict[str, Any]:
     return _save_or_422(sb)
 
 
+@app.put("/api/places/{pid}")
+def put_place(pid: str, place: dict[str, Any]) -> dict[str, Any]:
+    if place.get("id") != pid:
+        raise HTTPException(400, "the place id cannot change")
+    sb = sbmod.load(PROJECT)
+    if not any(p["id"] == pid for p in sb["locations"]):
+        raise HTTPException(404, "no such place")
+    sb["locations"] = [place if p["id"] == pid else p for p in sb["locations"]]
+    return _save_or_422(sb)
+
+
 class MusicChoice(BaseModel):
     chosen: int
     reason: str = ""
@@ -372,20 +400,6 @@ def put_music(body: MusicChoice) -> dict[str, Any]:
     sb["music"]["chosen"] = body.chosen
     sb["music"]["chosen_reason"] = body.reason
     return _save_or_422(sb)
-
-
-class Feedback(BaseModel):
-    text: str
-
-
-@app.post("/api/shots/{shot_id}/feedback")
-def post_feedback(shot_id: str, body: Feedback) -> dict[str, Any]:
-    """Revise one scene from feedback, as a job with a log; the finished job carries the proposal."""
-    project = PROJECT
-    if not any(s["id"] == shot_id for s in sbmod.load(project)["shots"]):
-        raise HTTPException(404, "no such scene")
-    return start_job(f"revise {shot_id}", lambda: revise.logged(revise.propose, project, shot_id, body.text,
-                                                              what=f"scene {shot_id}"), keep_result=True)
 
 
 @app.post("/api/references/{owner_id}")
@@ -587,26 +601,6 @@ def run_stage_api(stage: str, body: dict[str, Any] | None = None) -> dict[str, A
             run_stage("assemble", PROJECT, mode=stage)
         return start_job(f"assemble {stage}", work)
     raise HTTPException(404, "no such stage")
-
-
-@app.post("/api/shots/{shot_id}/redo")
-def redo_shot(shot_id: str, body: dict[str, Any]) -> dict[str, Any]:
-    """Redo one scene's still, voice and/or clip. Only a clip costs money (max one)."""
-    from .__main__ import run_stage
-
-    parts = set(body.get("parts", []))
-    only = {shot_id}
-
-    def work() -> None:
-        if "keyframe" in parts:
-            run_stage("keyframes", PROJECT, only=only, force=True)
-        if "voice" in parts:
-            run_stage("narration", PROJECT, only=only, force=True)
-        if "clip" in parts:
-            run_stage("shots", PROJECT, only=only, force=True, max_paid=1)
-        elif "keyframe" in parts:
-            run_stage("shots", PROJECT, only=only, max_paid=0)  # depth, masks for the new still
-    return start_job(f"redo {shot_id}: {', '.join(sorted(parts)) or 'nothing'}", work)
 
 
 # ---------------------------------------------------------------- the six steps

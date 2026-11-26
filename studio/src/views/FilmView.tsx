@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { toast } from "sonner"
 
 import { api, MODES, type Storyboard } from "@/api"
@@ -10,18 +10,110 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
-import { FREE, PAID, usd } from "@/lib/progress"
+import { FREE, flowStep, PAID, scene, usd, VIEW_OF } from "@/lib/progress"
 import { cn } from "@/lib/utils"
-import { ApproveBar, NotYet, Page, Section, StatusDot, StepHeader } from "@/views/parts"
+import { BudgetButton, Filmstrip, FlowContext, SceneWorkspace, toneOf } from "@/views/SceneEditor"
+import { ApproveBar, NextStep, NotYet, Section, StatusDot, StepHeader } from "@/views/parts"
 
-const LEAD = "Choose what each scene uses, pick the score, then make the final cut in 9:16 and 16:9. Making a cut is free: it only uses what is already made."
+const LEAD = "Make and approve each scene, then cut the film in 9:16 and 16:9. Cutting is free: it only uses what is already made."
 
-export function FilmView({ studio }: { studio: Studio }) {
-  const { state, flow, track, busy, refresh, go } = studio
-  const locked = flow.steps[5].locked
-  const sb = state.storyboard
+/** Scenes and the cut on one page, laid out like an editor: the picture in the middle, its settings on the right,
+ * and every scene in a strip along the bottom. The cut is the first tile of the strip. */
+export function FilmView({ studio, onScene }: { studio: Studio; onScene: (id: string) => void }) {
+  const sb = studio.state.storyboard
+  const [picked, setPicked] = useState<string[]>([])
+  const make = useTaskCost(studio, ["image"], "pictures")
+  // The strip's order, the cut first. Arrow keys step through it, unless you are typing.
+  const order = ["", ...(sb?.shots.map((s) => s.id) ?? [])]
+  const at = Math.max(0, order.indexOf(studio.scene))
+  useKeys(order[at - 1], order[at + 1], onScene)
+  if (!sb || !sb.shots.length)
+    return (
+      <NotYet
+        studio={studio}
+        step="scenes"
+        n={4}
+        title="Film"
+        lead={LEAD}
+        needs="The scenes come from the script, and each is drawn from the approved references."
+      />
+    )
+
+  const { flow, state, busy } = studio
+  const shot = sb.shots.find((s) => s.id === studio.scene)
+  const rows = sb.shots.map((s) => ({
+    s,
+    flow: flow.scenes.find((x) => x.id === s.id),
+    status: scene(state.shots.find((x) => x.id === s.id)!),
+  }))
+  const tones = rows.map((r) => toneOf(r.flow, r.status))
+  const count = (t: string) => tones.filter((x) => x === t).length
+
+  const toBuy = state.shots.filter((m) => scene(m).toBuy)
+  const buying = toBuy.length ? `, ${toBuy.length} clips to buy (${usd(toBuy.reduce((n, m) => n + m.price, 0))})` : ""
+  const scenesStep = flowStep(flow, "scenes")
+  const current = flow.steps.find((s) => !s.locked && s.state !== "approved")
+  // Not made yet, or out of date: what "make all" picks up. Making only redraws what changed.
+  const unmade = rows.filter((r) => !r.flow?.preview || r.status.needsWork).map((r) => r.s.id)
+  const film = state.film
+  const made = film.vertical ?? film.rough ?? film.radio
+  const cut = {
+    note: !made ? "Not made yet" : film.stale ? "Older than your edits" : film.vertical ? "Final film made" : "Rough cut made",
+    stale: !!(made && film.stale),
+  }
+
+  function makeMany(ids: string[]) {
+    return studio.track(api.makeScenes(ids)).then((job) => job && setPicked([]))
+  }
+
+  return (
+    <FlowContext.Provider value={flow}>
+      <div className="flex h-screen flex-col">
+        <StepHeader
+          n={4}
+          title="Film"
+          lead={`${count("weave-done")} of ${sb.shots.length} scenes approved, ${count("weave-stale")} need you${buying}. Approve every scene to make the final cut.`}
+          className="mt-0 mb-0 shrink-0 px-8 pt-5 pb-4"
+        >
+          <RunButton variant="secondary" cost={make} disabled={busy || scenesStep.locked || !picked.length} onRun={() => makeMany(picked)}>
+            {picked.length ? `Make ${picked.length} picked` : "Make picked"}
+          </RunButton>
+          <RunButton cost={make} disabled={busy || scenesStep.locked || !unmade.length} onRun={() => makeMany(unmade)}>
+            {unmade.length ? `Make all unmade (${unmade.length})` : "All scenes made"}
+          </RunButton>
+          <BudgetButton studio={studio} />
+          {scenesStep.locked && current && <NextStep to={current.title} onClick={() => studio.go(VIEW_OF[current.id])} />}
+        </StepHeader>
+        <div className="flex min-h-0 flex-1">
+          {shot ? (
+            <SceneWorkspace
+              key={shot.id}
+              studio={studio}
+              shot={shot}
+              media={state.shots.find((s) => s.id === shot.id)!}
+              prev={order[at - 1] || undefined}
+              next={order[at + 1]}
+              onScene={onScene}
+            />
+          ) : (
+            <CutPanel studio={studio} sb={sb} onScene={onScene} />
+          )}
+        </div>
+        <Filmstrip studio={studio} selected={shot?.id ?? ""} onSelect={onScene} picked={picked} onPick={setPicked} cut={cut} />
+      </div>
+    </FlowContext.Provider>
+  )
+}
+
+/** The cut: radio, rough and final, what each scene uses, the paid clips and the score. */
+function CutPanel({ studio, sb, onScene }: { studio: Studio; sb: Storyboard; onScene: (id: string) => void }) {
+  const { state, flow, track, busy, refresh } = studio
+  const locked = flowStep(flow, "final").locked
   const [reason, setReason] = useState(sb?.music.chosen_reason ?? "")
-  const report = state.film.report as { duration_s?: number; sources?: Record<string, { used: string; wanted?: string }> }
+  const report = state.film.report as {
+    duration_s?: number
+    sources?: Record<string, { used: string; wanted?: string }>
+  }
   const fell = Object.entries(report.sources ?? {}).filter(([, v]) => v.wanted && v.used !== v.wanted)
   const paid = state.shots.filter((s) => s.paid)
   const toBuy = paid.filter((s) => !s.clip)
@@ -38,7 +130,13 @@ export function FilmView({ studio }: { studio: Studio }) {
       // It records any missing or changed line first, which draws on the free voice limit.
       cost: voicesPending ? record : FREE(),
     },
-    { id: "rough", label: "Rough cut", note: "Free motion over every still, with voice and captions. No paid clip used.", url: state.film.rough, cost: FREE() },
+    {
+      id: "rough",
+      label: "Rough cut",
+      note: "Free motion over every still, with voice and captions. No paid clip used.",
+      url: state.film.rough,
+      cost: FREE(),
+    },
     {
       id: "final",
       label: "Final film",
@@ -48,22 +146,62 @@ export function FilmView({ studio }: { studio: Studio }) {
     },
   ] as const
   const videos = [
-    { id: "vertical", label: "Final 9:16", url: state.film.vertical, portrait: true },
+    {
+      id: "vertical",
+      label: "Final 9:16",
+      url: state.film.vertical,
+      portrait: true,
+    },
     { id: "wide", label: "Final 16:9", url: state.film.wide, portrait: false },
     { id: "rough", label: "Rough cut", url: state.film.rough, portrait: true },
     { id: "radio", label: "Radio cut", url: state.film.radio, portrait: true },
   ].filter((v) => v.url)
   const [watch, setWatch] = useState(videos[0]?.id ?? "")
   const video = videos.find((v) => v.id === watch) ?? videos[0]
-  if (!sb) return <NotYet studio={studio} step="final" n={6} title="Film" lead={LEAD} needs="The film is cut from the scenes, so there is nothing to cut until the script has them." />
 
   return (
-    <Page>
-      <StepHeader n={6} title="Film" lead={LEAD} />
-      <ProvidersPanel studio={studio} step="film" />
-      <ApproveBar studio={studio} step="final" what="the final cut" />
+    <>
+      <section aria-label="The film" className="flex min-w-0 flex-1 flex-col items-center justify-center gap-3 bg-muted/40 px-16 py-6">
+        {video ? (
+          <>
+            {videos.length > 1 && (
+              <ToggleGroup
+                value={[video.id]}
+                onValueChange={(v) => v[0] && setWatch(v[0])}
+                variant="outline"
+                size="sm"
+                spacing={0}
+                className="shrink-0 bg-background"
+              >
+                {videos.map((v) => (
+                  <ToggleGroupItem key={v.id} value={v.id} className="px-3">
+                    {v.label}
+                  </ToggleGroupItem>
+                ))}
+              </ToggleGroup>
+            )}
+            <div className="flex min-h-0 w-full flex-1 items-center justify-center">
+              <div
+                className={cn(
+                  "max-h-full max-w-full overflow-hidden rounded-lg bg-black shadow-lg ring-1 ring-border",
+                  video.portrait ? "aspect-[9/16] h-full" : "aspect-video w-full",
+                )}
+              >
+                <video key={video.url} src={video.url!} controls playsInline className="size-full object-contain" />
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="grid aspect-[9/16] h-full max-h-full place-items-center rounded-lg border border-dashed px-8 text-center text-[13px] text-subtle">
+            No cut yet. Make a rough cut to watch the film so far.
+          </div>
+        )}
+      </section>
 
-      <div className="grid grid-cols-[minmax(0,1fr)_340px] gap-10">
+      <aside aria-label="The cut" className="w-[420px] shrink-0 overflow-y-auto border-l px-6 pt-5 pb-16">
+        <ProvidersPanel studio={studio} step="film" />
+        <h2 className="mb-4 text-xl font-semibold tracking-tight">The cut</h2>
+        <ApproveBar studio={studio} step="final" what="the final cut" />
         <div className="min-w-0">
           <div className="divide-y rounded-lg border">
             {cuts.map((c) => (
@@ -115,7 +253,7 @@ export function FilmView({ studio }: { studio: Studio }) {
               {paid.map((s) => (
                 <button
                   key={s.id}
-                  onClick={() => go("scenes", s.id)}
+                  onClick={() => onScene(s.id)}
                   className={cn(
                     "rounded-md border px-2.5 py-1 font-mono text-[12px] transition-colors hover:bg-muted",
                     s.clip ? "text-secondary-foreground" : "border-paid/30 text-paid",
@@ -132,7 +270,11 @@ export function FilmView({ studio }: { studio: Studio }) {
                   cost={PAID(buyPrice)}
                   spent={state.spent}
                   what={`${toBuy.length} clips (${toBuy.map((s) => s.id).join(", ")}).`}
-                  confirm={{ title: "", body: null, action: `Buy ${toBuy.length} clips` }}
+                  confirm={{
+                    title: "",
+                    body: null,
+                    action: `Buy ${toBuy.length} clips`,
+                  }}
                   disabled={busy}
                   onRun={() => track(api.run("shots", { max_paid: toBuy.length }))}
                 >
@@ -155,7 +297,11 @@ export function FilmView({ studio }: { studio: Studio }) {
                   return (
                     <div key={seed} className="flex items-center gap-4 px-4 py-2.5">
                       <span className="w-24 text-[13px] font-medium">Candidate {i + 1}</span>
-                      {url ? <audio controls src={url} className="h-8 min-w-0 flex-1" /> : <span className="flex-1 text-[12.5px] text-subtle">Not made yet</span>}
+                      {url ? (
+                        <audio controls src={url} className="h-8 min-w-0 flex-1" />
+                      ) : (
+                        <span className="flex-1 text-[12.5px] text-subtle">Not made yet</span>
+                      )}
                       <Button
                         size="sm"
                         variant={on ? "default" : "secondary"}
@@ -179,7 +325,11 @@ export function FilmView({ studio }: { studio: Studio }) {
                     cost={PAID(state.music_price)}
                     spent={state.spent}
                     what={`${state.music.filter((u) => !u).length} score candidates from ACE-Step.`}
-                    confirm={{ title: "", body: null, action: "Make candidates" }}
+                    confirm={{
+                      title: "",
+                      body: null,
+                      action: "Make candidates",
+                    }}
                     disabled={busy}
                     onRun={() => track(api.run("music"))}
                   >
@@ -192,32 +342,26 @@ export function FilmView({ studio }: { studio: Studio }) {
             </Section>
           )}
         </div>
-
-        <aside className="sticky top-[calc(var(--step-head,0px)+24px)] self-start">
-          {video ? (
-            <>
-              {videos.length > 1 && (
-                <ToggleGroup value={[video.id]} onValueChange={(v) => v[0] && setWatch(v[0])} variant="outline" size="sm" spacing={0} className="mb-2 w-full">
-                  {videos.map((v) => (
-                    <ToggleGroupItem key={v.id} value={v.id} className="flex-1">
-                      {v.label}
-                    </ToggleGroupItem>
-                  ))}
-                </ToggleGroup>
-              )}
-              <div className={cn("overflow-hidden rounded-lg bg-black ring-1 ring-border", video.portrait ? "aspect-[9/16]" : "aspect-video")}>
-                <video key={video.url} src={video.url!} controls playsInline className="size-full object-contain" />
-              </div>
-            </>
-          ) : (
-            <div className="grid aspect-[9/16] place-items-center rounded-lg border border-dashed px-8 text-center text-[13px] text-subtle">
-              No cut yet. Make a rough cut to watch the film so far.
-            </div>
-          )}
-        </aside>
-      </div>
-    </Page>
+      </aside>
+    </>
   )
+}
+
+/** Left and right arrows step through the strip, unless you are typing. */
+function useKeys(prev: string | undefined, next: string | undefined, go: (id: string) => void) {
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return
+      const el = e.target as HTMLElement
+      if (el.closest("input, textarea, select, [contenteditable=true], [role=slider], audio, video")) return
+      if (e.key === "ArrowLeft" && prev !== undefined) go(prev)
+      else if (e.key === "ArrowRight" && next !== undefined) go(next)
+      else return
+      e.preventDefault()
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [prev, next, go])
 }
 
 /** Per scene, what goes into the cut: its own mode, or a free one instead (a bought clip is kept either way). */
@@ -237,20 +381,33 @@ function CutChoices({ studio, sb }: { studio: Studio; sb: Storyboard }) {
   }
 
   return (
-    <Section title="What each scene uses" aside={<span className="text-[12px] text-subtle">Only approved scenes go in; free modes never cost anything</span>} className="mt-10">
-      <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-2">
+    <Section
+      title="What each scene uses"
+      aside={<span className="text-[12px] text-subtle">Only approved scenes go in; free modes never cost anything</span>}
+      className="mt-10"
+    >
+      <div className="grid grid-cols-2 gap-2">
         {sb.shots.map((s) => {
           const own = s.motion.mode
           const current = use[s.id] ?? own
           const fs = flow.scenes.find((x) => x.id === s.id)
           const items = [
-            { value: own, label: `${flow.catalog.modes[own]?.label ?? own} (planned)` },
+            {
+              value: own,
+              label: `${flow.catalog.modes[own]?.label ?? own} (planned)`,
+            },
             ...free.filter(([id]) => id !== own).map(([id, m]) => ({ value: id, label: m.label })),
           ]
           return (
             <div key={s.id} className="flex items-center gap-2 rounded-md border px-2.5 py-1.5">
               <span className="font-mono text-[12px] font-medium">{s.id}</span>
-              <span className={cn("size-1.5 shrink-0 rounded-full", fs?.state === "approved" ? "bg-free" : fs?.state === "stale" ? "bg-warn" : "border border-subtle")} title={fs?.state === "approved" ? "Approved" : "Not approved yet"} />
+              <span
+                className={cn(
+                  "size-1.5 shrink-0 rounded-full",
+                  fs?.state === "approved" ? "bg-free" : fs?.state === "stale" ? "bg-warn" : "border border-subtle",
+                )}
+                title={fs?.state === "approved" ? "Approved" : "Not approved yet"}
+              />
               <Select items={items} value={current} disabled={busy} onValueChange={(v) => choose(s.id, String(v))}>
                 <SelectTrigger size="sm" className="ml-auto h-7 min-w-0 flex-1 border-none text-[12px] shadow-none">
                   <SelectValue />

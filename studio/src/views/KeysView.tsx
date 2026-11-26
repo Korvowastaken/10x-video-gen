@@ -21,7 +21,7 @@ const GROUPS: { id: string; title: string; ids: string[] }[] = [
   { id: "writing", title: "Writing", ids: ["anthropic", "gemini", "groq", "cerebras", "openrouter"] },
   { id: "video", title: "Video", ids: ["wavespeed", "kaggle"] },
   { id: "voice", title: "Voice", ids: ["azure", "gemini"] },
-  { id: "pictures", title: "Pictures", ids: ["cloudflare"] },
+  { id: "pictures", title: "Pictures", ids: ["cloudflare", "gemini", "kaggle"] },
   { id: "sound", title: "Sound", ids: ["wavespeed", "kaggle"] },
 ]
 const FILTERS = [

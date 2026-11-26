@@ -106,6 +106,23 @@ def tts_spec(sb: dict[str, Any], line: dict[str, Any]) -> dict[str, Any]:
     return spec
 
 
+# Which voice model spoke a take is a setting, like the image model for a picture: making
+# another one primary keeps every take. Recording a scene again by hand uses the new model.
+TAKE_FREE = ("model", "azure_voice")
+
+
+def take_for(raw_cache: StageCache, item: str, sb: dict[str, Any], line: dict[str, Any]) -> Path | None:
+    """The line's raw take: made for these words and this voice, by whichever model."""
+    spec = tts_spec(sb, line)
+    return raw_cache.usable(item, key_for(spec), (".wav",), spec, TAKE_FREE)
+
+
+def line_file(cache: StageCache, item: str, sb: dict[str, Any], line: dict[str, Any]) -> Path | None:
+    """The line's finished file, when it is up to date apart from the model that spoke it."""
+    now = {**spec_for(sb, line), "tts": tts_spec(sb, line)}  # the shape the manifest keeps
+    return cache.usable(item, key_for(spec_for(sb, line)), (".wav",), now, tuple(f"tts.{k}" for k in TAKE_FREE))
+
+
 def too_long(text: str, seconds: float) -> bool:
     """A take far longer than its words allow holds something else: a spoken note, a repeat."""
     return seconds > len(text.split()) / MIN_WORDS_PER_S + 1.2
@@ -140,7 +157,7 @@ def preview(project: Project, sb: dict[str, Any], item: str,
     if line is None:
         raise KeyError(item)
     raws = StageCache(project, "narration/raw")
-    raw = raws.hit(item, key_for(tts_spec(sb, line)), ".wav")
+    raw = take_for(raws, item, sb, line)
     older = raw is None
     raw = raw or raws.current(item)
     if raw is None:
@@ -233,11 +250,11 @@ def run(project: Project, *, only: set[str] | None = None, force: bool = False,
         tspec = tts_spec(sb, line)
         tts_key = key_for(tspec)
         key = key_for(spec_for(sb, line))
-        out = cache.hit(item, key, ".wav")
+        out = line_file(cache, item, sb, line)
         if out and not (force and selected):
             cached += 1
             entry = cache.entry(item) or {}
-            if entry.get("key") != key:  # back to a tuning made before: point the manifest at it again
+            if out == cache.path(item, key, ".wav") and entry.get("key") != key:  # back to a tuning made before: point the manifest at it again
                 raw_meta = {k: v for k, v in (raw_cache.entry(item) or {}).items() if k in ("model", "heard", "cer", "take")}
                 cache.record(item, key, out, {**spec_for(sb, line), "tts": tspec},
                              duration_s=round(probe_duration(out), 3), **raw_meta)
@@ -247,9 +264,11 @@ def run(project: Project, *, only: set[str] | None = None, force: bool = False,
         if not selected and cache.current(item):
             timing[item] = probe_duration(cache.current(item))  # not selected: keep the old take
             continue
-        raw = raw_cache.hit(item, tts_key, ".wav")
+        raw = take_for(raw_cache, item, sb, line)
         if raw and not (force and selected):
             meta = {k: v for k, v in (raw_cache.entry(item) or {}).items() if k in ("model", "heard", "cer", "take")}
+            if raw != raw_cache.path(item, tts_key, ".wav"):  # an older model's take: say what really spoke it
+                tspec = (raw_cache.entry(item) or {}).get("spec") or tspec
             reprocessed += 1
         elif not speak:
             retune_older(cache, raw_cache, item, line_tune(sb, line))

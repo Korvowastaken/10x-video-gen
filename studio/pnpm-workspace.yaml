@@ -1,0 +1,6 @@
+# pnpm blocks install scripts by default; esbuild (used by Vite) needs its own.
+allowBuilds:
+  esbuild: true
+# the same setting for pnpm 10
+onlyBuiltDependencies:
+  - esbuild

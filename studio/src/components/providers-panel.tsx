@@ -91,7 +91,7 @@ function ModelPicker({ task, info, onPick }: { task: string; info: TaskInfo; onP
       >
         <SelectValue />
       </SelectTrigger>
-      <SelectContent className="max-h-96 min-w-80">
+      <SelectContent className="max-h-96 min-w-96">
         {groups.map((g) => (
           <SelectGroup key={g.provider}>
             <SelectLabel>{g.provider}</SelectLabel>

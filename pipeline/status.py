@@ -5,7 +5,7 @@ from . import storyboard as sbmod
 from .cache import StageCache, key_for, sha256_file
 from .config import Project
 from .engines import MODES
-from .narration import line_items, spec_for
+from .narration import line_file, line_items
 
 STAGE_DIRS = ("refs", "keyframes", "narration", "narration/raw", "music", "shots", "shots/raw", "shots/masks",
               "depth", "assemble/segments")
@@ -22,7 +22,7 @@ def run(project: Project) -> None:
     depth = StageCache(project, "depth")
     lines_by_shot: dict[str, list[bool]] = {}
     for item, shot, line in line_items(sb):
-        ok = narration.hit(item, key_for(spec_for(sb, line)), ".wav") is not None
+        ok = line_file(narration, item, sb, line) is not None
         lines_by_shot.setdefault(shot["id"], []).append(ok)
     print(f"{'shot':5} {'mode':15} {'keyframe':9} {'lines':10} {'clip':12} depth")
     for shot in sb["shots"]:

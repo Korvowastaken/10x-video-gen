@@ -83,24 +83,48 @@ def test_a_request_beside_a_stopping_job_is_not_stopped_or_logged_into_it(projec
     assert not any(e.get("call") for e in job["log"]) and job["totals"]["calls"] == 0
 
 
-def test_a_revision_runs_as_a_job_that_hands_back_its_proposal(project, monkeypatch):
+def test_a_redo_runs_as_a_job_with_the_edits_and_note_and_hands_back_what_changed(project, monkeypatch):
     from fastapi.testclient import TestClient
+    from pipeline import flow, flow_api, steps
+
+    calls = []
+
+    def fake(project_, scene, **kw):
+        calls.append((scene, kw))
+        with runlog.model_call(project_, stage="studio", item=f"{scene}-revise", provider="groq", model="m", key="k"):
+            print(f"Rewriting keyframe of {scene} from your note")
+        return {"file": "x.mp4", "used": "still", "changed": ["picture"]}
+
+    shot = {"id": "S01", "motion": {"mode": "still"}}
+    monkeypatch.setattr(steps, "redo_scene", fake)
+    monkeypatch.setattr(flow, "require", lambda *a: None)
+    monkeypatch.setattr(flow_api.sbmod, "load", lambda p: {"shots": [shot]})
+    monkeypatch.setattr(flow_api.revise, "check", lambda p, sb, s: [])
+    client = TestClient(studio.app)
+    started = client.post("/api/scenes/S01/redo", json={"parts": ["keyframe"], "shot": shot, "note": "warmer"}).json()
+    job = _wait(studio.JOBS[started["id"]])
+    assert job["status"] == "done" and job["kind"] == "redo S01: keyframe from a note"
+    assert job["result"]["changed"] == ["picture"]
+    assert calls[0][1]["note"] == "warmer" and calls[0][1]["shot"] == shot and calls[0][1]["buy"] is False
+    assert job["totals"]["calls"] == 1
+    assert client.post("/api/scenes/S99/redo", json={"parts": ["voice"]}).status_code == 404
+    assert client.post("/api/scenes/S01/redo", json={"parts": ["sound"]}).status_code == 400
+    assert client.post("/api/scenes/S01/redo", json={"note": "warmer"}).status_code == 400  # a note needs a part
+
+
+def test_a_note_aimed_at_one_part_rewrites_only_that_part():
     from pipeline import revise
 
-    def fake(project_, shot_id, text):
-        with runlog.model_call(project_, stage="studio", item=f"{shot_id}-revise", provider="groq", model="m", key="k"):
-            pass
-        return {"proposal": {"id": shot_id}, "errors": ["lines/0: too long"], "model": "m"}
-
-    monkeypatch.setattr(revise, "propose", fake)
-    monkeypatch.setattr(studio.sbmod, "load", lambda p: {"shots": [{"id": "S01"}]})
-    client = TestClient(studio.app)
-    started = client.post("/api/shots/S01/feedback", json={"text": "make it warmer"}).json()
-    job = _wait(studio.JOBS[started["id"]])
-    assert job["status"] == "done" and job["kind"] == "revise S01"
-    assert job["result"]["proposal"] == {"id": "S01"}
-    texts = [e["text"] for e in job["log"]]
-    assert any('Revising scene S01: "make it warmer"' in t for t in texts)
-    assert any(e["level"] == "error" and "too long" in e["text"] for e in job["log"])
-    assert job["totals"]["calls"] == 1
-    assert client.post("/api/shots/S99/feedback", json={"text": "x"}).status_code == 404
+    old = {"id": "S01", "beat": "tea", "keyframe": {"prompt": "grandma pours tea", "seed": 7},
+           "lines": [{"speaker": "g", "text": "ሻይ", "en": "Tea"}],
+           "motion": {"mode": "still_kenburns", "prompt": "push in", "seed": 9, "kenburns": "zoom-in"}}
+    new = {"id": "S02", "beat": "coffee", "keyframe": {"prompt": "grandma laughs, pouring tea", "seed": 1},
+           "lines": [{"speaker": "x", "text": "ቡና", "en": "Coffee"}],
+           "motion": {"mode": "full_i2v", "prompt": "she laughs", "seed": 2}}
+    out = revise.keep_outside(old, new, ["keyframe"])
+    assert out["keyframe"] == {"prompt": "grandma laughs, pouring tea", "seed": 7}
+    assert out["lines"] == old["lines"] and out["motion"] == old["motion"] and out["beat"] == "tea"
+    out = revise.keep_outside(old, new, ["voice", "clip"])
+    assert out["lines"] == [{"speaker": "g", "text": "ቡና", "en": "Coffee"}]  # the speaker stays
+    assert out["motion"] == {"mode": "full_i2v", "prompt": "she laughs", "seed": 9}
+    assert out["keyframe"] == old["keyframe"]

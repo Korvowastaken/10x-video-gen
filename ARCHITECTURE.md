@@ -8,7 +8,7 @@ call to `runs.jsonl`.
 
 ## Steps, approvals and staleness
 
-A person makes the film in six steps (`pipeline/flow.py`). Each step ends in an
+A person makes the film in five steps (`pipeline/flow.py`); the studio shows scenes and final together as one Film page. Each step ends in an
 approval, and a step opens only when every step before it is approved and
 fresh:
 
@@ -16,10 +16,9 @@ fresh:
 |---|---|---|
 | 1. story | the person, in `story.md` (settings block optional) | the story is long enough and its settings are valid |
 | 2. script | `script` stage, `revise.propose_script`, inline edits | the storyboard passes the schema and rules |
-| 3. sketch | `sketch.py`: shapes per scene and an animatic, local | every frame matches the storyboard |
-| 4. references | `keyframes.references`: one sheet per character and place | every chosen sheet matches its look, photo and seed |
-| 5. scenes | `steps.make_scene`: keyframe, voice, motion, preview | each scene on its own, once its picture and lines exist |
-| 6. final | `assemble` (final mode) | the film exists |
+| 3. references | `keyframes.references`: one sheet per character and place | every chosen sheet matches its look, photo and seed |
+| 4. scenes | `steps.make_scene`: keyframe, voice, motion, preview | each scene on its own, once its picture and lines exist |
+| 5. final | `assemble` (final mode) | the film exists |
 
 **Fingerprints.** For each step, and for each scene, `flow.fingerprints()`
 hashes what the approval covers, in named parts:
@@ -28,7 +27,6 @@ hashes what the approval covers, in named parts:
 |---|---|
 | story | the text of `story.md` |
 | script | the cast, places and scenes' words (order-free), and the story's fingerprint |
-| sketch | scene order, framing, figure positions, and the script's fingerprint |
 | references | style text, looks, reference prompts, seeds, photos, and the cache key of each chosen sheet |
 | scene | the scene's storyboard entry, the keys of its references, keyframe, lines and clip |
 | final | every scene's fingerprint, the cut choices (modes, grade, score), the film's report |
@@ -39,8 +37,7 @@ status compares parts: the step is **approved** when the hash matches, and
 script", "the picture"). Nothing is deleted; the cache still holds every file.
 
 The parts follow real dependencies, the same way cache keys do. Editing a line
-reopens the script and the sketch (it shows the subtitle) but not the
-references. Reordering scenes changes the sketch but not the script. The order
+reopens the script but not the references. Reordering scenes changes neither. The order
 of the steps is enforced separately: a stale step locks every step after it
 until it is approved again. `flow.require()` refuses work on a locked step,
 from the studio and from the command line alike.
@@ -78,7 +75,7 @@ story.md ──script──► storyboard.json ◄── edited in the studio or
 | Stage | Reads | Writes | Runs on |
 |---|---|---|---|
 | `script` | `story.md` | `storyboard.json` (the previous one backed up to `outputs/script/`) | storyboard in English: Claude Haiku 5.5; spoken lines in the film's language: Claude Sonnet 5.5; Gemini 3.5 Flash as the fallback for both |
-| `keyframes` | characters, locations, shots | `outputs/refs/` (character sheets, places), `outputs/keyframes/` (each shot's still, plus `<shot>_end` for in-betweens), contact sheets | FLUX.2 klein 4B with reference images on Cloudflare Workers AI; FLUX.1 schnell as fallback |
+| `keyframes` | characters, locations, shots | `outputs/refs/` (character sheets, places), `outputs/keyframes/` (each shot's still, plus `<shot>_end` for in-betweens), contact sheets | FLUX.2 klein 4B with reference images on Cloudflare Workers AI; FLUX.1 schnell as fallback. Also pickable: Gemini's Nano Banana models (paid, take references) and FLUX.2 klein 4B on Kaggle (free, one batch per pass) |
 | `narration` | lines, voices | `outputs/narration/raw/` (takes), `outputs/narration/` (processed lines), `timing.json` | Azure Speech neural voices (then Gemini 3.8 Flash TTS and 3.8 Flash Lite TTS); Azure speech-to-text listens back (then gemini-3.5-transcribe) |
 | `music` | `music` block | `outputs/music/candidate_<n>.flac` | ACE-Step 1.5 on WaveSpeed (fallback engine: Kaggle) |
 | `shots` | keyframes, `motion` per shot, `video` limits | `outputs/shots/raw/` (bought clips), `outputs/shots/` (masked composites), `outputs/shots/masks/`, `outputs/depth/` | Wan 2.2 I2V 480p Ultra Fast on WaveSpeed (fallback engine: Wan 2.2 TI2V-5B on Kaggle); masks by Gemini; depth by Depth Anything V2 Small on the laptop |
@@ -178,6 +175,15 @@ with no saved key is skipped without a call, so the chain works with whatever
 keys a person has. Gemini's free tier (about 10 requests a day per model) is
 now the fallback rather than the first choice.
 
+Moving on to another provider asks first (`pipeline/switch.py`). When a call
+fails because a free limit ran out or the provider keeps failing, and the next
+model belongs to another provider, nothing is sent there until the person says
+so. A studio job waits with the question on the job bar (Use Kaggle, or Stop),
+and the command line asks y/n at a terminal and refuses anywhere else. One yes
+holds for the rest of the job. Pictures follow the same rule, so Cloudflare
+running out no longer starts a Kaggle GPU job by itself. Switching between
+models of one provider, or between its saved keys, does not ask.
+
 Azure has one female and one male neural voice for Amharic. The storyboard's
 voice (a Gemini voice name) picks Azure's voice by pitch and shifts it a few
 percent by its character, so two speakers still sound apart. A line spoken by
@@ -248,7 +254,7 @@ call in `runs.jsonl`, and the measurements copied into `EXPERIMENTS.md`,
 |---|---|
 | 429 per-minute limit, 5xx, timeout, dropped connection | `retry.with_retries`: exponential backoff with jitter, honouring `retryDelay`; every attempt logged |
 | A model stays overloaded (Gemini 503, Claude 529), refuses, or has no key saved | `route.py` moves down the storyboard's model chain, across providers |
-| A quota is used up (Gemini free tier, Azure's month, Anthropic credit, Cloudflare neurons, WaveSpeed credit) | `QuotaExhausted`: the model is skipped for the rest of the run, the chain moves on or the shot falls back |
+| A quota is used up (Gemini free tier, Azure's month, Anthropic credit, Cloudflare neurons, WaveSpeed credit) | `QuotaExhausted`: the model is skipped for the rest of the run; the chain asks before it moves to another provider, or the shot falls back |
 | WaveSpeed submit fails in an unclear way | not retried (no double billing); the shot counts one failed attempt, at most 3 |
 | The voice reads its stage direction, mispronounces, or adds speech | only the bare line is sent; listen-back CER and a length check trigger a retake (up to 3) and the closest take wins |
 | FLUX.2 fails or its allowance is gone | FLUX.1 schnell, without references |
@@ -270,9 +276,15 @@ use it:
 - `pipeline/kaggle/wan_i2v.py`: Wan 2.2 TI2V-5B, one transformer on each T4,
   prompts encoded once.
 - `pipeline/kaggle/acestep_music.py`: ACE-Step in its own uv environment.
+- `pipeline/kaggle/flux2_images.py`: FLUX.2 klein 4B stills, the model
+  Cloudflare serves. It is the `kaggle-flux-2-klein-4b` picture model: when a
+  picture's chain reaches it, the picture waits, and one job at the end of
+  the pass draws every waiting picture (`keyframes.run_batch`). An end frame
+  can name its start frame from the same job as its reference. A picture the
+  job cannot draw goes on down the rest of the chain.
 
-They are kept as the `kaggle-*` engines and have not been run end to end (see
-FAILURES F12 for why the main path moved to WaveSpeed).
+They have not been run end to end (see FAILURES F12 for why the main path for
+clips and music moved to WaveSpeed).
 
 ## Logging
 
@@ -311,7 +323,7 @@ GLOSSARY.md              the words for steps, scenes, sketches and so on
 schema/                  JSON Schema for the storyboard
 research/                the motion-on-a-budget study behind the motion modes
 pipeline/                one module per stage, plus engines.py, motion.py and the core;
-                         flow.py (steps, approvals), steps.py (step actions), sketch.py, grade.py
+                         flow.py (steps, approvals), steps.py (step actions), sketch.py (layout guide sent with each keyframe, not a step), grade.py
 pipeline/providers/      route.py (chains across providers), anthropic_api.py, azure_speech.py,
                          openai_compat.py, gemini.py, cloudflare.py, wavespeed.py, kaggle_runner.py
 pipeline/kaggle/         the scripts the Kaggle fallback engines run

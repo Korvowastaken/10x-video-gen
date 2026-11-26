@@ -4,6 +4,12 @@ All numbers come from `runs.jsonl` (149 model calls on 2026-11-25, `make
 costs`). Free tiers cost us nothing; "list price" is what the same calls would
 cost at each provider's published paid rate.
 
+> **Which log.** The runs below were made while building the pipeline on the
+> brief's placeholder story, on 2026-11-25. When the real story replaced it,
+> `runs.jsonl` started again for the new film, so the placeholder run's log is
+> kept as `logs/placeholder-runs.jsonl` (173 calls; its first 149 are the ones
+> counted here). Where an entry below says `runs.jsonl`, it means that file.
+
 ## What the free tiers actually allowed (2026-11-25)
 
 | Provider | The brief said | We found |

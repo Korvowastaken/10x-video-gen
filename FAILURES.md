@@ -5,6 +5,12 @@ that show it. Times are UTC, as in `runs.jsonl`. Files under `outputs/` stay
 on the machine that made them (the folder is git-ignored); `runs.jsonl` and
 the tests are committed.
 
+> **Which log.** The runs below were made while building the pipeline on the
+> brief's placeholder story, on 2026-11-25. When the real story replaced it,
+> `runs.jsonl` started again for the new film, so the placeholder run's log is
+> kept as `logs/placeholder-runs.jsonl` (173 calls; its first 149 are the ones
+> counted here). Where an entry below says `runs.jsonl`, it means that file.
+
 ## F1. Gemini 3.8 Flash: "high demand" on the very first call
 
 - **What broke:** the smoke test's first text call got HTTP 503 "This model is currently experiencing high demand" four times in a row.

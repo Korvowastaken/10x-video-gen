@@ -7,7 +7,7 @@ until their consent is recorded. In `storyboard.json` a real person carries
 `"real_person": true` and `"consent": "C<n>"`. `make validate`, and every stage
 that calls it, fails until that id is confirmed.
 
-Consent is confirmed in the studio, on the Script step's People list: it shows
+Consent is confirmed in the studio, on the References step's Real people list: it shows
 the request below and the person's lines, asks that they were read out and
 agreed to and that the recording is kept, and writes the record to the story's
 `consent.json` (who, how they are shown and voiced, the lines they heard, how
@@ -18,12 +18,24 @@ keeps that rule in place.
 
 | ID | Person | Shown as | Voiced as | What they agreed to | How recorded | Date | Evidence kept |
 |---|---|---|---|---|---|---|---|
+| C1 | Robel (narrator) | Not shown (voice only) | A computer voice (Gemini "Achird"), not their own | Withdrawn on 2026-11-26 and replaced by C4 | Robel is the filmmaker | 2026-11-26 | Kept in `consent.json` as withdrawn |
+| C2 | Robel | An AI-made animated character | A computer voice (Gemini "Puck"), not their own | To appear and be voiced saying the lines of shots S08 and S09, in a short film posted publicly on TikTok and YouTube with an AI label; may ask for it to be taken down | Robel is the filmmaker, consenting for themselves | 2026-11-26 | Record in `consent.json`; no recording needed |
+| C3 | Samuel | An AI-made animated character | A computer voice (Gemini "Zubenelgenubi"), not their own | To appear and be voiced saying the line of shot S10, under the same terms as C2 | The request and his line were read out to him and he agreed verbally | 2026-11-26 | Recording kept privately by Robel, not in this repository |
+| C4 | Robel (narrator) | Not shown (voice only) | A computer voice (Gemini "Achird"), not their own | To narrate the lines of shots S01 to S07 and S11, under the same terms as C2 | Robel is the filmmaker, consenting for themselves | 2026-11-26 | Record in `consent.json` |
 
-No rows yet. The current `story.md` is the brief's example story (a girl
-walking to the market in Dessie with her mother), used to build and test the
-pipeline. All of its characters are fictional composites, so it depicts no real
-person and needs no row. The real family story replaces it before the film is
-published, and its consent row is added here first.
+The film is *From Fear to Laughter*: a true story from Robel's Grade Nine
+summer, when they were robbed on the way to their friend Samuel's house. Robel
+and Samuel are real and appear only under the records above. The robbers are
+not shown as real people: they are generic, faceless characters, need no row,
+and are not modelled on anyone. A photo of each real person (`references/robel.jpg`,
+`references/samuel.jpg`) was given to the image model as a reference for the
+face, hair and build of their animated character, which is drawn in the film's
+low-poly style and not as a photograph. The photos are kept out of this
+repository (`references/` is git-ignored). The full lines each person heard are in `consent.json`, in Amharic with
+an English translation.
+
+The brief's example story (a girl walking to the market in Dessie), used to
+build and test the pipeline, had only fictional characters and needed no row.
 
 ### How consent is asked
 

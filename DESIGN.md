@@ -2,35 +2,35 @@
 
 ## Audience and intent
 
-Set on 2026-11-25 in the settings block of `story.md` (`audience`, `feel`)
-before the first storyboard was drafted; the script stage reads them from
-there. This section spells them out.
+Rewritten on 2026-11-26 for the film as it is now, *From Fear to Laughter*
+(Robel's robbery on the way to Samuel's house). The audience below is the one
+set in `storyboard.json` (`audience.who`, `where`, `feel`) before the scenes
+were drawn; the script stage reads it from there. The earlier version of this
+section was for the brief's placeholder story and is in git history.
 
-- **Who watches:** young Ethiopians at home and in the diaspora, 18 to 35, who
-  grew up hearing their grandparents' stories but rarely ask for them now.
-- **Where:** on a phone, vertical, in a TikTok, Reels or Shorts feed, often with
-  the sound low or off at first. So: English captions burned in, top-centre where
-  feed buttons do not cover them, and the first shot has to hold attention
-  without sound.
-- **What they should feel or understand at the end:** warmth and pride for the
-  long walks our grandparents made, and the urge to call them. The proverb is
-  the thing to remember.
-
-> These answers are for the placeholder story (the brief's example). When the
-> family story replaces it, rewrite this section first, dated, before
-> regenerating.
+- **Who watches:** families and close friends who share childhood memories,
+  first of all the people who know Robel and Samuel. Many of them speak
+  Amharic; some, abroad or younger, follow English more easily.
+- **Where:** in a family group chat and in TikTok, Reels or Shorts feeds, on a
+  phone, vertical, often with the sound low or off at first. So: English
+  captions burned in, top-centre where feed buttons do not cover them, and the
+  first shot has to hold attention without sound.
+- **What they should feel at the end:** relief and warmth. A scary afternoon
+  turns into a story two friends laugh about, and the viewer thinks of the
+  friend they would call.
 
 ## Choices that follow from the audience
 
 | Choice | Why |
 |---|---|
-| Vertical first (9:16), 16:9 derived from it | The audience watches in a phone feed; the horizontal version is for YouTube and sharing |
-| Low-poly 3D look from a TikTok we admired | Familiar to this audience from their feeds; stylised characters avoid the uncanny look of AI "photos" of real elders, and simple faceted shapes stay consistent across shots more easily than realistic faces |
-| Narration in Amharic, captions in English | The voice carries the feeling for those who understand it; the captions carry the story for cousins abroad who understand less Amharic |
+| Vertical first (9:16), 16:9 derived from it | The audience watches in a phone feed or a group chat; the horizontal version is for YouTube and sharing |
+| Low-poly 3D look from a TikTok we admired | Familiar to this audience from their feeds; toy-like characters keep a frightening event gentle to watch, and simple faceted faces stay consistent across shots more easily than realistic ones |
+| Narration in Amharic, captions in English | The voice carries the feeling for those who understand it; the captions carry the story for friends and family abroad who understand less Amharic |
 | One line per shot, cut on the line | The TikTok we studied cuts on every line; it keeps the pace up for a feed |
-| Present day framing a remembered past | Present scenes lit by a lamp at night, the past in dawn and golden light, so the two times read at a glance |
-| Bookend: the last shot echoes the first | The film closes like a circle, which makes it feel complete in 75 seconds |
-| A proverb as the payoff | It is short, repeatable and shareable; it is what the audience can say to their own families |
+| The robbery is shown, never the violence | S04 and S05 are held stills of the threat and of Robel's face. The audience knows the people in it; the film is about the fear and what came after, not the attack |
+| Light turns from cool to warm | Shadows stay cool blue through the robbery, and the phone call and laughter move into warm lamp and golden light, so the shift from fear to relief reads without sound |
+| Bookend: the last shot echoes the first | S11 returns to the S01 street at golden dusk. The film closes like a circle and ends calm, which makes it feel complete in about a minute |
+| The laughter is the payoff | It is the moment the audience shares, and the reason to send the film to the friend who was there |
 
 Every shot's reason is in `storyboard.json` (`shots[].reason`).
 

@@ -5,6 +5,12 @@ measurement script run on the files. Each entry says where. All on 2026-11-25.
 `outputs/` is git-ignored (it is rebuilt by `make film`), so the numbers are
 copied here; `runs.jsonl` is committed and holds every model call.
 
+> **Which log.** The runs below were made while building the pipeline on the
+> brief's placeholder story, on 2026-11-25. When the real story replaced it,
+> `runs.jsonl` started again for the new film, so the placeholder run's log is
+> kept as `logs/placeholder-runs.jsonl` (173 calls; its first 149 are the ones
+> counted here). Where an entry below says `runs.jsonl`, it means that file.
+
 ## E1. Can every provider be reached on a free tier from here?
 
 - **Hypothesis:** the brief's stack works without a card.

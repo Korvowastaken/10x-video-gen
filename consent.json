@@ -1,0 +1,172 @@
+{
+  "records": [
+    {
+      "id": "C1",
+      "character": "robel_narrator",
+      "person": "Robel (Narrator)",
+      "status": "withdrawn",
+      "self": true,
+      "shown_as": "not shown (voice only)",
+      "voiced_as": "a computer voice (Achird), not their own",
+      "lines": [
+        {
+          "shot": "S01",
+          "text": "በዘጠነኛ ክፍል በጋ ወደ ሳሙኤል ቤት እየሄድኩ ነበር።",
+          "en": "That summer in Grade Nine, I was walking to Samuel's house."
+        },
+        {
+          "shot": "S02",
+          "text": "ፀሐያማ ከሰዓት ነበር። ሁሉም ነገር ሰላም ይመስል ነበር።",
+          "en": "It was a sunny afternoon. Everything felt normal."
+        },
+        {
+          "shot": "S03",
+          "text": "ድንገት ከኋላዬ የፈጣን እግር ድምፅ ሰማሁ።",
+          "en": "Suddenly, I heard heavy footsteps rushing behind me."
+        },
+        {
+          "shot": "S04",
+          "text": "ሁለት ሰዎች መንገድ ዘጉብኝ። በጣም ደነገጥኩ።",
+          "en": "Two guys cornered me. I was terrified."
+        },
+        {
+          "shot": "S05",
+          "text": "ዕቃዬን ቀምተውኝ ፈጥነው ሮጠው ሄዱ።",
+          "en": "They took my things and ran off."
+        },
+        {
+          "shot": "S06",
+          "text": "በተቻለኝ ፍጥነት ወደ ደህና ቦታ ደረስኩ።",
+          "en": "I got somewhere safe as fast as I could."
+        },
+        {
+          "shot": "S07",
+          "text": "ሳሙኤል ተጨንቆ ነበር። ለሳምንታት አልተነጋገርንም ነበር።",
+          "en": "Samuel had been worried. We hadn't talked in weeks."
+        },
+        {
+          "shot": "S11",
+          "text": "እንዲሁ ፍርሃታችን ወደ አስቂኝ ጨዋታ ተቀየረ።",
+          "en": "And just like that, fear turned into our favorite story."
+        }
+      ],
+      "agreed_to": "appear and be voiced as above, saying these lines, in a short film posted publicly on TikTok and YouTube with a label saying it was made with AI; may ask for it to be taken down",
+      "read_out": true,
+      "agreed": true,
+      "recording_kept": true,
+      "how": "It is me",
+      "evidence": "",
+      "date": "2026-11-26",
+      "withdrawn": "2026-11-26"
+    },
+    {
+      "id": "C2",
+      "character": "robel",
+      "person": "Robel",
+      "status": "agreed",
+      "self": true,
+      "shown_as": "an AI-made animated character",
+      "voiced_as": "a computer voice (Puck), not their own",
+      "lines": [
+        {
+          "shot": "S08",
+          "text": "ሳሙኤል? እኔ ነኝ። ደህና ነኝ!",
+          "en": "Samuel? It's me. I am okay!"
+        },
+        {
+          "shot": "S09",
+          "text": "ወደ አንተ ስመጣ የሆነውን አታምነውም!",
+          "en": "You won't believe what happened on my way over!"
+        }
+      ],
+      "agreed_to": "appear and be voiced as above, saying these lines, in a short film posted publicly on TikTok and YouTube with a label saying it was made with AI; may ask for it to be taken down",
+      "read_out": true,
+      "agreed": true,
+      "recording_kept": false,
+      "how": "It is me",
+      "evidence": "",
+      "date": "2026-11-26"
+    },
+    {
+      "id": "C3",
+      "character": "samuel",
+      "person": "Samuel",
+      "status": "agreed",
+      "self": false,
+      "shown_as": "an AI-made animated character",
+      "voiced_as": "a computer voice (Zubenelgenubi), not their own",
+      "lines": [
+        {
+          "shot": "S10",
+          "text": "ምን?! ይሄን ጉድ ታሪክ የምታደርገው አንተ ብቻ ነህ!",
+          "en": "Wait, what?! Only you could turn that into a wild story!"
+        }
+      ],
+      "agreed_to": "appear and be voiced as above, saying these lines, in a short film posted publicly on TikTok and YouTube with a label saying it was made with AI; may ask for it to be taken down",
+      "read_out": true,
+      "agreed": true,
+      "recording_kept": true,
+      "how": "Verbally",
+      "evidence": "",
+      "date": "2026-11-26"
+    },
+    {
+      "id": "C4",
+      "character": "robel_narrator",
+      "person": "Robel (Narrator)",
+      "status": "agreed",
+      "self": true,
+      "shown_as": "not shown (voice only)",
+      "voiced_as": "a computer voice (Achird), not their own",
+      "lines": [
+        {
+          "shot": "S01",
+          "text": "በዘጠነኛ ክፍል በጋ ወደ ሳሙኤል ቤት እየሄድኩ ነበር።",
+          "en": "That summer in Grade Nine, I was walking to Samuel's house."
+        },
+        {
+          "shot": "S02",
+          "text": "ፀሐያማ ከሰዓት ነበር። ሁሉም ነገር ሰላም ይመስል ነበር።",
+          "en": "It was a sunny afternoon. Everything felt normal."
+        },
+        {
+          "shot": "S03",
+          "text": "ድንገት ከኋላዬ የፈጣን እግር ድምፅ ሰማሁ።",
+          "en": "Suddenly, I heard heavy footsteps rushing behind me."
+        },
+        {
+          "shot": "S04",
+          "text": "ሁለት ሰዎች መንገድ ዘጉብኝ። በጣም ደነገጥኩ።",
+          "en": "Two guys cornered me. I was terrified."
+        },
+        {
+          "shot": "S05",
+          "text": "ዕቃዬን ቀምተውኝ ፈጥነው ሮጠው ሄዱ።",
+          "en": "They took my things and ran off."
+        },
+        {
+          "shot": "S06",
+          "text": "በተቻለኝ ፍጥነት ወደ ደህና ቦታ ደረስኩ።",
+          "en": "I got somewhere safe as fast as I could."
+        },
+        {
+          "shot": "S07",
+          "text": "ሳሙኤል ተጨንቆ ነበር። ለሳምንታት አልተነጋገርንም ነበር።",
+          "en": "Samuel had been worried. We hadn't talked in weeks."
+        },
+        {
+          "shot": "S11",
+          "text": "እንዲሁ ፍርሃታችን ወደ አስቂኝ ጨዋታ ተቀየረ።",
+          "en": "And just like that, fear turned into our favorite story."
+        }
+      ],
+      "agreed_to": "appear and be voiced as above, saying these lines, in a short film posted publicly on TikTok and YouTube with a label saying it was made with AI; may ask for it to be taken down",
+      "read_out": true,
+      "agreed": true,
+      "recording_kept": true,
+      "how": "It is me",
+      "evidence": "",
+      "date": "2026-11-26"
+    }
+  ]
+}

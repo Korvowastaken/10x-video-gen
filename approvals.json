@@ -1,0 +1,2180 @@
+{
+  "history": {
+    "S01": [
+      {
+        "at": "2026-11-25T22:43:14+00:00",
+        "hash": "5fec0d01096e12a7",
+        "mode": "parallax",
+        "parts": {
+          "clip": "74234e98afe7498f",
+          "keyframe": "bb42f27680e67813",
+          "references": "5be31d0d8bd1ba49",
+          "scene": "490fdd93c3f3677b",
+          "voice": "b8ffd324ad572d23"
+        },
+        "shot": {
+          "beat": "Establish the quiet suburban neighborhood on a summer afternoon.",
+          "characters": [],
+          "duration_s": 7,
+          "id": "S01",
+          "keyframe": {
+            "prompt": "Wide view of a quiet dirt pathway lined with tall eucalyptus trees under bright summer sunshine, shadow patterns on the ground, space centered",
+            "seed": 1010
+          },
+          "lines": [
+            {
+              "en": "That summer in Grade Nine, I was walking to Samuel's house.",
+              "speaker": "robel_narrator",
+              "text": "በዘጠነኛ ክፍል በጋ ወደ ሳሙኤል ቤት እየሄድኩ ነበር።"
+            }
+          ],
+          "location": "suburban_street",
+          "motion": {
+            "mode": "parallax",
+            "parallax": {
+              "amount": 0.03,
+              "move": "slide-right"
+            },
+            "prompt": "The camera slides gently to the right, showing the peaceful empty path",
+            "seed": 1010,
+            "subject": "ambient"
+          },
+          "music_cue": "Gentle acoustic guitar strums introduce a nostalgic warmth.",
+          "reason": "Anchors the scene in peaceful innocence before the unexpected event.",
+          "size": "wide"
+        }
+      },
+      {
+        "at": "2026-11-26T12:36:08+00:00",
+        "hash": "60ac5fcd43322950",
+        "mode": "parallax",
+        "parts": {
+          "clip": "74234e98afe7498f",
+          "keyframe": "7220464186436a25",
+          "references": "75199726b4a1a986",
+          "scene": "53d5e94ec0e8b4ec",
+          "voice": "b8ffd324ad572d23"
+        },
+        "shot": {
+          "beat": "Establish the quiet suburban neighborhood on a summer afternoon.",
+          "characters": [],
+          "duration_s": 7,
+          "id": "S01",
+          "keyframe": {
+            "prompt": "Wide view of a quiet dirt pathway lined with tall eucalyptus trees under bright summer sunshine, shadow patterns on the ground, space centered",
+            "seed": 1011
+          },
+          "lines": [
+            {
+              "en": "That summer in Grade Nine, I was walking to Samuel's house.",
+              "speaker": "robel_narrator",
+              "text": "በዘጠነኛ ክፍል በጋ ወደ ሳሙኤል ቤት እየሄድኩ ነበር።"
+            }
+          ],
+          "location": "suburban_street",
+          "motion": {
+            "mode": "parallax",
+            "parallax": {
+              "amount": 0.03,
+              "move": "slide-right"
+            },
+            "prompt": "The camera slides gently to the right, showing the peaceful empty path",
+            "seed": 1010,
+            "subject": "ambient"
+          },
+          "music_cue": "Gentle acoustic guitar strums introduce a nostalgic warmth.",
+          "reason": "Anchors the scene in peaceful innocence before the unexpected event.",
+          "size": "wide"
+        }
+      },
+      {
+        "at": "2026-11-26T15:14:56+00:00",
+        "hash": "6009c5f01b3c7181",
+        "mode": "parallax",
+        "parts": {
+          "clip": "74234e98afe7498f",
+          "keyframe": "f8ca3f67316df81a",
+          "references": "97a92e168ea64b6d",
+          "scene": "d09dcecb19cbf2fa",
+          "voice": "b8ffd324ad572d23"
+        },
+        "shot": {
+          "beat": "Establish the quiet suburban neighborhood on a summer afternoon.",
+          "characters": [],
+          "duration_s": 7,
+          "id": "S01",
+          "keyframe": {
+            "prompt": "Wide view of a quiet dirt pathway lined with tall eucalyptus trees under bright summer sunshine, shadow patterns on the ground, space centered no random character",
+            "seed": 1011
+          },
+          "lines": [
+            {
+              "en": "That summer in Grade Nine, I was walking to Samuel's house.",
+              "speaker": "robel_narrator",
+              "text": "በዘጠነኛ ክፍል በጋ ወደ ሳሙኤል ቤት እየሄድኩ ነበር።"
+            }
+          ],
+          "location": "suburban_street",
+          "motion": {
+            "mode": "parallax",
+            "parallax": {
+              "amount": 0.03,
+              "move": "slide-right"
+            },
+            "prompt": "The camera slides gently to the right, showing the peaceful empty path",
+            "seed": 1010,
+            "subject": "ambient"
+          },
+          "music_cue": "Gentle acoustic guitar strums introduce a nostalgic warmth.",
+          "reason": "Anchors the scene in peaceful innocence before the unexpected event.",
+          "size": "wide"
+        }
+      }
+    ],
+    "S02": [
+      {
+        "at": "2026-11-25T22:46:35+00:00",
+        "hash": "aa3bf426c4cf69c3",
+        "mode": "full_i2v",
+        "parts": {
+          "clip": "74234e98afe7498f",
+          "keyframe": "898570f50c8ac271",
+          "references": "6936914f0c9af88f",
+          "scene": "9b0d6e26e13475a1",
+          "voice": "43734e705831b450"
+        },
+        "shot": {
+          "beat": "Show Robel walking happily along the neighborhood path.",
+          "characters": [
+            "robel"
+          ],
+          "duration_s": 6,
+          "id": "S02",
+          "keyframe": {
+            "prompt": "Teenager Robel walking along the dirt path, yellow hoodie vibrant against green leaves, light smile on his face, body centered",
+            "seed": 1020
+          },
+          "lines": [
+            {
+              "en": "It was a sunny afternoon. Everything felt normal.",
+              "speaker": "robel_narrator",
+              "text": "ፀሐያማ ከሰዓት ነበር። ሁሉም ነገር ሰላም ይመስል ነበር።"
+            }
+          ],
+          "location": "suburban_street",
+          "motion": {
+            "clip_s": 5,
+            "mode": "full_i2v",
+            "prompt": "Robel walks forward along the path while camera slowly pulls back keeping him centered",
+            "seed": 1020,
+            "subject": "character"
+          },
+          "music_cue": "Soft rhythmic shaker joins the light guitar pattern.",
+          "reason": "Establishes Robel's cheerful mood and vulnerability.",
+          "size": "medium"
+        }
+      },
+      {
+        "at": "2026-11-25T23:11:18+00:00",
+        "hash": "6b3c55b667cb2923",
+        "mode": "full_i2v",
+        "parts": {
+          "clip": "715f3e66e553d9e0",
+          "keyframe": "898570f50c8ac271",
+          "references": "6936914f0c9af88f",
+          "scene": "9b0d6e26e13475a1",
+          "voice": "43734e705831b450"
+        },
+        "shot": {
+          "beat": "Show Robel walking happily along the neighborhood path.",
+          "characters": [
+            "robel"
+          ],
+          "duration_s": 6,
+          "id": "S02",
+          "keyframe": {
+            "prompt": "Teenager Robel walking along the dirt path, yellow hoodie vibrant against green leaves, light smile on his face, body centered",
+            "seed": 1020
+          },
+          "lines": [
+            {
+              "en": "It was a sunny afternoon. Everything felt normal.",
+              "speaker": "robel_narrator",
+              "text": "ፀሐያማ ከሰዓት ነበር። ሁሉም ነገር ሰላም ይመስል ነበር።"
+            }
+          ],
+          "location": "suburban_street",
+          "motion": {
+            "clip_s": 5,
+            "mode": "full_i2v",
+            "prompt": "Robel walks forward along the path while camera slowly pulls back keeping him centered",
+            "seed": 1020,
+            "subject": "character"
+          },
+          "music_cue": "Soft rhythmic shaker joins the light guitar pattern.",
+          "reason": "Establishes Robel's cheerful mood and vulnerability.",
+          "size": "medium"
+        }
+      },
+      {
+        "at": "2026-11-26T12:36:33+00:00",
+        "hash": "df414be556dba6b0",
+        "mode": "full_i2v",
+        "parts": {
+          "clip": "715f3e66e553d9e0",
+          "keyframe": "ad48775a5cc09117",
+          "references": "410e2519b0b0831f",
+          "scene": "9b0d6e26e13475a1",
+          "voice": "43734e705831b450"
+        },
+        "shot": {
+          "beat": "Show Robel walking happily along the neighborhood path.",
+          "characters": [
+            "robel"
+          ],
+          "duration_s": 6,
+          "id": "S02",
+          "keyframe": {
+            "prompt": "Teenager Robel walking along the dirt path, yellow hoodie vibrant against green leaves, light smile on his face, body centered",
+            "seed": 1020
+          },
+          "lines": [
+            {
+              "en": "It was a sunny afternoon. Everything felt normal.",
+              "speaker": "robel_narrator",
+              "text": "ፀሐያማ ከሰዓት ነበር። ሁሉም ነገር ሰላም ይመስል ነበር።"
+            }
+          ],
+          "location": "suburban_street",
+          "motion": {
+            "clip_s": 5,
+            "mode": "full_i2v",
+            "prompt": "Robel walks forward along the path while camera slowly pulls back keeping him centered",
+            "seed": 1020,
+            "subject": "character"
+          },
+          "music_cue": "Soft rhythmic shaker joins the light guitar pattern.",
+          "reason": "Establishes Robel's cheerful mood and vulnerability.",
+          "size": "medium"
+        }
+      },
+      {
+        "at": "2026-11-26T15:13:04+00:00",
+        "hash": "6d36883d97f01d5b",
+        "mode": "full_i2v",
+        "parts": {
+          "clip": "715f3e66e553d9e0",
+          "keyframe": "ad48775a5cc09117",
+          "references": "0ec77931a09550bf",
+          "scene": "9b0d6e26e13475a1",
+          "voice": "43734e705831b450"
+        },
+        "shot": {
+          "beat": "Show Robel walking happily along the neighborhood path.",
+          "characters": [
+            "robel"
+          ],
+          "duration_s": 6,
+          "id": "S02",
+          "keyframe": {
+            "prompt": "Teenager Robel walking along the dirt path, yellow hoodie vibrant against green leaves, light smile on his face, body centered",
+            "seed": 1020
+          },
+          "lines": [
+            {
+              "en": "It was a sunny afternoon. Everything felt normal.",
+              "speaker": "robel_narrator",
+              "text": "ፀሐያማ ከሰዓት ነበር። ሁሉም ነገር ሰላም ይመስል ነበር።"
+            }
+          ],
+          "location": "suburban_street",
+          "motion": {
+            "clip_s": 5,
+            "mode": "full_i2v",
+            "prompt": "Robel walks forward along the path while camera slowly pulls back keeping him centered",
+            "seed": 1020,
+            "subject": "character"
+          },
+          "music_cue": "Soft rhythmic shaker joins the light guitar pattern.",
+          "reason": "Establishes Robel's cheerful mood and vulnerability.",
+          "size": "medium"
+        }
+      },
+      {
+        "at": "2026-11-26T15:18:32+00:00",
+        "hash": "afe2efc9a202958a",
+        "mode": "full_i2v",
+        "parts": {
+          "clip": "7de87bf32bb25a85",
+          "keyframe": "ad48775a5cc09117",
+          "references": "19cfeb631942c7a0",
+          "scene": "eab752d6aa653fa8",
+          "voice": "43734e705831b450"
+        },
+        "shot": {
+          "beat": "Show Robel walking happily along the neighborhood path.",
+          "characters": [
+            "robel"
+          ],
+          "duration_s": 6,
+          "id": "S02",
+          "keyframe": {
+            "prompt": "Teenager Robel walking along the dirt path, yellow hoodie vibrant against green leaves, light smile on his face, body centered",
+            "seed": 1020
+          },
+          "lines": [
+            {
+              "en": "It was a sunny afternoon. Everything felt normal.",
+              "speaker": "robel_narrator",
+              "text": "ፀሐያማ ከሰዓት ነበር። ሁሉም ነገር ሰላም ይመስል ነበር።"
+            }
+          ],
+          "location": "suburban_street",
+          "motion": {
+            "clip_s": 8,
+            "mode": "full_i2v",
+            "prompt": "Robel walks forward along the path while camera slowly pulls back keeping him centered",
+            "seed": 1020,
+            "subject": "character"
+          },
+          "music_cue": "Soft rhythmic shaker joins the light guitar pattern.",
+          "reason": "Establishes Robel's cheerful mood and vulnerability.",
+          "size": "medium"
+        }
+      },
+      {
+        "at": "2026-11-26T15:26:05+00:00",
+        "hash": "3e18276ec5ceb6e7",
+        "mode": "full_i2v",
+        "parts": {
+          "clip": "7de87bf32bb25a85",
+          "keyframe": "ad48775a5cc09117",
+          "references": "0ec77931a09550bf",
+          "scene": "eab752d6aa653fa8",
+          "voice": "43734e705831b450"
+        },
+        "shot": {
+          "beat": "Show Robel walking happily along the neighborhood path.",
+          "characters": [
+            "robel"
+          ],
+          "duration_s": 6,
+          "id": "S02",
+          "keyframe": {
+            "prompt": "Teenager Robel walking along the dirt path, yellow hoodie vibrant against green leaves, light smile on his face, body centered",
+            "seed": 1020
+          },
+          "lines": [
+            {
+              "en": "It was a sunny afternoon. Everything felt normal.",
+              "speaker": "robel_narrator",
+              "text": "ፀሐያማ ከሰዓት ነበር። ሁሉም ነገር ሰላም ይመስል ነበር።"
+            }
+          ],
+          "location": "suburban_street",
+          "motion": {
+            "clip_s": 8,
+            "mode": "full_i2v",
+            "prompt": "Robel walks forward along the path while camera slowly pulls back keeping him centered",
+            "seed": 1020,
+            "subject": "character"
+          },
+          "music_cue": "Soft rhythmic shaker joins the light guitar pattern.",
+          "reason": "Establishes Robel's cheerful mood and vulnerability.",
+          "size": "medium"
+        }
+      }
+    ],
+    "S03": [
+      {
+        "at": "2026-11-25T22:46:41+00:00",
+        "hash": "484ce10699e3d016",
+        "mode": "masked_i2v",
+        "parts": {
+          "clip": "74234e98afe7498f",
+          "keyframe": "b6ccb412b07043dc",
+          "references": "6936914f0c9af88f",
+          "scene": "f72ea28578d09614",
+          "voice": "f5d7984bef18dd48"
+        },
+        "shot": {
+          "beat": "Robel notices something is wrong as footsteps rush up behind him.",
+          "characters": [
+            "robel"
+          ],
+          "duration_s": 6,
+          "id": "S03",
+          "keyframe": {
+            "prompt": "Robel turns his head slightly in alarm, eyes widened with sudden apprehension, yellow hoodie collar visible, soft blurry backdrop",
+            "seed": 1030
+          },
+          "lines": [
+            {
+              "en": "Suddenly, I heard heavy footsteps rushing behind me.",
+              "speaker": "robel_narrator",
+              "text": "ድንገት ከኋላዬ የፈጣን እግር ድምፅ ሰማሁ።"
+            }
+          ],
+          "location": "suburban_street",
+          "motion": {
+            "clip_s": 5,
+            "loop": "pingpong",
+            "mask": {
+              "target": "Robel's face and head turning movement"
+            },
+            "mode": "masked_i2v",
+            "prompt": "Robel quickly glances over his shoulder, his eyes widening in surprise",
+            "seed": 1030,
+            "subject": "character"
+          },
+          "music_cue": "Guitar pauses into a low tense sustain tone.",
+          "reason": "Inciting tension; shifts the tone rapidly.",
+          "size": "medium-close-up"
+        }
+      },
+      {
+        "at": "2026-11-25T23:13:09+00:00",
+        "hash": "7da7b12bd9cd79f6",
+        "mode": "masked_i2v",
+        "parts": {
+          "clip": "a09452ab15cd89c8",
+          "keyframe": "b6ccb412b07043dc",
+          "references": "6936914f0c9af88f",
+          "scene": "f72ea28578d09614",
+          "voice": "f5d7984bef18dd48"
+        },
+        "shot": {
+          "beat": "Robel notices something is wrong as footsteps rush up behind him.",
+          "characters": [
+            "robel"
+          ],
+          "duration_s": 6,
+          "id": "S03",
+          "keyframe": {
+            "prompt": "Robel turns his head slightly in alarm, eyes widened with sudden apprehension, yellow hoodie collar visible, soft blurry backdrop",
+            "seed": 1030
+          },
+          "lines": [
+            {
+              "en": "Suddenly, I heard heavy footsteps rushing behind me.",
+              "speaker": "robel_narrator",
+              "text": "ድንገት ከኋላዬ የፈጣን እግር ድምፅ ሰማሁ።"
+            }
+          ],
+          "location": "suburban_street",
+          "motion": {
+            "clip_s": 5,
+            "loop": "pingpong",
+            "mask": {
+              "target": "Robel's face and head turning movement"
+            },
+            "mode": "masked_i2v",
+            "prompt": "Robel quickly glances over his shoulder, his eyes widening in surprise",
+            "seed": 1030,
+            "subject": "character"
+          },
+          "music_cue": "Guitar pauses into a low tense sustain tone.",
+          "reason": "Inciting tension; shifts the tone rapidly.",
+          "size": "medium-close-up"
+        }
+      },
+      {
+        "at": "2026-11-26T12:36:35+00:00",
+        "hash": "85a45d6a12b69d11",
+        "mode": "masked_i2v",
+        "parts": {
+          "clip": "a09452ab15cd89c8",
+          "keyframe": "1e07e9802bc62b0b",
+          "references": "410e2519b0b0831f",
+          "scene": "f72ea28578d09614",
+          "voice": "f5d7984bef18dd48"
+        },
+        "shot": {
+          "beat": "Robel notices something is wrong as footsteps rush up behind him.",
+          "characters": [
+            "robel"
+          ],
+          "duration_s": 6,
+          "id": "S03",
+          "keyframe": {
+            "prompt": "Robel turns his head slightly in alarm, eyes widened with sudden apprehension, yellow hoodie collar visible, soft blurry backdrop",
+            "seed": 1030
+          },
+          "lines": [
+            {
+              "en": "Suddenly, I heard heavy footsteps rushing behind me.",
+              "speaker": "robel_narrator",
+              "text": "ድንገት ከኋላዬ የፈጣን እግር ድምፅ ሰማሁ።"
+            }
+          ],
+          "location": "suburban_street",
+          "motion": {
+            "clip_s": 5,
+            "loop": "pingpong",
+            "mask": {
+              "target": "Robel's face and head turning movement"
+            },
+            "mode": "masked_i2v",
+            "prompt": "Robel quickly glances over his shoulder, his eyes widening in surprise",
+            "seed": 1030,
+            "subject": "character"
+          },
+          "music_cue": "Guitar pauses into a low tense sustain tone.",
+          "reason": "Inciting tension; shifts the tone rapidly.",
+          "size": "medium-close-up"
+        }
+      },
+      {
+        "at": "2026-11-26T15:13:07+00:00",
+        "hash": "85c36f14c1c64ef5",
+        "mode": "masked_i2v",
+        "parts": {
+          "clip": "a09452ab15cd89c8",
+          "keyframe": "1e07e9802bc62b0b",
+          "references": "0ec77931a09550bf",
+          "scene": "f72ea28578d09614",
+          "voice": "f5d7984bef18dd48"
+        },
+        "shot": {
+          "beat": "Robel notices something is wrong as footsteps rush up behind him.",
+          "characters": [
+            "robel"
+          ],
+          "duration_s": 6,
+          "id": "S03",
+          "keyframe": {
+            "prompt": "Robel turns his head slightly in alarm, eyes widened with sudden apprehension, yellow hoodie collar visible, soft blurry backdrop",
+            "seed": 1030
+          },
+          "lines": [
+            {
+              "en": "Suddenly, I heard heavy footsteps rushing behind me.",
+              "speaker": "robel_narrator",
+              "text": "ድንገት ከኋላዬ የፈጣን እግር ድምፅ ሰማሁ።"
+            }
+          ],
+          "location": "suburban_street",
+          "motion": {
+            "clip_s": 5,
+            "loop": "pingpong",
+            "mask": {
+              "target": "Robel's face and head turning movement"
+            },
+            "mode": "masked_i2v",
+            "prompt": "Robel quickly glances over his shoulder, his eyes widening in surprise",
+            "seed": 1030,
+            "subject": "character"
+          },
+          "music_cue": "Guitar pauses into a low tense sustain tone.",
+          "reason": "Inciting tension; shifts the tone rapidly.",
+          "size": "medium-close-up"
+        }
+      },
+      {
+        "at": "2026-11-26T15:20:51+00:00",
+        "hash": "c222f8756285d10f",
+        "mode": "masked_i2v",
+        "parts": {
+          "clip": "26c6d64965bd3bdd",
+          "keyframe": "1e07e9802bc62b0b",
+          "references": "19cfeb631942c7a0",
+          "scene": "f72ea28578d09614",
+          "voice": "f5d7984bef18dd48"
+        },
+        "shot": {
+          "beat": "Robel notices something is wrong as footsteps rush up behind him.",
+          "characters": [
+            "robel"
+          ],
+          "duration_s": 6,
+          "id": "S03",
+          "keyframe": {
+            "prompt": "Robel turns his head slightly in alarm, eyes widened with sudden apprehension, yellow hoodie collar visible, soft blurry backdrop",
+            "seed": 1030
+          },
+          "lines": [
+            {
+              "en": "Suddenly, I heard heavy footsteps rushing behind me.",
+              "speaker": "robel_narrator",
+              "text": "ድንገት ከኋላዬ የፈጣን እግር ድምፅ ሰማሁ።"
+            }
+          ],
+          "location": "suburban_street",
+          "motion": {
+            "clip_s": 5,
+            "loop": "pingpong",
+            "mask": {
+              "target": "Robel's face and head turning movement"
+            },
+            "mode": "masked_i2v",
+            "prompt": "Robel quickly glances over his shoulder, his eyes widening in surprise",
+            "seed": 1030,
+            "subject": "character"
+          },
+          "music_cue": "Guitar pauses into a low tense sustain tone.",
+          "reason": "Inciting tension; shifts the tone rapidly.",
+          "size": "medium-close-up"
+        }
+      },
+      {
+        "at": "2026-11-26T15:26:01+00:00",
+        "hash": "d015a2f7b4ecb1aa",
+        "mode": "masked_i2v",
+        "parts": {
+          "clip": "26c6d64965bd3bdd",
+          "keyframe": "1e07e9802bc62b0b",
+          "references": "0ec77931a09550bf",
+          "scene": "f72ea28578d09614",
+          "voice": "f5d7984bef18dd48"
+        },
+        "shot": {
+          "beat": "Robel notices something is wrong as footsteps rush up behind him.",
+          "characters": [
+            "robel"
+          ],
+          "duration_s": 6,
+          "id": "S03",
+          "keyframe": {
+            "prompt": "Robel turns his head slightly in alarm, eyes widened with sudden apprehension, yellow hoodie collar visible, soft blurry backdrop",
+            "seed": 1030
+          },
+          "lines": [
+            {
+              "en": "Suddenly, I heard heavy footsteps rushing behind me.",
+              "speaker": "robel_narrator",
+              "text": "ድንገት ከኋላዬ የፈጣን እግር ድምፅ ሰማሁ።"
+            }
+          ],
+          "location": "suburban_street",
+          "motion": {
+            "clip_s": 5,
+            "loop": "pingpong",
+            "mask": {
+              "target": "Robel's face and head turning movement"
+            },
+            "mode": "masked_i2v",
+            "prompt": "Robel quickly glances over his shoulder, his eyes widening in surprise",
+            "seed": 1030,
+            "subject": "character"
+          },
+          "music_cue": "Guitar pauses into a low tense sustain tone.",
+          "reason": "Inciting tension; shifts the tone rapidly.",
+          "size": "medium-close-up"
+        }
+      }
+    ],
+    "S04": [
+      {
+        "at": "2026-11-25T22:48:39+00:00",
+        "hash": "ffba1dd3d6e25616",
+        "mode": "flf_inbetween",
+        "parts": {
+          "clip": "74234e98afe7498f",
+          "keyframe": "9e733176407ca898",
+          "references": "993f5ccddc57d22b",
+          "scene": "e90770aad4901e46",
+          "voice": "cdc5f57fff77898d"
+        },
+        "shot": {
+          "beat": "The robbers confront Robel, trapping him.",
+          "characters": [
+            "robel",
+            "robber"
+          ],
+          "duration_s": 7,
+          "id": "S04",
+          "keyframe": {
+            "prompt": "Robel standing caught in the middle as a tall hooded figure steps in front with hands raised, Robel clutching his jacket nervously",
+            "seed": 1040
+          },
+          "lines": [
+            {
+              "en": "Two guys cornered me. I was terrified.",
+              "speaker": "robel_narrator",
+              "text": "ሁለት ሰዎች መንገድ ዘጉብኝ። በጣም ደነገጥኩ።"
+            }
+          ],
+          "location": "suburban_street",
+          "motion": {
+            "clip_s": 5,
+            "end_keyframe": {
+              "prompt": "Same place and camera: Robel holding his hands up defensively as the robber steps closer in front of him",
+              "seed": 1041
+            },
+            "mode": "flf_inbetween",
+            "prompt": "The robber steps into the frame blocking the path as Robel steps back nervously",
+            "seed": 1040,
+            "subject": "character"
+          },
+          "music_cue": "Subtle low bass note creates gentle drama.",
+          "reason": "Shows the climax of the threat clearly without graphic violence.",
+          "size": "medium"
+        }
+      },
+      {
+        "at": "2026-11-25T23:11:28+00:00",
+        "hash": "a24b7be497db1e92",
+        "mode": "flf_inbetween",
+        "parts": {
+          "clip": "a9686e0fccafb566",
+          "keyframe": "9e733176407ca898",
+          "references": "993f5ccddc57d22b",
+          "scene": "e90770aad4901e46",
+          "voice": "cdc5f57fff77898d"
+        },
+        "shot": {
+          "beat": "The robbers confront Robel, trapping him.",
+          "characters": [
+            "robel",
+            "robber"
+          ],
+          "duration_s": 7,
+          "id": "S04",
+          "keyframe": {
+            "prompt": "Robel standing caught in the middle as a tall hooded figure steps in front with hands raised, Robel clutching his jacket nervously",
+            "seed": 1040
+          },
+          "lines": [
+            {
+              "en": "Two guys cornered me. I was terrified.",
+              "speaker": "robel_narrator",
+              "text": "ሁለት ሰዎች መንገድ ዘጉብኝ። በጣም ደነገጥኩ።"
+            }
+          ],
+          "location": "suburban_street",
+          "motion": {
+            "clip_s": 5,
+            "end_keyframe": {
+              "prompt": "Same place and camera: Robel holding his hands up defensively as the robber steps closer in front of him",
+              "seed": 1041
+            },
+            "mode": "flf_inbetween",
+            "prompt": "The robber steps into the frame blocking the path as Robel steps back nervously",
+            "seed": 1040,
+            "subject": "character"
+          },
+          "music_cue": "Subtle low bass note creates gentle drama.",
+          "reason": "Shows the climax of the threat clearly without graphic violence.",
+          "size": "medium"
+        }
+      },
+      {
+        "at": "2026-11-26T12:36:38+00:00",
+        "hash": "0d16c2cd84f91cc4",
+        "mode": "flf_inbetween",
+        "parts": {
+          "clip": "a9686e0fccafb566",
+          "keyframe": "4a4d1b910cd40c07",
+          "references": "120b8b717277cf5d",
+          "scene": "e90770aad4901e46",
+          "voice": "cdc5f57fff77898d"
+        },
+        "shot": {
+          "beat": "The robbers confront Robel, trapping him.",
+          "characters": [
+            "robel",
+            "robber"
+          ],
+          "duration_s": 7,
+          "id": "S04",
+          "keyframe": {
+            "prompt": "Robel standing caught in the middle as a tall hooded figure steps in front with hands raised, Robel clutching his jacket nervously",
+            "seed": 1040
+          },
+          "lines": [
+            {
+              "en": "Two guys cornered me. I was terrified.",
+              "speaker": "robel_narrator",
+              "text": "ሁለት ሰዎች መንገድ ዘጉብኝ። በጣም ደነገጥኩ።"
+            }
+          ],
+          "location": "suburban_street",
+          "motion": {
+            "clip_s": 5,
+            "end_keyframe": {
+              "prompt": "Same place and camera: Robel holding his hands up defensively as the robber steps closer in front of him",
+              "seed": 1041
+            },
+            "mode": "flf_inbetween",
+            "prompt": "The robber steps into the frame blocking the path as Robel steps back nervously",
+            "seed": 1040,
+            "subject": "character"
+          },
+          "music_cue": "Subtle low bass note creates gentle drama.",
+          "reason": "Shows the climax of the threat clearly without graphic violence.",
+          "size": "medium"
+        }
+      },
+      {
+        "at": "2026-11-26T15:13:11+00:00",
+        "hash": "fa4fd43d8cf0f53a",
+        "mode": "flf_inbetween",
+        "parts": {
+          "clip": "a9686e0fccafb566",
+          "keyframe": "4a4d1b910cd40c07",
+          "references": "bbdfbff5d42a7278",
+          "scene": "e90770aad4901e46",
+          "voice": "cdc5f57fff77898d"
+        },
+        "shot": {
+          "beat": "The robbers confront Robel, trapping him.",
+          "characters": [
+            "robel",
+            "robber"
+          ],
+          "duration_s": 7,
+          "id": "S04",
+          "keyframe": {
+            "prompt": "Robel standing caught in the middle as a tall hooded figure steps in front with hands raised, Robel clutching his jacket nervously",
+            "seed": 1040
+          },
+          "lines": [
+            {
+              "en": "Two guys cornered me. I was terrified.",
+              "speaker": "robel_narrator",
+              "text": "ሁለት ሰዎች መንገድ ዘጉብኝ። በጣም ደነገጥኩ።"
+            }
+          ],
+          "location": "suburban_street",
+          "motion": {
+            "clip_s": 5,
+            "end_keyframe": {
+              "prompt": "Same place and camera: Robel holding his hands up defensively as the robber steps closer in front of him",
+              "seed": 1041
+            },
+            "mode": "flf_inbetween",
+            "prompt": "The robber steps into the frame blocking the path as Robel steps back nervously",
+            "seed": 1040,
+            "subject": "character"
+          },
+          "music_cue": "Subtle low bass note creates gentle drama.",
+          "reason": "Shows the climax of the threat clearly without graphic violence.",
+          "size": "medium"
+        }
+      },
+      {
+        "at": "2026-11-26T15:22:30+00:00",
+        "hash": "1c1d90c60ed7d574",
+        "mode": "still",
+        "parts": {
+          "clip": "74234e98afe7498f",
+          "keyframe": "4a4d1b910cd40c07",
+          "references": "cc96b15c0d1efef9",
+          "scene": "33fc48459589097e",
+          "voice": "cdc5f57fff77898d"
+        },
+        "shot": {
+          "beat": "The robbers confront Robel, trapping him.",
+          "characters": [
+            "robel",
+            "robber"
+          ],
+          "duration_s": 7,
+          "id": "S04",
+          "keyframe": {
+            "prompt": "Robel standing caught in the middle as a tall hooded figure steps in front with hands raised, Robel clutching his jacket nervously",
+            "seed": 1040
+          },
+          "lines": [
+            {
+              "en": "Two guys cornered me. I was terrified.",
+              "speaker": "robel_narrator",
+              "text": "ሁለት ሰዎች መንገድ ዘጉብኝ። በጣም ደነገጥኩ።"
+            }
+          ],
+          "location": "suburban_street",
+          "motion": {
+            "clip_s": 5,
+            "end_keyframe": {
+              "prompt": "Same place and camera: Robel holding his hands up defensively as the robber steps closer in front of him",
+              "seed": 1041
+            },
+            "mode": "still",
+            "prompt": "The robber steps into the frame blocking the path as Robel steps back nervously",
+            "seed": 1040,
+            "subject": "character"
+          },
+          "music_cue": "Subtle low bass note creates gentle drama.",
+          "reason": "Shows the climax of the threat clearly without graphic violence.",
+          "size": "medium"
+        }
+      },
+      {
+        "at": "2026-11-26T15:25:56+00:00",
+        "hash": "590335a4e4fe55bd",
+        "mode": "still",
+        "parts": {
+          "clip": "74234e98afe7498f",
+          "keyframe": "4a4d1b910cd40c07",
+          "references": "d1a238851e9b2058",
+          "scene": "33fc48459589097e",
+          "voice": "cdc5f57fff77898d"
+        },
+        "shot": {
+          "beat": "The robbers confront Robel, trapping him.",
+          "characters": [
+            "robel",
+            "robber"
+          ],
+          "duration_s": 7,
+          "id": "S04",
+          "keyframe": {
+            "prompt": "Robel standing caught in the middle as a tall hooded figure steps in front with hands raised, Robel clutching his jacket nervously",
+            "seed": 1040
+          },
+          "lines": [
+            {
+              "en": "Two guys cornered me. I was terrified.",
+              "speaker": "robel_narrator",
+              "text": "ሁለት ሰዎች መንገድ ዘጉብኝ። በጣም ደነገጥኩ።"
+            }
+          ],
+          "location": "suburban_street",
+          "motion": {
+            "clip_s": 5,
+            "end_keyframe": {
+              "prompt": "Same place and camera: Robel holding his hands up defensively as the robber steps closer in front of him",
+              "seed": 1041
+            },
+            "mode": "still",
+            "prompt": "The robber steps into the frame blocking the path as Robel steps back nervously",
+            "seed": 1040,
+            "subject": "character"
+          },
+          "music_cue": "Subtle low bass note creates gentle drama.",
+          "reason": "Shows the climax of the threat clearly without graphic violence.",
+          "size": "medium"
+        }
+      }
+    ],
+    "S05": [
+      {
+        "at": "2026-11-25T22:49:10+00:00",
+        "hash": "cd92040dabade6bd",
+        "mode": "masked_i2v",
+        "parts": {
+          "clip": "74234e98afe7498f",
+          "keyframe": "27d70784d7d41056",
+          "references": "6936914f0c9af88f",
+          "scene": "cec3c991ccd60ca1",
+          "voice": "831137c8d2175e51"
+        },
+        "shot": {
+          "beat": "Focus on Robel's emotional reaction of fear.",
+          "characters": [
+            "robel"
+          ],
+          "duration_s": 6,
+          "id": "S05",
+          "keyframe": {
+            "prompt": "Close-up of teen Robel's face, wide scared eyes, breath catching, dappled sunlight filtering across his brow",
+            "seed": 1050
+          },
+          "lines": [
+            {
+              "en": "They took my things and ran off.",
+              "speaker": "robel_narrator",
+              "text": "ዕቃዬን ቀምተውኝ ፈጥነው ሮጠው ሄዱ።"
+            }
+          ],
+          "location": "suburban_street",
+          "motion": {
+            "clip_s": 5,
+            "loop": "pingpong",
+            "mask": {
+              "target": "Robel's eyes and facial expression"
+            },
+            "mode": "masked_i2v",
+            "prompt": "Robel blinks fast and breathes nervously, camera stays tight on his face",
+            "seed": 1050,
+            "subject": "character"
+          },
+          "music_cue": "Tension melts into a soft melancholic cello note.",
+          "reason": "Connects the audience deep inside Robel's moment of fear.",
+          "size": "close-up"
+        }
+      },
+      {
+        "at": "2026-11-25T23:12:46+00:00",
+        "hash": "45d9405690a5bcc9",
+        "mode": "masked_i2v",
+        "parts": {
+          "clip": "1019b1270a8d5060",
+          "keyframe": "27d70784d7d41056",
+          "references": "6936914f0c9af88f",
+          "scene": "cec3c991ccd60ca1",
+          "voice": "831137c8d2175e51"
+        },
+        "shot": {
+          "beat": "Focus on Robel's emotional reaction of fear.",
+          "characters": [
+            "robel"
+          ],
+          "duration_s": 6,
+          "id": "S05",
+          "keyframe": {
+            "prompt": "Close-up of teen Robel's face, wide scared eyes, breath catching, dappled sunlight filtering across his brow",
+            "seed": 1050
+          },
+          "lines": [
+            {
+              "en": "They took my things and ran off.",
+              "speaker": "robel_narrator",
+              "text": "ዕቃዬን ቀምተውኝ ፈጥነው ሮጠው ሄዱ።"
+            }
+          ],
+          "location": "suburban_street",
+          "motion": {
+            "clip_s": 5,
+            "loop": "pingpong",
+            "mask": {
+              "target": "Robel's eyes and facial expression"
+            },
+            "mode": "masked_i2v",
+            "prompt": "Robel blinks fast and breathes nervously, camera stays tight on his face",
+            "seed": 1050,
+            "subject": "character"
+          },
+          "music_cue": "Tension melts into a soft melancholic cello note.",
+          "reason": "Connects the audience deep inside Robel's moment of fear.",
+          "size": "close-up"
+        }
+      },
+      {
+        "at": "2026-11-26T12:37:31+00:00",
+        "hash": "acc427e65eed8599",
+        "mode": "masked_i2v",
+        "parts": {
+          "clip": "1019b1270a8d5060",
+          "keyframe": "96d8c1ed3506c772",
+          "references": "410e2519b0b0831f",
+          "scene": "cec3c991ccd60ca1",
+          "voice": "831137c8d2175e51"
+        },
+        "shot": {
+          "beat": "Focus on Robel's emotional reaction of fear.",
+          "characters": [
+            "robel"
+          ],
+          "duration_s": 6,
+          "id": "S05",
+          "keyframe": {
+            "prompt": "Close-up of teen Robel's face, wide scared eyes, breath catching, dappled sunlight filtering across his brow",
+            "seed": 1050
+          },
+          "lines": [
+            {
+              "en": "They took my things and ran off.",
+              "speaker": "robel_narrator",
+              "text": "ዕቃዬን ቀምተውኝ ፈጥነው ሮጠው ሄዱ።"
+            }
+          ],
+          "location": "suburban_street",
+          "motion": {
+            "clip_s": 5,
+            "loop": "pingpong",
+            "mask": {
+              "target": "Robel's eyes and facial expression"
+            },
+            "mode": "masked_i2v",
+            "prompt": "Robel blinks fast and breathes nervously, camera stays tight on his face",
+            "seed": 1050,
+            "subject": "character"
+          },
+          "music_cue": "Tension melts into a soft melancholic cello note.",
+          "reason": "Connects the audience deep inside Robel's moment of fear.",
+          "size": "close-up"
+        }
+      },
+      {
+        "at": "2026-11-26T15:13:14+00:00",
+        "hash": "9848b89d30ea3065",
+        "mode": "masked_i2v",
+        "parts": {
+          "clip": "1019b1270a8d5060",
+          "keyframe": "96d8c1ed3506c772",
+          "references": "0ec77931a09550bf",
+          "scene": "cec3c991ccd60ca1",
+          "voice": "831137c8d2175e51"
+        },
+        "shot": {
+          "beat": "Focus on Robel's emotional reaction of fear.",
+          "characters": [
+            "robel"
+          ],
+          "duration_s": 6,
+          "id": "S05",
+          "keyframe": {
+            "prompt": "Close-up of teen Robel's face, wide scared eyes, breath catching, dappled sunlight filtering across his brow",
+            "seed": 1050
+          },
+          "lines": [
+            {
+              "en": "They took my things and ran off.",
+              "speaker": "robel_narrator",
+              "text": "ዕቃዬን ቀምተውኝ ፈጥነው ሮጠው ሄዱ።"
+            }
+          ],
+          "location": "suburban_street",
+          "motion": {
+            "clip_s": 5,
+            "loop": "pingpong",
+            "mask": {
+              "target": "Robel's eyes and facial expression"
+            },
+            "mode": "masked_i2v",
+            "prompt": "Robel blinks fast and breathes nervously, camera stays tight on his face",
+            "seed": 1050,
+            "subject": "character"
+          },
+          "music_cue": "Tension melts into a soft melancholic cello note.",
+          "reason": "Connects the audience deep inside Robel's moment of fear.",
+          "size": "close-up"
+        }
+      },
+      {
+        "at": "2026-11-26T15:25:47+00:00",
+        "hash": "a3765ac606106072",
+        "mode": "still",
+        "parts": {
+          "clip": "74234e98afe7498f",
+          "keyframe": "96d8c1ed3506c772",
+          "references": "0ec77931a09550bf",
+          "scene": "ed25347f39693fa3",
+          "voice": "831137c8d2175e51"
+        },
+        "shot": {
+          "beat": "Focus on Robel's emotional reaction of fear.",
+          "characters": [
+            "robel"
+          ],
+          "duration_s": 6,
+          "id": "S05",
+          "keyframe": {
+            "prompt": "Close-up of teen Robel's face, wide scared eyes, breath catching, dappled sunlight filtering across his brow",
+            "seed": 1050
+          },
+          "lines": [
+            {
+              "en": "They took my things and ran off.",
+              "speaker": "robel_narrator",
+              "text": "ዕቃዬን ቀምተውኝ ፈጥነው ሮጠው ሄዱ።"
+            }
+          ],
+          "location": "suburban_street",
+          "motion": {
+            "clip_s": 5,
+            "loop": "pingpong",
+            "mask": {
+              "target": "Robel's eyes and facial expression"
+            },
+            "mode": "still",
+            "prompt": "Robel blinks fast and breathes nervously, camera stays tight on his face",
+            "seed": 1050,
+            "subject": "character"
+          },
+          "music_cue": "Tension melts into a soft melancholic cello note.",
+          "reason": "Connects the audience deep inside Robel's moment of fear.",
+          "size": "close-up"
+        }
+      }
+    ],
+    "S06": [
+      {
+        "at": "2026-11-25T22:49:18+00:00",
+        "hash": "5c4dbabaf9dd1c11",
+        "mode": "parallax",
+        "parts": {
+          "clip": "74234e98afe7498f",
+          "keyframe": "b388df405530c7a5",
+          "references": "6936914f0c9af88f",
+          "scene": "60ddb96b5cf796d3",
+          "voice": "ea8d5784a4a7b99f"
+        },
+        "shot": {
+          "beat": "Robel escapes safely back to a secure place.",
+          "characters": [
+            "robel"
+          ],
+          "duration_s": 6,
+          "id": "S06",
+          "keyframe": {
+            "prompt": "Wide shot of empty tree-lined street as Robel runs quickly toward a colorful residential gate in the distance",
+            "seed": 1060
+          },
+          "lines": [
+            {
+              "en": "I got somewhere safe as fast as I could.",
+              "speaker": "robel_narrator",
+              "text": "በተቻለኝ ፍጥነት ወደ ደህና ቦታ ደረስኩ።"
+            }
+          ],
+          "location": "suburban_street",
+          "motion": {
+            "mode": "parallax",
+            "parallax": {
+              "amount": 0.03,
+              "move": "push-in"
+            },
+            "prompt": "Camera slow push-in as Robel moves down the street toward home",
+            "seed": 1060,
+            "subject": "ambient"
+          },
+          "music_cue": "Warm guitar chords re-enter softly.",
+          "reason": "Resolves the physical danger and transitions to recovery.",
+          "size": "wide"
+        }
+      },
+      {
+        "at": "2026-11-26T12:37:33+00:00",
+        "hash": "3e82086b972cbee3",
+        "mode": "parallax",
+        "parts": {
+          "clip": "74234e98afe7498f",
+          "keyframe": "b45748d95093033b",
+          "references": "410e2519b0b0831f",
+          "scene": "60ddb96b5cf796d3",
+          "voice": "ea8d5784a4a7b99f"
+        },
+        "shot": {
+          "beat": "Robel escapes safely back to a secure place.",
+          "characters": [
+            "robel"
+          ],
+          "duration_s": 6,
+          "id": "S06",
+          "keyframe": {
+            "prompt": "Wide shot of empty tree-lined street as Robel runs quickly toward a colorful residential gate in the distance",
+            "seed": 1060
+          },
+          "lines": [
+            {
+              "en": "I got somewhere safe as fast as I could.",
+              "speaker": "robel_narrator",
+              "text": "በተቻለኝ ፍጥነት ወደ ደህና ቦታ ደረስኩ።"
+            }
+          ],
+          "location": "suburban_street",
+          "motion": {
+            "mode": "parallax",
+            "parallax": {
+              "amount": 0.03,
+              "move": "push-in"
+            },
+            "prompt": "Camera slow push-in as Robel moves down the street toward home",
+            "seed": 1060,
+            "subject": "ambient"
+          },
+          "music_cue": "Warm guitar chords re-enter softly.",
+          "reason": "Resolves the physical danger and transitions to recovery.",
+          "size": "wide"
+        }
+      },
+      {
+        "at": "2026-11-26T15:13:20+00:00",
+        "hash": "d782da5bbdab7d7b",
+        "mode": "parallax",
+        "parts": {
+          "clip": "74234e98afe7498f",
+          "keyframe": "b45748d95093033b",
+          "references": "0ec77931a09550bf",
+          "scene": "60ddb96b5cf796d3",
+          "voice": "ea8d5784a4a7b99f"
+        },
+        "shot": {
+          "beat": "Robel escapes safely back to a secure place.",
+          "characters": [
+            "robel"
+          ],
+          "duration_s": 6,
+          "id": "S06",
+          "keyframe": {
+            "prompt": "Wide shot of empty tree-lined street as Robel runs quickly toward a colorful residential gate in the distance",
+            "seed": 1060
+          },
+          "lines": [
+            {
+              "en": "I got somewhere safe as fast as I could.",
+              "speaker": "robel_narrator",
+              "text": "በተቻለኝ ፍጥነት ወደ ደህና ቦታ ደረስኩ።"
+            }
+          ],
+          "location": "suburban_street",
+          "motion": {
+            "mode": "parallax",
+            "parallax": {
+              "amount": 0.03,
+              "move": "push-in"
+            },
+            "prompt": "Camera slow push-in as Robel moves down the street toward home",
+            "seed": 1060,
+            "subject": "ambient"
+          },
+          "music_cue": "Warm guitar chords re-enter softly.",
+          "reason": "Resolves the physical danger and transitions to recovery.",
+          "size": "wide"
+        }
+      }
+    ],
+    "S07": [
+      {
+        "at": "2026-11-25T22:51:44+00:00",
+        "hash": "3956153e379cf276",
+        "mode": "flf_inbetween",
+        "parts": {
+          "clip": "74234e98afe7498f",
+          "keyframe": "306f9ce9e4ac14c5",
+          "references": "2c188e441652effc",
+          "scene": "5fb8065c798aefa9",
+          "voice": "f7970cd95ee6b973"
+        },
+        "shot": {
+          "beat": "Samuel is at home, worried after not hearing from Robel.",
+          "characters": [
+            "samuel"
+          ],
+          "duration_s": 7,
+          "id": "S07",
+          "keyframe": {
+            "prompt": "Samuel sitting on a patterned couch holding a ringing mobile phone, looking anxious and curious, cozy home lighting",
+            "seed": 1070
+          },
+          "lines": [
+            {
+              "en": "Samuel had been worried. We hadn't talked in weeks.",
+              "speaker": "robel_narrator",
+              "text": "ሳሙኤል ተጨንቆ ነበር። ለሳምንታት አልተነጋገርንም ነበር።"
+            }
+          ],
+          "location": "samuel_living_room",
+          "motion": {
+            "clip_s": 5,
+            "end_keyframe": {
+              "prompt": "Same place and camera: Samuel holding the phone to his ear with a hopeful, questioning expression",
+              "seed": 1071
+            },
+            "mode": "flf_inbetween",
+            "prompt": "Samuel looks at the ringing phone with concern and lifts it to his ear",
+            "seed": 1070,
+            "subject": "character"
+          },
+          "music_cue": "Upbeat acoustic melody begins to build softly.",
+          "reason": "Introduces Samuel's perspective and emotional investment in his friend.",
+          "size": "medium"
+        }
+      },
+      {
+        "at": "2026-11-25T23:13:45+00:00",
+        "hash": "1b58ef0e9b4b68f7",
+        "mode": "flf_inbetween",
+        "parts": {
+          "clip": "c5ec15a3423e135c",
+          "keyframe": "306f9ce9e4ac14c5",
+          "references": "2c188e441652effc",
+          "scene": "5fb8065c798aefa9",
+          "voice": "f7970cd95ee6b973"
+        },
+        "shot": {
+          "beat": "Samuel is at home, worried after not hearing from Robel.",
+          "characters": [
+            "samuel"
+          ],
+          "duration_s": 7,
+          "id": "S07",
+          "keyframe": {
+            "prompt": "Samuel sitting on a patterned couch holding a ringing mobile phone, looking anxious and curious, cozy home lighting",
+            "seed": 1070
+          },
+          "lines": [
+            {
+              "en": "Samuel had been worried. We hadn't talked in weeks.",
+              "speaker": "robel_narrator",
+              "text": "ሳሙኤል ተጨንቆ ነበር። ለሳምንታት አልተነጋገርንም ነበር።"
+            }
+          ],
+          "location": "samuel_living_room",
+          "motion": {
+            "clip_s": 5,
+            "end_keyframe": {
+              "prompt": "Same place and camera: Samuel holding the phone to his ear with a hopeful, questioning expression",
+              "seed": 1071
+            },
+            "mode": "flf_inbetween",
+            "prompt": "Samuel looks at the ringing phone with concern and lifts it to his ear",
+            "seed": 1070,
+            "subject": "character"
+          },
+          "music_cue": "Upbeat acoustic melody begins to build softly.",
+          "reason": "Introduces Samuel's perspective and emotional investment in his friend.",
+          "size": "medium"
+        }
+      },
+      {
+        "at": "2026-11-26T12:37:35+00:00",
+        "hash": "4519afaab4cea5af",
+        "mode": "flf_inbetween",
+        "parts": {
+          "clip": "c5ec15a3423e135c",
+          "keyframe": "a249048a2f4dd3a2",
+          "references": "e0dd8937902d7932",
+          "scene": "5fb8065c798aefa9",
+          "voice": "f7970cd95ee6b973"
+        },
+        "shot": {
+          "beat": "Samuel is at home, worried after not hearing from Robel.",
+          "characters": [
+            "samuel"
+          ],
+          "duration_s": 7,
+          "id": "S07",
+          "keyframe": {
+            "prompt": "Samuel sitting on a patterned couch holding a ringing mobile phone, looking anxious and curious, cozy home lighting",
+            "seed": 1070
+          },
+          "lines": [
+            {
+              "en": "Samuel had been worried. We hadn't talked in weeks.",
+              "speaker": "robel_narrator",
+              "text": "ሳሙኤል ተጨንቆ ነበር። ለሳምንታት አልተነጋገርንም ነበር።"
+            }
+          ],
+          "location": "samuel_living_room",
+          "motion": {
+            "clip_s": 5,
+            "end_keyframe": {
+              "prompt": "Same place and camera: Samuel holding the phone to his ear with a hopeful, questioning expression",
+              "seed": 1071
+            },
+            "mode": "flf_inbetween",
+            "prompt": "Samuel looks at the ringing phone with concern and lifts it to his ear",
+            "seed": 1070,
+            "subject": "character"
+          },
+          "music_cue": "Upbeat acoustic melody begins to build softly.",
+          "reason": "Introduces Samuel's perspective and emotional investment in his friend.",
+          "size": "medium"
+        }
+      },
+      {
+        "at": "2026-11-26T12:38:48+00:00",
+        "hash": "a5a1eb216a8b09e1",
+        "mode": "flf_inbetween",
+        "parts": {
+          "clip": "c5ec15a3423e135c",
+          "keyframe": "a249048a2f4dd3a2",
+          "references": "e0dd8937902d7932",
+          "scene": "8532c9f9ba626d8a",
+          "voice": "f7970cd95ee6b973"
+        },
+        "shot": {
+          "beat": "Samuel is at home, worried after not hearing from Robel.",
+          "characters": [
+            "samuel"
+          ],
+          "duration_s": 7,
+          "id": "S07",
+          "keyframe": {
+            "prompt": "Samuel sitting on a patterned couch holding a ringing mobile phone, looking anxious and curious, cozy home lighting",
+            "seed": 1070
+          },
+          "lines": [
+            {
+              "en": "Samuel had been worried. We hadn't talked in weeks.",
+              "speaker": "robel_narrator",
+              "text": "ሳሙኤል ተጨንቆ ነበር። ለሳምንታት አልተነጋገርንም ነበር።"
+            }
+          ],
+          "location": "samuel_living_room",
+          "motion": {
+            "clip_s": 8,
+            "end_keyframe": {
+              "prompt": "Same place and camera: Samuel holding the phone to his ear with a hopeful, questioning expression",
+              "seed": 1071
+            },
+            "mode": "flf_inbetween",
+            "prompt": "Samuel looks at the ringing phone with concern and lifts it to his ear",
+            "seed": 1070,
+            "subject": "character"
+          },
+          "music_cue": "Upbeat acoustic melody begins to build softly.",
+          "reason": "Introduces Samuel's perspective and emotional investment in his friend.",
+          "size": "medium"
+        }
+      },
+      {
+        "at": "2026-11-26T15:35:55+00:00",
+        "hash": "8d1eb2ee637b6e43",
+        "mode": "cinemagraph",
+        "parts": {
+          "clip": "1ea1143d32474d85",
+          "keyframe": "a249048a2f4dd3a2",
+          "references": "e0dd8937902d7932",
+          "scene": "9c093d45d2b87b6a",
+          "voice": "f7970cd95ee6b973"
+        },
+        "shot": {
+          "beat": "Samuel is at home, worried after not hearing from Robel.",
+          "characters": [
+            "samuel"
+          ],
+          "duration_s": 7,
+          "id": "S07",
+          "keyframe": {
+            "prompt": "Samuel sitting on a patterned couch holding a ringing mobile phone, looking anxious and curious, cozy home lighting",
+            "seed": 1070
+          },
+          "lines": [
+            {
+              "en": "Samuel had been worried. We hadn't talked in weeks.",
+              "speaker": "robel_narrator",
+              "text": "ሳሙኤል ተጨንቆ ነበር። ለሳምንታት አልተነጋገርንም ነበር።"
+            }
+          ],
+          "location": "samuel_living_room",
+          "motion": {
+            "clip_s": 8,
+            "end_keyframe": {
+              "prompt": "Same place and camera: Samuel holding the phone to his ear with a hopeful, questioning expression",
+              "seed": 1071
+            },
+            "mask": {
+              "target": "Samuel looks at the ringing phone with concern and lifts it to his ear"
+            },
+            "mode": "cinemagraph",
+            "prompt": "Samuel looks at the ringing phone with concern and lifts it to his ear",
+            "seed": 1070,
+            "subject": "character"
+          },
+          "music_cue": "Upbeat acoustic melody begins to build softly.",
+          "reason": "Introduces Samuel's perspective and emotional investment in his friend.",
+          "size": "medium"
+        }
+      }
+    ],
+    "S08": [
+      {
+        "at": "2026-11-25T22:51:47+00:00",
+        "hash": "ef9cdc806c1c2051",
+        "mode": "still_kenburns",
+        "parts": {
+          "clip": "74234e98afe7498f",
+          "keyframe": "257903c6ebe91336",
+          "references": "a1998b79c9ebe78b",
+          "scene": "2e269195e259441e",
+          "voice": "59049f76e48e1562"
+        },
+        "shot": {
+          "beat": "Robel calls Samuel using his mother's phone.",
+          "characters": [],
+          "duration_s": 6,
+          "id": "S08",
+          "keyframe": {
+            "prompt": "Detail shot of teenage hand holding a black mobile phone pressed near an ear, sunbeams streaming across wood table in background",
+            "seed": 1080
+          },
+          "lines": [
+            {
+              "en": "Samuel? It's me. I am okay!",
+              "speaker": "robel",
+              "text": "ሳሙኤል? እኔ ነኝ። ደህና ነኝ!"
+            }
+          ],
+          "location": "robel_home",
+          "motion": {
+            "kenburns": "zoom-in",
+            "mode": "still_kenburns",
+            "prompt": "Gentle slow zoom-in on the hand holding the phone",
+            "seed": 1080,
+            "subject": "ambient"
+          },
+          "music_cue": "Light cheerful rhythmic guitar brightens.",
+          "reason": "Crucial narrative link connecting the two friends.",
+          "size": "insert"
+        }
+      },
+      {
+        "at": "2026-11-26T12:37:38+00:00",
+        "hash": "512cc694f6e8c9f0",
+        "mode": "still_kenburns",
+        "parts": {
+          "clip": "74234e98afe7498f",
+          "keyframe": "04be4f7e06b08e5c",
+          "references": "2b2c379df49bc483",
+          "scene": "2e269195e259441e",
+          "voice": "59049f76e48e1562"
+        },
+        "shot": {
+          "beat": "Robel calls Samuel using his mother's phone.",
+          "characters": [],
+          "duration_s": 6,
+          "id": "S08",
+          "keyframe": {
+            "prompt": "Detail shot of teenage hand holding a black mobile phone pressed near an ear, sunbeams streaming across wood table in background",
+            "seed": 1080
+          },
+          "lines": [
+            {
+              "en": "Samuel? It's me. I am okay!",
+              "speaker": "robel",
+              "text": "ሳሙኤል? እኔ ነኝ። ደህና ነኝ!"
+            }
+          ],
+          "location": "robel_home",
+          "motion": {
+            "kenburns": "zoom-in",
+            "mode": "still_kenburns",
+            "prompt": "Gentle slow zoom-in on the hand holding the phone",
+            "seed": 1080,
+            "subject": "ambient"
+          },
+          "music_cue": "Light cheerful rhythmic guitar brightens.",
+          "reason": "Crucial narrative link connecting the two friends.",
+          "size": "insert"
+        }
+      }
+    ],
+    "S09": [
+      {
+        "at": "2026-11-25T22:51:52+00:00",
+        "hash": "2fad7a7af9d561e1",
+        "mode": "masked_i2v",
+        "parts": {
+          "clip": "74234e98afe7498f",
+          "keyframe": "81d6f981bfb87e8f",
+          "references": "d3c3b588dd416e0c",
+          "scene": "cc0eaf6f6b31f5ff",
+          "voice": "8f12274526ec0f32"
+        },
+        "shot": {
+          "beat": "Robel explains the wild story to Samuel over the phone.",
+          "characters": [
+            "robel"
+          ],
+          "duration_s": 7,
+          "id": "S09",
+          "keyframe": {
+            "prompt": "Robel sitting near a sunny window talking into phone, fear replacing with animated gesture and relief, warm domestic sunlight",
+            "seed": 1090
+          },
+          "lines": [
+            {
+              "en": "You won't believe what happened on my way over!",
+              "speaker": "robel",
+              "text": "ወደ አንተ ስመጣ የሆነውን አታምነውም!"
+            }
+          ],
+          "location": "robel_home",
+          "motion": {
+            "clip_s": 5,
+            "loop": "pingpong",
+            "mask": {
+              "target": "Robel's face and hand holding phone"
+            },
+            "mode": "masked_i2v",
+            "prompt": "Robel talks into the phone animatedly, nodding and softening into a smile",
+            "seed": 1090,
+            "subject": "character"
+          },
+          "music_cue": "Full melodic acoustic theme plays warmly.",
+          "reason": "Shows Robel processing the event with relief.",
+          "size": "medium-close-up"
+        }
+      },
+      {
+        "at": "2026-11-25T23:13:32+00:00",
+        "hash": "0b0c337b9f9bfa79",
+        "mode": "masked_i2v",
+        "parts": {
+          "clip": "9ee5f99c07678801",
+          "keyframe": "81d6f981bfb87e8f",
+          "references": "d3c3b588dd416e0c",
+          "scene": "cc0eaf6f6b31f5ff",
+          "voice": "8f12274526ec0f32"
+        },
+        "shot": {
+          "beat": "Robel explains the wild story to Samuel over the phone.",
+          "characters": [
+            "robel"
+          ],
+          "duration_s": 7,
+          "id": "S09",
+          "keyframe": {
+            "prompt": "Robel sitting near a sunny window talking into phone, fear replacing with animated gesture and relief, warm domestic sunlight",
+            "seed": 1090
+          },
+          "lines": [
+            {
+              "en": "You won't believe what happened on my way over!",
+              "speaker": "robel",
+              "text": "ወደ አንተ ስመጣ የሆነውን አታምነውም!"
+            }
+          ],
+          "location": "robel_home",
+          "motion": {
+            "clip_s": 5,
+            "loop": "pingpong",
+            "mask": {
+              "target": "Robel's face and hand holding phone"
+            },
+            "mode": "masked_i2v",
+            "prompt": "Robel talks into the phone animatedly, nodding and softening into a smile",
+            "seed": 1090,
+            "subject": "character"
+          },
+          "music_cue": "Full melodic acoustic theme plays warmly.",
+          "reason": "Shows Robel processing the event with relief.",
+          "size": "medium-close-up"
+        }
+      },
+      {
+        "at": "2026-11-26T12:37:42+00:00",
+        "hash": "2248446f4b561fac",
+        "mode": "masked_i2v",
+        "parts": {
+          "clip": "9ee5f99c07678801",
+          "keyframe": "74294fd9b938c895",
+          "references": "f5c9057f02fb4f1a",
+          "scene": "cc0eaf6f6b31f5ff",
+          "voice": "8f12274526ec0f32"
+        },
+        "shot": {
+          "beat": "Robel explains the wild story to Samuel over the phone.",
+          "characters": [
+            "robel"
+          ],
+          "duration_s": 7,
+          "id": "S09",
+          "keyframe": {
+            "prompt": "Robel sitting near a sunny window talking into phone, fear replacing with animated gesture and relief, warm domestic sunlight",
+            "seed": 1090
+          },
+          "lines": [
+            {
+              "en": "You won't believe what happened on my way over!",
+              "speaker": "robel",
+              "text": "ወደ አንተ ስመጣ የሆነውን አታምነውም!"
+            }
+          ],
+          "location": "robel_home",
+          "motion": {
+            "clip_s": 5,
+            "loop": "pingpong",
+            "mask": {
+              "target": "Robel's face and hand holding phone"
+            },
+            "mode": "masked_i2v",
+            "prompt": "Robel talks into the phone animatedly, nodding and softening into a smile",
+            "seed": 1090,
+            "subject": "character"
+          },
+          "music_cue": "Full melodic acoustic theme plays warmly.",
+          "reason": "Shows Robel processing the event with relief.",
+          "size": "medium-close-up"
+        }
+      }
+    ],
+    "S10": [
+      {
+        "at": "2026-11-25T22:52:03+00:00",
+        "hash": "6a2c25edcc15ad1e",
+        "mode": "flf_inbetween",
+        "parts": {
+          "clip": "74234e98afe7498f",
+          "keyframe": "d4be2e2727f15539",
+          "references": "2c188e441652effc",
+          "scene": "cddfdf5d3f0e7dc5",
+          "voice": "bc5905261a1436bb"
+        },
+        "shot": {
+          "beat": "Samuel listens and both break into shared laughter.",
+          "characters": [
+            "samuel"
+          ],
+          "duration_s": 7,
+          "id": "S10",
+          "keyframe": {
+            "prompt": "Samuel on the couch bursting into genuine wide laughter, holding the phone, relaxed and happy posture",
+            "seed": 1100
+          },
+          "lines": [
+            {
+              "en": "Wait, what?! Only you could turn that into a wild story!",
+              "speaker": "samuel",
+              "text": "ምን?! ይሄን ጉድ ታሪክ የምታደርገው አንተ ብቻ ነህ!"
+            }
+          ],
+          "location": "samuel_living_room",
+          "motion": {
+            "clip_s": 5,
+            "end_keyframe": {
+              "prompt": "Same place and camera: Samuel laughing openly with hand on his chest in warmth",
+              "seed": 1101
+            },
+            "mode": "flf_inbetween",
+            "prompt": "Samuel goes from listening intently to laughing out loud with delight",
+            "seed": 1100,
+            "subject": "character"
+          },
+          "music_cue": "Joyful climax in music with light hand percussion.",
+          "reason": "The emotional turning point: fear transformed into a shared bond.",
+          "size": "medium"
+        }
+      },
+      {
+        "at": "2026-11-25T23:11:07+00:00",
+        "hash": "4341895a910e7466",
+        "mode": "flf_inbetween",
+        "parts": {
+          "clip": "ae88527a9d8a1e3e",
+          "keyframe": "d4be2e2727f15539",
+          "references": "2c188e441652effc",
+          "scene": "cddfdf5d3f0e7dc5",
+          "voice": "bc5905261a1436bb"
+        },
+        "shot": {
+          "beat": "Samuel listens and both break into shared laughter.",
+          "characters": [
+            "samuel"
+          ],
+          "duration_s": 7,
+          "id": "S10",
+          "keyframe": {
+            "prompt": "Samuel on the couch bursting into genuine wide laughter, holding the phone, relaxed and happy posture",
+            "seed": 1100
+          },
+          "lines": [
+            {
+              "en": "Wait, what?! Only you could turn that into a wild story!",
+              "speaker": "samuel",
+              "text": "ምን?! ይሄን ጉድ ታሪክ የምታደርገው አንተ ብቻ ነህ!"
+            }
+          ],
+          "location": "samuel_living_room",
+          "motion": {
+            "clip_s": 5,
+            "end_keyframe": {
+              "prompt": "Same place and camera: Samuel laughing openly with hand on his chest in warmth",
+              "seed": 1101
+            },
+            "mode": "flf_inbetween",
+            "prompt": "Samuel goes from listening intently to laughing out loud with delight",
+            "seed": 1100,
+            "subject": "character"
+          },
+          "music_cue": "Joyful climax in music with light hand percussion.",
+          "reason": "The emotional turning point: fear transformed into a shared bond.",
+          "size": "medium"
+        }
+      },
+      {
+        "at": "2026-11-26T12:37:45+00:00",
+        "hash": "aaa63feaf9db3025",
+        "mode": "flf_inbetween",
+        "parts": {
+          "clip": "ae88527a9d8a1e3e",
+          "keyframe": "1255d82dc87e37f2",
+          "references": "e0dd8937902d7932",
+          "scene": "cddfdf5d3f0e7dc5",
+          "voice": "bc5905261a1436bb"
+        },
+        "shot": {
+          "beat": "Samuel listens and both break into shared laughter.",
+          "characters": [
+            "samuel"
+          ],
+          "duration_s": 7,
+          "id": "S10",
+          "keyframe": {
+            "prompt": "Samuel on the couch bursting into genuine wide laughter, holding the phone, relaxed and happy posture",
+            "seed": 1100
+          },
+          "lines": [
+            {
+              "en": "Wait, what?! Only you could turn that into a wild story!",
+              "speaker": "samuel",
+              "text": "ምን?! ይሄን ጉድ ታሪክ የምታደርገው አንተ ብቻ ነህ!"
+            }
+          ],
+          "location": "samuel_living_room",
+          "motion": {
+            "clip_s": 5,
+            "end_keyframe": {
+              "prompt": "Same place and camera: Samuel laughing openly with hand on his chest in warmth",
+              "seed": 1101
+            },
+            "mode": "flf_inbetween",
+            "prompt": "Samuel goes from listening intently to laughing out loud with delight",
+            "seed": 1100,
+            "subject": "character"
+          },
+          "music_cue": "Joyful climax in music with light hand percussion.",
+          "reason": "The emotional turning point: fear transformed into a shared bond.",
+          "size": "medium"
+        }
+      }
+    ],
+    "S11": [
+      {
+        "at": "2026-11-25T22:51:33+00:00",
+        "hash": "53678e51cc408351",
+        "mode": "parallax",
+        "parts": {
+          "clip": "74234e98afe7498f",
+          "keyframe": "52587f489b0affed",
+          "references": "5be31d0d8bd1ba49",
+          "scene": "a9f3ae0e941239a4",
+          "voice": "38f3f521325bef6d"
+        },
+        "shot": {
+          "beat": "Return to the neighborhood street in golden dusk light, echoing S01.",
+          "characters": [],
+          "duration_s": 7,
+          "id": "S11",
+          "keyframe": {
+            "prompt": "Wide establishing view of the suburban street at golden dusk, quiet eucalyptus trees glow under warm orange horizon, peaceful sky",
+            "seed": 1110
+          },
+          "lines": [
+            {
+              "en": "And just like that, fear turned into our favorite story.",
+              "speaker": "robel_narrator",
+              "text": "እንዲሁ ፍርሃታችን ወደ አስቂኝ ጨዋታ ተቀየረ።"
+            }
+          ],
+          "location": "suburban_street",
+          "motion": {
+            "mode": "parallax",
+            "parallax": {
+              "amount": 0.03,
+              "move": "pull-out"
+            },
+            "prompt": "Camera pulls back slowly revealing the peaceful neighborhood dusk",
+            "seed": 1110,
+            "subject": "ambient"
+          },
+          "music_cue": "Guitar theme resolves into a warm final acoustic chord.",
+          "reason": "Closes the film like a circle, leaving a lasting feeling of warmth.",
+          "size": "wide"
+        }
+      },
+      {
+        "at": "2026-11-26T15:14:44+00:00",
+        "hash": "09a05f3c961843b8",
+        "mode": "parallax",
+        "parts": {
+          "clip": "74234e98afe7498f",
+          "keyframe": "831740a28129e13f",
+          "references": "97a92e168ea64b6d",
+          "scene": "a4d04c656533ae59",
+          "voice": "38f3f521325bef6d"
+        },
+        "shot": {
+          "beat": "Return to the neighborhood street in golden dusk light, echoing S01.",
+          "characters": [],
+          "duration_s": 7,
+          "id": "S11",
+          "keyframe": {
+            "prompt": "Wide establishing view of the suburban street at golden dusk, quiet eucalyptus trees glow under warm orange horizon, peaceful sky",
+            "seed": 1111
+          },
+          "lines": [
+            {
+              "en": "And just like that, fear turned into our favorite story.",
+              "speaker": "robel_narrator",
+              "text": "እንዲሁ ፍርሃታችን ወደ አስቂኝ ጨዋታ ተቀየረ።"
+            }
+          ],
+          "location": "suburban_street",
+          "motion": {
+            "mode": "parallax",
+            "parallax": {
+              "amount": 0.03,
+              "move": "pull-out"
+            },
+            "prompt": "Camera pulls back slowly revealing the peaceful neighborhood dusk",
+            "seed": 1110,
+            "subject": "ambient"
+          },
+          "music_cue": "Guitar theme resolves into a warm final acoustic chord.",
+          "reason": "Closes the film like a circle, leaving a lasting feeling of warmth.",
+          "size": "wide"
+        }
+      }
+    ]
+  },
+  "scenes": {
+    "S01": {
+      "at": "2026-11-26T15:14:56+00:00",
+      "hash": "6009c5f01b3c7181",
+      "mode": "parallax",
+      "parts": {
+        "clip": "74234e98afe7498f",
+        "keyframe": "f8ca3f67316df81a",
+        "references": "97a92e168ea64b6d",
+        "scene": "d09dcecb19cbf2fa",
+        "voice": "b8ffd324ad572d23"
+      }
+    },
+    "S02": {
+      "at": "2026-11-26T15:26:05+00:00",
+      "hash": "3e18276ec5ceb6e7",
+      "mode": "full_i2v",
+      "parts": {
+        "clip": "7de87bf32bb25a85",
+        "keyframe": "ad48775a5cc09117",
+        "references": "0ec77931a09550bf",
+        "scene": "eab752d6aa653fa8",
+        "voice": "43734e705831b450"
+      }
+    },
+    "S03": {
+      "at": "2026-11-26T15:26:01+00:00",
+      "hash": "d015a2f7b4ecb1aa",
+      "mode": "masked_i2v",
+      "parts": {
+        "clip": "26c6d64965bd3bdd",
+        "keyframe": "1e07e9802bc62b0b",
+        "references": "0ec77931a09550bf",
+        "scene": "f72ea28578d09614",
+        "voice": "f5d7984bef18dd48"
+      }
+    },
+    "S04": {
+      "at": "2026-11-26T15:25:56+00:00",
+      "hash": "590335a4e4fe55bd",
+      "mode": "still",
+      "parts": {
+        "clip": "74234e98afe7498f",
+        "keyframe": "4a4d1b910cd40c07",
+        "references": "d1a238851e9b2058",
+        "scene": "33fc48459589097e",
+        "voice": "cdc5f57fff77898d"
+      }
+    },
+    "S05": {
+      "at": "2026-11-26T15:25:47+00:00",
+      "hash": "a3765ac606106072",
+      "mode": "still",
+      "parts": {
+        "clip": "74234e98afe7498f",
+        "keyframe": "96d8c1ed3506c772",
+        "references": "0ec77931a09550bf",
+        "scene": "ed25347f39693fa3",
+        "voice": "831137c8d2175e51"
+      }
+    },
+    "S06": {
+      "at": "2026-11-26T15:13:20+00:00",
+      "hash": "d782da5bbdab7d7b",
+      "mode": "parallax",
+      "parts": {
+        "clip": "74234e98afe7498f",
+        "keyframe": "b45748d95093033b",
+        "references": "0ec77931a09550bf",
+        "scene": "60ddb96b5cf796d3",
+        "voice": "ea8d5784a4a7b99f"
+      }
+    },
+    "S07": {
+      "at": "2026-11-26T15:35:55+00:00",
+      "hash": "8d1eb2ee637b6e43",
+      "mode": "cinemagraph",
+      "parts": {
+        "clip": "1ea1143d32474d85",
+        "keyframe": "a249048a2f4dd3a2",
+        "references": "e0dd8937902d7932",
+        "scene": "9c093d45d2b87b6a",
+        "voice": "f7970cd95ee6b973"
+      }
+    },
+    "S08": {
+      "at": "2026-11-26T12:37:38+00:00",
+      "hash": "512cc694f6e8c9f0",
+      "mode": "still_kenburns",
+      "parts": {
+        "clip": "74234e98afe7498f",
+        "keyframe": "04be4f7e06b08e5c",
+        "references": "2b2c379df49bc483",
+        "scene": "2e269195e259441e",
+        "voice": "59049f76e48e1562"
+      }
+    },
+    "S09": {
+      "at": "2026-11-26T12:37:42+00:00",
+      "hash": "2248446f4b561fac",
+      "mode": "masked_i2v",
+      "parts": {
+        "clip": "9ee5f99c07678801",
+        "keyframe": "74294fd9b938c895",
+        "references": "f5c9057f02fb4f1a",
+        "scene": "cc0eaf6f6b31f5ff",
+        "voice": "8f12274526ec0f32"
+      }
+    },
+    "S10": {
+      "at": "2026-11-26T12:37:45+00:00",
+      "hash": "aaa63feaf9db3025",
+      "mode": "flf_inbetween",
+      "parts": {
+        "clip": "ae88527a9d8a1e3e",
+        "keyframe": "1255d82dc87e37f2",
+        "references": "e0dd8937902d7932",
+        "scene": "cddfdf5d3f0e7dc5",
+        "voice": "bc5905261a1436bb"
+      }
+    },
+    "S11": {
+      "at": "2026-11-26T15:14:44+00:00",
+      "hash": "09a05f3c961843b8",
+      "mode": "parallax",
+      "parts": {
+        "clip": "74234e98afe7498f",
+        "keyframe": "831740a28129e13f",
+        "references": "97a92e168ea64b6d",
+        "scene": "a4d04c656533ae59",
+        "voice": "38f3f521325bef6d"
+      }
+    }
+  },
+  "steps": {
+    "final": {
+      "at": "2026-11-26T15:42:33+00:00",
+      "hash": "ce7ed88a37df1891",
+      "parts": {
+        "cut": "0bb2b17765fa15be",
+        "film": "1953dd0832021339",
+        "scenes": "ded761990b324f81"
+      }
+    },
+    "references": {
+      "at": "2026-11-26T15:25:14+00:00",
+      "hash": "48b2b462b50a3c1c",
+      "parts": {
+        "references": "88f2da34d23df5b1"
+      }
+    },
+    "script": {
+      "at": "2026-11-25T22:35:04+00:00",
+      "hash": "599f1193f85041ee",
+      "parts": {
+        "script": "dbb57e02254ca40d",
+        "story": "7a515add0660e32d"
+      }
+    },
+    "sketch": {
+      "at": "2026-11-25T22:35:53+00:00",
+      "hash": "9f825cad0fb47b54",
+      "parts": {
+        "script": "599f1193f85041ee",
+        "sketch": "12a69ff75fd86e9f"
+      }
+    },
+    "story": {
+      "at": "2026-11-25T22:30:09+00:00",
+      "hash": "7a515add0660e32d",
+      "parts": {
+        "story": "5a6b8c1420f39b68"
+      }
+    }
+  }
+}

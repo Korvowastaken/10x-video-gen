@@ -1,19 +1,20 @@
 {
   "$schema": "./schema/storyboard.schema.json",
   "version": 1,
-  "title": "An Egg Walks on Its Own Legs",
-  "logline": "A young Ethiopian girl learns patience from her mother during long Saturday walks to market, carrying a lesson that warms her family generations later.",
+  "title": "From Fear to Laughter",
+  "logline": "After being mugged on his way to a friend's house, a Grade 9 boy finds healing and laughter when he calls his best friend to share the wild story.",
   "source": {
     "story_file": "story.md",
-    "story_sha256": "7b53742e645892a5e665b09e4bebc7e20169692872fef5104561c2fd77ac0cc5",
+    "story_sha256": "5a6b8c1420f39b6826e81fd4b7a474a87f4f2983d34423acb66c247214da4896",
     "model": "gemini-3.5-flash",
-    "generated_at": "2026-11-25T13:52:05+00:00",
-    "attempts": 2
+    "generated_at": "2026-11-25T22:33:15+00:00",
+    "attempts": 1,
+    "lines_model": "gemini-3.5-flash"
   },
   "audience": {
-    "who": "Young Ethiopians at home and in the diaspora, 18-35, watching on a phone",
-    "where": "Watching on vertical screens (phones)",
-    "feel": "Warmth and pride for the long walks our grandparents made, and the urge to call them"
+    "who": "Families and close friends who share unforgettable childhood memories",
+    "where": "Family group chats and social video feeds",
+    "feel": "A warm sense of relief, resilience, and the joy of true friendship"
   },
   "language": {
     "code": "am",
@@ -23,24 +24,64 @@
   },
   "models": {
     "script": [
-      "gemini-3.8-flash",
+      "gemini-3.5-flash",
+      "openrouter/google/gemma-4-31b-it:free",
+      "openrouter/baidu/ernie-5.5-flash-preview:free",
+      "groq/allam-2-7b",
+      "claude-haiku-5-5",
       "gemini-3.7-flash",
-      "gemini-3.5-flash"
+      "gemini-3.8-flash"
+    ],
+    "lines": [
+      "gemini-3.5-flash",
+      "openrouter/google/gemma-4-31b-it:free",
+      "openrouter/baidu/ernie-5.5-flash-preview:free",
+      "groq/allam-2-7b",
+      "claude-sonnet-5-5",
+      "gemini-3.7-flash",
+      "gemini-3.8-flash"
     ],
     "tts": [
+      "azure-neural",
       "gemini-3.8-flash-tts",
       "gemini-3.8-flash-lite-tts"
     ],
     "listen": [
+      "azure-stt",
       "gemini-3.5-transcribe",
       "gemini-3.5-flash"
     ],
     "image": [
       "@cf/black-forest-labs/flux-2-klein-4b",
+      "gemini-3.1-flash-lite-image",
+      "kaggle-flux-2-klein-4b",
       "@cf/black-forest-labs/flux-1-schnell"
     ],
     "video": "wavespeed-wan22-480p",
-    "music": "wavespeed-ace-step-1.5"
+    "music": "wavespeed-ace-step-1.5",
+    "revise": [
+      "openrouter/nvidia/nemotron-3.5-lightning:free",
+      "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "openrouter/google/gemma-4-31b-it:free",
+      "openrouter/baidu/ernie-5.5-flash-preview:free",
+      "groq/allam-2-7b",
+      "claude-sonnet-5-5",
+      "gemini-3.5-flash",
+      "gemini-3.7-flash",
+      "gemini-3.8-flash",
+      "claude-haiku-5-5"
+    ],
+    "mask": [
+      "groq/allam-2-7b",
+      "gemini-3.5-flash",
+      "gemini-3.7-flash",
+      "gemini-3.8-flash",
+      "gemini-3.5-flash-lite",
+      "gemini-3.1-flash-lite",
+      "openrouter/google/gemma-4-31b-it:free",
+      "openrouter/baidu/ernie-5.5-flash-preview:free",
+      "claude-haiku-5-5"
+    ]
   },
   "style": {
     "block": "Stylized low-poly 3D animation still: faceted surfaces with visible flat polygons, toy-like rounded characters with simple dark oval eyes and small calm mouths, soft matte materials, cinematic warm key light against cool deep-blue shadows, soft circular bokeh lights in the background, shallow depth of field, gentle film grain",
@@ -56,71 +97,76 @@
   },
   "characters": [
     {
-      "id": "narrator_grandma",
-      "name": "Grandmother (Voice)",
+      "id": "robel_narrator",
+      "name": "Robel (Narrator)",
       "role": "narrator",
       "visible": false,
-      "real_person": false,
+      "real_person": true,
       "voice": {
-        "name": "Sulafat",
-        "direction": "warm, elderly, smiling, nostalgic"
-      }
+        "name": "Achird",
+        "direction": "warm, casual, nostalgic, middle-aged male"
+      },
+      "consent": "C4"
     },
     {
-      "id": "young_girl",
-      "name": "Little Grandmother (Child)",
+      "id": "robel",
+      "name": "Robel",
       "role": "character",
       "visible": true,
-      "real_person": false,
+      "real_person": true,
       "voice": {
-        "name": "Leda",
-        "direction": "youthful, curious, gentle"
+        "name": "Puck",
+        "direction": "youthful, energetic, friendly"
       },
-      "look": "8 years old, petite build, dark brown expressive eyes, hair styled in neat traditional shurba cornrows, wearing a simple white cotton habesha kemis dress with subtle woven tibeb trim along the hem.",
+      "look": "18-year-old Ethiopian teenage boy, slim build, long curly black hair, expressive eyes, wearing a bright yellow hoodie over a white t-shirt and blue jeans",
       "reference": {
-        "prompt": "8-year-old Ethiopian girl in traditional white dress with braided cornrows, standing softly against mist",
+        "prompt": "14-year-old Ethiopian teenage boy, short black hair, wearing yellow hoodie, friendly smile, standing portrait",
         "seeds": [
           110,
           111,
           112
         ],
-        "chosen": 0
-      }
+        "chosen": 1,
+        "photo": "references/robel.jpg"
+      },
+      "consent": "C2"
     },
     {
-      "id": "mother",
-      "name": "Great-Grandmother",
+      "id": "samuel",
+      "name": "Samuel",
       "role": "character",
       "visible": true,
-      "real_person": false,
+      "real_person": true,
       "voice": {
-        "name": "Vindemiatrix",
-        "direction": "gentle, wise, warm"
+        "name": "Zubenelgenubi",
+        "direction": "warm, casual, supportive teen male"
       },
-      "look": "30 years old, tall and graceful, gentle smiling expression, hair wrapped in a crisp white scarf, wearing a traditional white habesha kemis with a white netela shawl around her shoulders.",
+      "look": "18-year-old Ethiopian teenage boy, curly black hair, warm brown eyes, wearing a green polo shirt and dark trousers",
       "reference": {
-        "prompt": "30-year-old Ethiopian woman in traditional white cotton kemis and netela shawl, carrying a woven basket",
+        "prompt": "14-year-old Ethiopian boy, curly hair, green polo shirt, warm expressive face, medium shot",
         "seeds": [
           120,
           121,
           122
         ],
-        "chosen": 0
-      }
+        "chosen": 1,
+        "photo": "references/samuel.jpg"
+      },
+      "consent": "C3"
     },
     {
-      "id": "old_grandma",
-      "name": "Grandmother (Present Day)",
+      "id": "robber",
+      "name": "Robber",
       "role": "character",
       "visible": true,
       "real_person": false,
       "voice": {
-        "name": "Sulafat",
-        "direction": "warm, elderly, full of laughter"
+        "name": "Orus",
+        "direction": "low, menacing"
       },
-      "look": "75 years old, same rounded face shape and warm eyes as young_girl, silvery-white hair visible beneath a soft white netela, wearing a cozy embroidered dress.",
+      "look": "Taller young adult figure in shadowy dark grey hooded jacket with face partially shaded",
       "reference": {
-        "prompt": "75-year-old Ethiopian grandmother smiling joyfully while roasting coffee over a small stove",
+        "prompt": "Young adult figure in dark hooded jacket, face in shadow, standing outdoors",
         "seeds": [
           130,
           131,
@@ -132,11 +178,11 @@
   ],
   "locations": [
     {
-      "id": "mountain_road",
-      "name": "Wollo Rural Mountain Path",
-      "look": "Dawn breaking over misty Wollo hills, golden cool light, tall green eucalyptus trees lining a winding dirt trail, a small log bridge over a flowing creek.",
+      "id": "suburban_street",
+      "name": "Suburban Street",
+      "look": "Bright afternoon sunlight, dirt path lined with eucalyptus trees, pastel compound walls, warm golden hour tones no background characters out of the story just the scene",
       "reference": {
-        "prompt": "Misty Ethiopian countryside path at dawn with tall eucalyptus trees and green hills, wide landscape view",
+        "prompt": "Empty quiet residential street in sunny suburb, eucalyptus trees, warm golden daylight",
         "seeds": [
           500
         ],
@@ -144,11 +190,11 @@
       }
     },
     {
-      "id": "dessie_market",
-      "name": "Dessie Open Market",
-      "look": "Vibrant morning sunshine, rustic wooden stalls, woven baskets filled with red spices and green coffee beans, light rising smoke from roasted beans.",
+      "id": "samuel_living_room",
+      "name": "Samuel's Living Room",
+      "look": "Cozy living roobackground characters out of the story just the scenem with soft indoor lighting, patterned sofa cushions, small wooden coffee table with decorative tray",
       "reference": {
-        "prompt": "Traditional Ethiopian open market in Dessie with coffee stalls and woven baskets, warm morning sunlight",
+        "prompt": "Cozy living room interior, warm soft light, sofa, wooden coffee table",
         "seeds": [
           510
         ],
@@ -156,11 +202,11 @@
       }
     },
     {
-      "id": "living_room",
-      "name": "Family Living Room",
-      "look": "Cozy contemporary room bathed in warm afternoon sun, traditional wooden coffee tray (rekebot), black clay jebena pot, steam rising into soft light.",
+      "id": "robel_home",
+      "name": "Robel's Home",
+      "look": "Bright daytime living space, sunlight filtering through clean curtains onto a quiet desk and phone station background characters out of the story just the scene",
       "reference": {
-        "prompt": "Warm sunlit room with traditional Ethiopian coffee ceremony setup on a wooden rekebot tray",
+        "prompt": "Sunlit domestic living room, warm curtains, cozy domestic atmosphere",
         "seeds": [
           520
         ],
@@ -171,358 +217,356 @@
   "shots": [
     {
       "id": "S01",
-      "beat": "Establish the long, early journey of the past.",
-      "reason": "Establishes setting, atmospheric mood, and echoes the physical distance walked.",
+      "beat": "Establish the quiet suburban neighborhood on a summer afternoon.",
+      "reason": "Anchors the scene in peaceful innocence before the unexpected event.",
       "size": "wide",
-      "location": "mountain_road",
-      "characters": [
-        "young_girl",
-        "mother"
-      ],
+      "location": "suburban_street",
+      "characters": [],
       "duration_s": 7,
       "lines": [
         {
-          "speaker": "narrator_grandma",
-          "text": "የወሎ አየር በንጋት አዲስ ነው።",
-          "en": "The Wollo air was always fresh at dawn."
+          "speaker": "robel_narrator",
+          "text": "በዘጠነኛ ክፍል በጋ ወደ ሳሙኤል ቤት እየሄድኩ ነበር።",
+          "en": "That summer in Grade Nine, I was walking to Samuel's house."
         }
       ],
       "keyframe": {
-        "prompt": "Wide view of dawn over Wollo hills, misty eucalyptus path with two figures walking away into distant blue fog, soft golden sunrise light.",
-        "seed": 1010
+        "prompt": "Wide view of a quiet dirt pathway lined with tall eucalyptus trees under bright summer sunshine, shadow patterns on the ground, space centered no random character",
+        "seed": 1011
       },
       "motion": {
         "mode": "parallax",
-        "prompt": "The camera slowly pans right following the two figures walking down the misty trail as morning light warms the horizon.",
+        "prompt": "The camera slides gently to the right, showing the peaceful empty path",
         "seed": 1010,
         "subject": "ambient",
         "parallax": {
           "move": "slide-right",
-          "amount": 0.025
+          "amount": 0.03
         }
       },
-      "music_cue": "Gentle acoustic krar plucking enters softly with warm ambient pads."
+      "music_cue": "Gentle acoustic guitar strums introduce a nostalgic warmth."
     },
     {
       "id": "S02",
-      "beat": "Show the heavy cargo carried with care.",
-      "reason": "Highlights the effort and traditional items (butter in leaves, eggs in basket).",
+      "beat": "Show Robel walking happily along the neighborhood path.",
+      "reason": "Establishes Robel's cheerful mood and vulnerability.",
       "size": "medium",
-      "location": "mountain_road",
+      "location": "suburban_street",
       "characters": [
-        "young_girl",
-        "mother"
+        "robel"
       ],
-      "duration_s": 7,
+      "duration_s": 6,
       "lines": [
         {
-          "speaker": "narrator_grandma",
-          "text": "ቅቤና እንቁላል ተይዞ ወደ ደሴ።",
-          "en": "Carrying butter and eggs all the way to Dessie."
+          "speaker": "robel_narrator",
+          "text": "ፀሐያማ ከሰዓት ነበር። ሁሉም ነገር ሰላም ይመስል ነበር።",
+          "en": "It was a sunny afternoon. Everything felt normal."
         }
       ],
       "keyframe": {
-        "prompt": "Little girl holding small black clay pots wrapped tightly in shiny broad green banana leaves, mother carrying a woven grass basket nearby.",
+        "prompt": "Teenager Robel walking along the dirt path, yellow hoodie vibrant against green leaves, light smile on his face, body centered",
         "seed": 1020
       },
       "motion": {
         "mode": "full_i2v",
-        "prompt": "The camera moves slowly beside them as they step together along the dirt path, leaves brushing their clothes.",
+        "prompt": "Robel walks forward along the path while camera slowly pulls back keeping him centered",
         "seed": 1020,
-        "clip_s": 5,
-        "subject": "character"
+        "subject": "character",
+        "clip_s": 8
       },
-      "music_cue": "Rhythmic, quiet shaker joins the soft string melody."
+      "music_cue": "Soft rhythmic shaker joins the light guitar pattern."
     },
     {
       "id": "S03",
-      "beat": "Highlight childhood fear overcome by guidance.",
-      "reason": "Creates emotional vulnerability and trust between mother and child.",
-      "size": "medium",
-      "location": "mountain_road",
+      "beat": "Robel notices something is wrong as footsteps rush up behind him.",
+      "reason": "Inciting tension; shifts the tone rapidly.",
+      "size": "medium-close-up",
+      "location": "suburban_street",
       "characters": [
-        "young_girl",
-        "mother"
+        "robel"
       ],
       "duration_s": 6,
       "lines": [
         {
-          "speaker": "narrator_grandma",
-          "text": "ወንዙን መሻገር ይፈራታል።",
-          "en": "Crossing the stream always frightened her."
+          "speaker": "robel_narrator",
+          "text": "ድንገት ከኋላዬ የፈጣን እግር ድምፅ ሰማሁ።",
+          "en": "Suddenly, I heard heavy footsteps rushing behind me."
         }
       ],
       "keyframe": {
-        "prompt": "Little girl standing hesitatingly at the edge of a rushing stream wooden plank, mother reaching her hand back with a reassuring warm smile.",
+        "prompt": "Robel turns his head slightly in alarm, eyes widened with sudden apprehension, yellow hoodie collar visible, soft blurry backdrop",
         "seed": 1030
       },
       "motion": {
-        "mode": "flf_inbetween",
-        "prompt": "The mother reaches out her hand and the girl steps across the stream to her side. Static camera.",
+        "mode": "masked_i2v",
+        "prompt": "Robel quickly glances over his shoulder, his eyes widening in surprise",
         "seed": 1030,
-        "clip_s": 5,
         "subject": "character",
-        "end_keyframe": {
-          "prompt": "Same place, same camera and light: the girl now stands on the far bank of the stream holding her mother's hand, both smiling.",
-          "seed": 1031
-        }
+        "clip_s": 5,
+        "mask": {
+          "target": "Robel's face and head turning movement"
+        },
+        "loop": "pingpong"
       },
-      "music_cue": "Music pauses softly, leaving gentle water sounds."
+      "music_cue": "Guitar pauses into a low tense sustain tone."
     },
     {
       "id": "S04",
-      "beat": "Arrival at the reward—the sensory joy of the market.",
-      "reason": "Connects grandmother's childhood love of coffee to the present tradition.",
-      "size": "medium-close-up",
-      "location": "dessie_market",
+      "beat": "The robbers confront Robel, trapping him.",
+      "reason": "Shows the climax of the threat clearly without graphic violence.",
+      "size": "medium",
+      "location": "suburban_street",
       "characters": [
-        "young_girl"
+        "robel",
+        "robber"
       ],
       "duration_s": 7,
       "lines": [
         {
-          "speaker": "narrator_grandma",
-          "text": "የቡናው ጠረን ደስ ይላል።",
-          "en": "The sweet aroma of coffee was her greatest joy."
+          "speaker": "robel_narrator",
+          "text": "ሁለት ሰዎች መንገድ ዘጉብኝ። በጣም ደነገጥኩ።",
+          "en": "Two guys cornered me. I was terrified."
         }
       ],
       "keyframe": {
-        "prompt": "Young girl smiling brightly in warm sunlit market, holding a dark roasted coffee bean up to her nose as wisps of fragrant smoke float by.",
+        "prompt": "Robel standing caught in the middle as a tall hooded figure steps in front with hands raised, Robel clutching his jacket nervously",
         "seed": 1040
       },
       "motion": {
-        "mode": "masked_i2v",
-        "prompt": "The girl gently brings the roasted bean close, closes her eyes happily, while smoke drifts slowly upward.",
+        "mode": "still",
+        "prompt": "The robber steps into the frame blocking the path as Robel steps back nervously",
         "seed": 1040,
-        "clip_s": 5,
         "subject": "character",
-        "loop": "pingpong",
-        "mask": {
-          "target": "the girl's face, hands and the coffee bean she holds",
-          "feather": 0.015
+        "clip_s": 5,
+        "end_keyframe": {
+          "prompt": "Same place and camera: Robel holding his hands up defensively as the robber steps closer in front of him",
+          "seed": 1041
         }
       },
-      "music_cue": "Warm melodic motif swells gently."
+      "music_cue": "Subtle low bass note creates gentle drama."
     },
     {
       "id": "S05",
-      "beat": "Autonomy and responsibility granted to the girl.",
-      "reason": "Shows her growing role within the family ritual.",
+      "beat": "Focus on Robel's emotional reaction of fear.",
+      "reason": "Connects the audience deep inside Robel's moment of fear.",
       "size": "close-up",
-      "location": "dessie_market",
+      "location": "suburban_street",
       "characters": [
-        "young_girl"
+        "robel"
       ],
       "duration_s": 6,
       "lines": [
         {
-          "speaker": "narrator_grandma",
-          "text": "ቡና መምረጥ የእሷ ነበር።",
-          "en": "Bargaining for coffee was her special task."
+          "speaker": "robel_narrator",
+          "text": "ዕቃዬን ቀምተውኝ ፈጥነው ሮጠው ሄዱ።",
+          "en": "They took my things and ran off."
         }
       ],
       "keyframe": {
-        "prompt": "Child's small hand carefully picking green raw coffee beans out of a wide woven straw tray.",
+        "prompt": "Close-up of teen Robel's face, wide scared eyes, breath catching, dappled sunlight filtering across his brow",
         "seed": 1050
       },
       "motion": {
-        "mode": "still_kenburns",
-        "prompt": "Slow camera zoom-in onto the child's delicate hand picking coffee beans.",
-        "kenburns": "zoom-in",
-        "seed": 1050
+        "mode": "still",
+        "prompt": "Robel blinks fast and breathes nervously, camera stays tight on his face",
+        "seed": 1050,
+        "subject": "character",
+        "clip_s": 5,
+        "mask": {
+          "target": "Robel's eyes and facial expression"
+        },
+        "loop": "pingpong"
       },
-      "music_cue": "Soft acoustic strumming continues smoothly."
+      "music_cue": "Tension melts into a soft melancholic cello note."
     },
     {
       "id": "S06",
-      "beat": "The key lesson delivered on the long trek back.",
-      "reason": "Delivers the core proverb and central moral of the story.",
-      "size": "medium",
-      "location": "mountain_road",
+      "beat": "Robel escapes safely back to a secure place.",
+      "reason": "Resolves the physical danger and transitions to recovery.",
+      "size": "wide",
+      "location": "suburban_street",
       "characters": [
-        "young_girl",
-        "mother"
+        "robel"
       ],
-      "duration_s": 8,
+      "duration_s": 6,
       "lines": [
         {
-          "speaker": "young_girl",
-          "text": "እማማ፡ ገና ነው?",
-          "en": "Mama, is it still far?"
-        },
-        {
-          "speaker": "mother",
-          "text": "ከስ በከስ፡ እንቁላል በእግሩ ይሄዳል።",
-          "en": "Little by little, an egg will walk on its own legs."
+          "speaker": "robel_narrator",
+          "text": "በተቻለኝ ፍጥነት ወደ ደህና ቦታ ደረስኩ።",
+          "en": "I got somewhere safe as fast as I could."
         }
       ],
       "keyframe": {
-        "prompt": "Late afternoon sun lighting yellow grass, tired little girl walking slowly looking up at mother, mother looking down lovingly while speaking.",
+        "prompt": "Wide shot of empty tree-lined street as Robel runs quickly toward a colorful residential gate in the distance",
         "seed": 1060
       },
       "motion": {
-        "mode": "full_i2v",
-        "prompt": "They walk slowly together in profile as camera pans alongside them through golden light.",
+        "mode": "parallax",
+        "prompt": "Camera slow push-in as Robel moves down the street toward home",
         "seed": 1060,
-        "clip_s": 8,
-        "subject": "character"
+        "subject": "ambient",
+        "parallax": {
+          "move": "push-in",
+          "amount": 0.03
+        }
       },
-      "music_cue": "Theme plays softly, resting on a sustained warm chord."
+      "music_cue": "Warm guitar chords re-enter softly."
     },
     {
       "id": "S07",
-      "beat": "Pause to let the wisdom settle into memory.",
-      "reason": "Focuses on the physical rhythm of patient walking.",
-      "size": "insert",
-      "location": "mountain_road",
-      "characters": [
-        "young_girl",
-        "mother"
-      ],
-      "duration_s": 6,
-      "lines": [],
-      "keyframe": {
-        "prompt": "Close-up of four feet walking side by side on dusty ground: small bare child feet and mother's traditional leather sandals.",
-        "seed": 1070
-      },
-      "motion": {
-        "mode": "still_kenburns",
-        "prompt": "Slow pan-right tracking the feet walking step by step on dusty earth.",
-        "kenburns": "pan-right",
-        "seed": 1070
-      },
-      "music_cue": "Solo instrumental breath, silent beats allowing proverb to echo."
-    },
-    {
-      "id": "S08",
-      "beat": "Seamless shift from past memory to present reality.",
-      "reason": "Brings the tradition into modern family life.",
+      "beat": "Samuel is at home, worried after not hearing from Robel.",
+      "reason": "Introduces Samuel's perspective and emotional investment in his friend.",
       "size": "medium",
-      "location": "living_room",
+      "location": "samuel_living_room",
       "characters": [
-        "old_grandma"
+        "samuel"
       ],
       "duration_s": 7,
       "lines": [
         {
-          "speaker": "narrator_grandma",
-          "text": "ዛሬ እሑድ ቡና ታፈላለች።",
-          "en": "Today, she roasts coffee for us on Sundays."
+          "speaker": "robel_narrator",
+          "text": "ሳሙኤል ተጨንቆ ነበር። ለሳምንታት አልተነጋገርንም ነበር።",
+          "en": "Samuel had been worried. We hadn't talked in weeks."
         }
       ],
       "keyframe": {
-        "prompt": "Elderly grandmother sitting indoors in warm sunlight, roasting coffee beans over charcoal pan, thin swirl of aromatic white smoke surrounding her hands.",
-        "seed": 1080
-      },
-      "motion": {
-        "mode": "masked_i2v",
-        "prompt": "The camera gently moves in as she rotates the pan slowly, smoke drifting across the sunlight.",
-        "seed": 1080,
-        "clip_s": 5,
-        "subject": "character",
-        "loop": "pingpong",
-        "mask": {
-          "target": "the grandmother's hands, the roasting pan and the smoke above it",
-          "feather": 0.015
-        }
-      },
-      "music_cue": "Main melody transforms into a warmer modern acoustic arrangement."
-    },
-    {
-      "id": "S09",
-      "beat": "Care and ritual handed down.",
-      "reason": "Emphasizes the grandmother's joy in serving her loved ones.",
-      "size": "close-up",
-      "location": "living_room",
-      "characters": [
-        "old_grandma"
-      ],
-      "duration_s": 7,
-      "lines": [
-        {
-          "speaker": "narrator_grandma",
-          "text": "ሰው ሲቸኩል፡ ታቀልዳለች።",
-          "en": "When one of us impatiens, she laughs."
-        }
-      ],
-      "keyframe": {
-        "prompt": "Close view of grandmother's wrinkled, gentle hands pouring rich black coffee from a dark clay jebena into tiny porcelain cups on a tray.",
-        "seed": 1090
+        "prompt": "Samuel sitting on a patterned couch holding a ringing mobile phone, looking anxious and curious, cozy home lighting",
+        "seed": 1070
       },
       "motion": {
         "mode": "cinemagraph",
-        "prompt": "Dark coffee pours smoothly into the small cup as steam rises gently towards the lens.",
-        "seed": 1090,
-        "clip_s": 5,
-        "subject": "ambient",
-        "loop": "pingpong",
+        "prompt": "Samuel looks at the ringing phone with concern and lifts it to his ear",
+        "seed": 1070,
+        "subject": "character",
+        "clip_s": 8,
+        "end_keyframe": {
+          "prompt": "Same place and camera: Samuel holding the phone to his ear with a hopeful, questioning expression",
+          "seed": 1071
+        },
         "mask": {
-          "target": "the stream of coffee pouring from the clay pot and the steam above the cups",
-          "feather": 0.012
+          "target": "Samuel looks at the ringing phone with concern and lifts it to his ear"
         }
       },
-      "music_cue": "Full chord progression builds with soft percussion."
+      "music_cue": "Upbeat acoustic melody begins to build softly."
     },
     {
-      "id": "S10",
-      "beat": "The ancestral proverb reborn as family laughter.",
-      "reason": "Climax of emotional warmth, humor, and intergenerational bond.",
-      "size": "medium-close-up",
-      "location": "living_room",
-      "characters": [
-        "old_grandma"
-      ],
+      "id": "S08",
+      "beat": "Robel calls Samuel using his mother's phone.",
+      "reason": "Crucial narrative link connecting the two friends.",
+      "size": "insert",
+      "location": "robel_home",
+      "characters": [],
       "duration_s": 6,
       "lines": [
         {
-          "speaker": "old_grandma",
-          "text": "ከስ በከስ፡ እንቁላል በእግሩ ይሄዳል!",
-          "en": "Little by little, an egg will walk on its own legs!"
+          "speaker": "robel",
+          "text": "ሳሙኤል? እኔ ነኝ። ደህና ነኝ!",
+          "en": "Samuel? It's me. I am okay!"
         }
       ],
       "keyframe": {
-        "prompt": "Elderly grandmother laughing happily, twinkling eyes, shaking her head playfully while gesturing with her hand.",
-        "seed": 1100
+        "prompt": "Detail shot of teenage hand holding a black mobile phone pressed near an ear, sunbeams streaming across wood table in background",
+        "seed": 1080
       },
       "motion": {
-        "mode": "masked_i2v",
-        "prompt": "Grandmother tilts her head back in gentle laughter, her warm smile filling the frame.",
-        "seed": 1100,
-        "clip_s": 5,
-        "subject": "character",
-        "loop": "hold",
-        "mask": {
-          "target": "the grandmother's head and shoulders",
-          "feather": 0.02
-        }
+        "mode": "still_kenburns",
+        "prompt": "Gentle slow zoom-in on the hand holding the phone",
+        "seed": 1080,
+        "subject": "ambient",
+        "kenburns": "zoom-in"
       },
-      "music_cue": "Music reaches its most joyful, heart-filling phrase."
+      "music_cue": "Light cheerful rhythmic guitar brightens."
     },
     {
-      "id": "S11",
-      "beat": "Closing the circle back to the landscape of origin.",
-      "reason": "Echoes S01 to close the journey like a full circle, leaving profound pride.",
-      "size": "wide",
-      "location": "mountain_road",
+      "id": "S09",
+      "beat": "Robel explains the wild story to Samuel over the phone.",
+      "reason": "Shows Robel processing the event with relief.",
+      "size": "medium-close-up",
+      "location": "robel_home",
       "characters": [
-        "young_girl",
-        "mother"
+        "robel"
       ],
       "duration_s": 7,
       "lines": [
         {
-          "speaker": "narrator_grandma",
-          "text": "የአያቶቻችን መንገድ ከእኛ ጋር ነው።",
-          "en": "Our grandparents' long walks live on within us."
+          "speaker": "robel",
+          "text": "ወደ አንተ ስመጣ የሆነውን አታምነውም!",
+          "en": "You won't believe what happened on my way over!"
         }
       ],
       "keyframe": {
-        "prompt": "Golden dusk landscape over Wollo mountains echoing S01, warm sunset horizon with soft silhouettes of eucalyptus trees.",
-        "seed": 1110
+        "prompt": "Robel sitting near a sunny window talking into phone, fear replacing with animated gesture and relief, warm domestic sunlight",
+        "seed": 1090
+      },
+      "motion": {
+        "mode": "masked_i2v",
+        "prompt": "Robel talks into the phone animatedly, nodding and softening into a smile",
+        "seed": 1090,
+        "subject": "character",
+        "clip_s": 5,
+        "mask": {
+          "target": "Robel's face and hand holding phone"
+        },
+        "loop": "pingpong"
+      },
+      "music_cue": "Full melodic acoustic theme plays warmly."
+    },
+    {
+      "id": "S10",
+      "beat": "Samuel listens and both break into shared laughter.",
+      "reason": "The emotional turning point: fear transformed into a shared bond.",
+      "size": "medium",
+      "location": "samuel_living_room",
+      "characters": [
+        "samuel"
+      ],
+      "duration_s": 7,
+      "lines": [
+        {
+          "speaker": "samuel",
+          "text": "ምን?! ይሄን ጉድ ታሪክ የምታደርገው አንተ ብቻ ነህ!",
+          "en": "Wait, what?! Only you could turn that into a wild story!"
+        }
+      ],
+      "keyframe": {
+        "prompt": "Samuel on the couch bursting into genuine wide laughter, holding the phone, relaxed and happy posture",
+        "seed": 1100
+      },
+      "motion": {
+        "mode": "flf_inbetween",
+        "prompt": "Samuel goes from listening intently to laughing out loud with delight",
+        "seed": 1100,
+        "subject": "character",
+        "clip_s": 5,
+        "end_keyframe": {
+          "prompt": "Same place and camera: Samuel laughing openly with hand on his chest in warmth",
+          "seed": 1101
+        }
+      },
+      "music_cue": "Joyful climax in music with light hand percussion."
+    },
+    {
+      "id": "S11",
+      "beat": "Return to the neighborhood street in golden dusk light, echoing S01.",
+      "reason": "Closes the film like a circle, leaving a lasting feeling of warmth.",
+      "size": "wide",
+      "location": "suburban_street",
+      "characters": [],
+      "duration_s": 7,
+      "lines": [
+        {
+          "speaker": "robel_narrator",
+          "text": "እንዲሁ ፍርሃታችን ወደ አስቂኝ ጨዋታ ተቀየረ።",
+          "en": "And just like that, fear turned into our favorite story."
+        }
+      ],
+      "keyframe": {
+        "prompt": "Wide establishing view of the suburban street at golden dusk, quiet eucalyptus trees glow under warm orange horizon, peaceful sky",
+        "seed": 1111
       },
       "motion": {
         "mode": "parallax",
-        "prompt": "Slow camera zoom-out from the mountain vista into golden evening glow.",
+        "prompt": "Camera pulls back slowly revealing the peaceful neighborhood dusk",
         "seed": 1110,
         "subject": "ambient",
         "parallax": {
@@ -530,56 +574,76 @@
           "amount": 0.03
         }
       },
-      "music_cue": "Theme finishes on a soft lingering acoustic resolution."
+      "music_cue": "Guitar theme resolves into a warm final acoustic chord."
     }
   ],
   "music": {
-    "caption": "Acoustic Ethiopian folk score featuring traditional krar strings, soft ambient pads, gentle wooden percussion, warm and reflective atmosphere.",
-    "bpm": 76,
-    "key": "E minor",
-    "time_signature": "6/8",
+    "caption": "Acoustic folk score with gentle nylon guitar, soft warm cello, and light hand percussion, uplifting and comforting",
+    "bpm": 84,
+    "key": "G major",
+    "time_signature": "4/4",
     "cues": [
       {
         "at": "S01",
-        "note": "Acoustic intro begins quietly with delicate string picking over cool ambient pads."
+        "note": "Nostalgic solo acoustic guitar strumming"
       },
       {
-        "at": "S06",
-        "note": "Music rests softly on sustained harmony for the mother's spoken wisdom."
+        "at": "S04",
+        "note": "Music drops to subtle low bass tone for tension"
       },
       {
         "at": "S08",
-        "note": "Arrangement warms up into a cozy home rhythm with soft wooden percussion."
+        "note": "Light percussion re-enters as relief begins"
+      },
+      {
+        "at": "S10",
+        "note": "Full warm theme peaks with laughter"
       },
       {
         "at": "S11",
-        "note": "Opening theme returns gently to resolve peacefully as sunset fades."
+        "note": "Gently resolves on a long warm final chord"
       }
     ],
-    "duration_s": 81,
+    "duration_s": 79,
     "instrumental": true,
     "seeds": [
       11,
       22,
       33
     ],
-    "chosen": null,
+    "chosen": 2,
     "gain_db": -3,
     "ducking": {
       "threshold": 0.02,
       "ratio": 6,
       "attack_ms": 300,
       "release_ms": 1500
-    }
+    },
+    "chosen_reason": ""
   },
   "end_card": {
     "title": "Made with AI",
     "lines": [
-      "For our grandparents, who walked so we could soar. Call them today.",
+      "For best friends who turn life's bumps into lifelong laughter.",
       "Pictures: FLUX.2 klein   Motion: Wan 2.2",
-      "Voices: Gemini TTS   Music: ACE-Step 1.5"
+      "Voices: Azure Speech   Music: ACE-Step 1.5"
     ],
     "duration_s": 3
+  },
+  "video": {
+    "max_paid_clips": 7,
+    "budget_usd": 0.6,
+    "interpolation": "rife",
+    "rife_model": "rife-v4.25",
+    "allowed_modes": [
+      "full_i2v",
+      "flf_inbetween",
+      "masked_i2v",
+      "cinemagraph",
+      "parallax",
+      "still_kenburns",
+      "still"
+    ]
   },
   "edit": {
     "fps": 24,
@@ -587,11 +651,5 @@
     "gap_s": 0.35,
     "tail_s": 0.7,
     "caption_chars": 38
-  },
-  "video": {
-    "max_paid_clips": 7,
-    "budget_usd": 0.6,
-    "interpolation": "rife",
-    "rife_model": "rife-v4.25"
   }
 }

@@ -8,7 +8,8 @@ one opens. Every model call is logged in `runs.jsonl`.
 
 **The film:** *From Fear to Laughter*, in Amharic with English subtitles.
 [Vertical (9:16) on YouTube Shorts](https://youtube.com/shorts/9ImFfuoJOWg) ·
-[Horizontal (16:9) on YouTube](https://youtu.be/Y67MnH4GBXk)
+[Horizontal (16:9) on YouTube](https://youtu.be/Y67MnH4GBXk) ·
+[Walkthrough video](https://youtu.be/Mlu9g1ttDZo)
 
 ## Setup
 
